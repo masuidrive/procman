@@ -1,5 +1,5 @@
 ---
-priority: 120
+priority: 3
 tags: ["core-infra", "ipc", "communication"]
 description: "Unix Domain Socket/Named PipeベースのIPC通信基盤の実装"
 created_at: "2025-08-01T15:48:07Z"
@@ -32,6 +32,7 @@ CLI Client と Daemon Process 間の通信を行う IPC（Inter-Process Communic
 
 ### Phase 1: IPC 基盤クラスの実装
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] IPCServer 基底クラスを実装
   - サーバー起動・停止のライフサイクル管理
   - クライアント接続の受け付けと管理
@@ -44,10 +45,14 @@ CLI Client と Daemon Process 間の通信を行う IPC（Inter-Process Communic
   - JSON メッセージのシリアライズ・デシリアライズ
   - メッセージ区切り文字の適切な処理（PoC の改善点対応）
   - メッセージ ID 生成とレスポンス管理
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 2: Unix Domain Socket 実装
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] UnixSocketServer の実装
   - Unix Domain Socket の作成と バインド
   - ソケットファイルのパーミッション設定（0600）
@@ -57,10 +62,14 @@ CLI Client と Daemon Process 間の通信を行う IPC（Inter-Process Communic
   - 接続エラーの適切な処理
   - 再接続機能の実装
 - [ ] ソケットファイルのクリーンアップ処理を実装
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 3: Named Pipe 実装（Windows 対応）
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] NamedPipeServer の実装
   - Named Pipe の作成と設定
   - Windows 固有のセキュリティ設定
@@ -70,37 +79,53 @@ CLI Client と Daemon Process 間の通信を行う IPC（Inter-Process Communic
   - Windows 固有のエラーハンドリング
   - 再接続機能の実装
 - [ ] プラットフォーム検出と IPC 方式の自動選択
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 4: メッセージハンドリングシステム
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] メッセージハンドラーの登録・実行システムを実装
 - [ ] コマンドタイプ別のメッセージルーティングを実装
 - [ ] 非同期メッセージ処理の実装
 - [ ] エラーレスポンスの標準化
 - [ ] リクエスト・レスポンスのタイムアウト処理
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 5: 接続管理と信頼性向上
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] 接続プールの実装
 - [ ] ハートビート機能の実装
 - [ ] 接続断絶時の自動再接続
 - [ ] 接続状態の監視とログ出力
 - [ ] Graceful shutdown の実装
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 6: エラーハンドリングとロバスト性
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] IPC 通信のエラー分類と処理
 - [ ] 接続失敗時のリトライロジック
 - [ ] タイムアウト処理の実装
 - [ ] デッドロック検出と回避
 - [ ] リソースリークの防止
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Final Phase: Quality Assurance
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] Unix Domain Socket の動作テスト（Linux/macOS 環境で）
 - [ ] Named Pipe の動作テスト（可能であれば Windows 環境で）
 - [ ] 複数クライアント接続のテスト
@@ -108,7 +133,17 @@ CLI Client と Daemon Process 間の通信を行う IPC（Inter-Process Communic
 - [ ] エラーケースの網羅的テスト
 - [ ] メモリリークのテスト
 - [ ] パフォーマンステスト（接続時間、スループット）
+- [ ] Run unit tests (./bin/test-unit.sh) and pass all tests (No exceptions)
+- [ ] Run integration tests (./bin/test-integration.sh) and pass all tests (No exceptions)
+- [ ] Run code review (./bin/code-review.sh) and append to `# Review` section
+- [ ] Review and address all reviewer feedback
+- [ ] Update documentation and this ticket
+- [ ] Inform the user of the work, the results of the test, and the results of the review, and obtain permission to complete the work.
 - [ ] `git commit`
+
+## Wireframes
+
+{{このチケットはIPC通信基盤の実装のため、UIワイヤーフレームは不要}}
 
 ## Unit and integration test cases
 
@@ -160,3 +195,20 @@ CLI Client と Daemon Process 間の通信を行う IPC（Inter-Process Communic
 ## Child tickets
 
 - 次フェーズ: 設定ファイル読み込み機能の実装
+
+## Review
+
+Please list here in full any remarks received from reviewers.
+Any corrections should also be added to the Tasks section at the top.
+
+## Working notes
+
+Additional notes or requirements.
+
+- Always organize work into phases. Do not proceed with tasks without proper phase division.
+- Before starting any work not listed in the Tasks section, first add it as a checkbox item under the appropriate phase, then begin the work.
+- No work should be done without being tracked as a task checkbox.
+
+### Prepare
+
+{{working notes.....}}

@@ -1,5 +1,5 @@
 ---
-priority: 160
+priority: 7
 tags: ["daemon", "integration", "lifecycle"]
 description: "IPC通信、プロセス管理、ログ管理を統合したメインデーモンプロセスの実装"
 created_at: "2025-08-01T15:52:35Z"
@@ -165,6 +165,10 @@ closed_at: null # Do not modify manually
   - システムリソース不足
 - [ ] `git commit`
 
+## Wireframes
+
+{{このチケットはデーモンプロセスの実装のため、UIワイヤーフレームは不要}}
+
 ## Unit and integration test cases
 
 - デーモン起動・停止のテスト
@@ -214,3 +218,20 @@ closed_at: null # Do not modify manually
 ## Child tickets
 
 - 次フェーズ: CLI 基本コマンドの実装
+
+## Review
+
+Please list here in full any remarks received from reviewers.
+Any corrections should also be added to the Tasks section at the top.
+
+## Working notes
+
+Additional notes or requirements.
+
+- Always organize work into phases. Do not proceed with tasks without proper phase division.
+- Before starting any work not listed in the Tasks section, first add it as a checkbox item under the appropriate phase, then begin the work.
+- No work should be done without being tracked as a task checkbox.
+
+### Prepare
+
+{{working notes.....}}

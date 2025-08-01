@@ -1,5 +1,5 @@
 ---
-priority: 110
+priority: 2
 tags: ["core-infra", "types"]
 description: "プロセス管理、IPC通信、設定ファイルの基本型定義とシステム定数の実装"
 created_at: "2025-08-01T15:47:15Z"
@@ -31,6 +31,7 @@ closed_at: null # Do not modify manually
 
 ### Phase 1: プロセス管理関連の型定義
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] プロセス状態の型定義を実装
   ```typescript
   type ProcessStatus =
@@ -57,10 +58,14 @@ closed_at: null # Do not modify manually
   ```
 - [ ] プロセス管理操作の型定義を実装
 - [ ] メモリ制限に関する型定義を実装
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 2: 設定ファイル関連の型定義
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] アプリケーション設定の型定義を実装
   ```typescript
   interface AppConfig {
@@ -85,10 +90,14 @@ closed_at: null # Do not modify manually
   ```
 - [ ] 設定ファイル検証用の型ガードを実装
 - [ ] メモリサイズパースのユーティリティ型を実装
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 3: IPC 通信関連の型定義
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] IPC メッセージの基本型定義を実装
   ```typescript
   interface IPCMessage {
@@ -113,10 +122,14 @@ closed_at: null # Do not modify manually
 - [ ] レスポンス形式の型定義を実装
 - [ ] エラーレスポンスの型定義を実装
 - [ ] ログストリーミング用の型定義を実装
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 4: ログ管理関連の型定義
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] ログエントリの型定義を実装
   ```typescript
   interface LogEntry {
@@ -131,10 +144,14 @@ closed_at: null # Do not modify manually
 - [ ] ログオプションの型定義を実装
 - [ ] ログ出力形式の型定義を実装
 - [ ] ログファイル管理の型定義を実装
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 5: システム定数の実装
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] ファイルパスの定数を実装
   ```typescript
   export const PROCMAN_DIR = "~/.masuidrive-procman";
@@ -145,25 +162,43 @@ closed_at: null # Do not modify manually
 - [ ] タイムアウト値の定数を実装
 - [ ] エラーコードの定数を実装
 - [ ] プラットフォーム固有の定数を実装
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 6: エラー管理の型定義
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] エラーコードの型定義を実装
 - [ ] エラーメッセージの型定義を実装
 - [ ] カスタムエラークラスの型定義を実装
 - [ ] エラーハンドリング用のユーティリティ型を実装
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Final Phase: Quality Assurance
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] 全ての型定義のコンパイルエラーがないことを確認
 - [ ] 型定義のエクスポートが適切に行われているか確認
 - [ ] 循環参照がないことを確認
 - [ ] 型定義の一貫性をチェック
 - [ ] 単体テストで型定義の動作を検証
 - [ ] JSDOComment で型定義のドキュメントを追加
+- [ ] Run unit tests (./bin/test-unit.sh) and pass all tests (No exceptions)
+- [ ] Run integration tests (./bin/test-integration.sh) and pass all tests (No exceptions)
+- [ ] Run code review (./bin/code-review.sh) and append to `# Review` section
+- [ ] Review and address all reviewer feedback
+- [ ] Update documentation and this ticket
+- [ ] Inform the user of the work, the results of the test, and the results of the review, and obtain permission to complete the work.
 - [ ] `git commit`
+
+## Wireframes
+
+{{このチケットは型定義とシステム定数の実装のため、UIワイヤーフレームは不要}}
 
 ## Unit and integration test cases
 
@@ -205,3 +240,24 @@ closed_at: null # Do not modify manually
 ## Parent ticket
 
 - 250801-154621-project-setup.md
+
+## Child tickets
+
+- {{If this ticket has child tickets, list them here.}}
+
+## Review
+
+Please list here in full any remarks received from reviewers.
+Any corrections should also be added to the Tasks section at the top.
+
+## Working notes
+
+Additional notes or requirements.
+
+- Always organize work into phases. Do not proceed with tasks without proper phase division.
+- Before starting any work not listed in the Tasks section, first add it as a checkbox item under the appropriate phase, then begin the work.
+- No work should be done without being tracked as a task checkbox.
+
+### Prepare
+
+{{working notes.....}}

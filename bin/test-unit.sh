@@ -35,7 +35,7 @@ fi
 echo ""
 echo "💅 Checking code formatting with Prettier..."
 if [ -f ".prettierrc" ] || [ -f ".prettierrc.js" ] || [ -f ".prettierrc.json" ]; then
-    npx prettier --check "src/**/*.{ts,js,json}" "test/**/*.{ts,js,json}" || {
+    npx prettier --check "src/**/*.{ts,js,json}" "tests/**/*.{ts,js,json}" || {
         echo "  ❌ Code formatting issues found. Run 'npx prettier --write .' to fix."
         exit 1
     }

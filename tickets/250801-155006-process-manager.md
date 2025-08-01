@@ -1,5 +1,5 @@
 ---
-priority: 140
+priority: 5
 tags: ["process-management", "core", "lifecycle"]
 description: "child_process.spawnベースのプロセス管理コア機能とライフサイクル管理の実装"
 created_at: "2025-08-01T15:50:06Z"
@@ -31,6 +31,7 @@ closed_at: null # Do not modify manually
 
 ### Phase 1: プロセス管理基盤の実装
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.  
 - [ ] ProcessManager クラスの基本構造を実装
   - プロセス一覧の管理（Map<string, ProcessInfo>）
   - プロセス状態の追跡
@@ -43,6 +44,9 @@ closed_at: null # Do not modify manually
   - AppConfig からプロセス設定への変換
   - 環境変数の準備
   - 作業ディレクトリの設定
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 2: プロセス起動・停止機能
@@ -147,6 +151,10 @@ closed_at: null # Do not modify manually
   - システムリソース不足
 - [ ] `git commit`
 
+## Wireframes
+
+{{このチケットはプロセス管理コア機能の実装のため、UIワイヤーフレームは不要}}
+
 ## Unit and integration test cases
 
 - プロセス起動・停止の基本動作テスト
@@ -197,3 +205,20 @@ closed_at: null # Do not modify manually
 ## Child tickets
 
 - 次フェーズ: ログ管理システムの実装
+
+## Review
+
+Please list here in full any remarks received from reviewers.
+Any corrections should also be added to the Tasks section at the top.
+
+## Working notes
+
+Additional notes or requirements.
+
+- Always organize work into phases. Do not proceed with tasks without proper phase division.
+- Before starting any work not listed in the Tasks section, first add it as a checkbox item under the appropriate phase, then begin the work.
+- No work should be done without being tracked as a task checkbox.
+
+### Prepare
+
+{{working notes.....}}
