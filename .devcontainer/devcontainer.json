@@ -1,0 +1,111 @@
+{
+  "name": "${localWorkspaceFolderBasename} Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      // Base image variant
+      "VARIANT": "ubuntu-22.04",
+
+      // Language versions
+      "NODE_VERSION": "18",
+      "PYTHON_VERSION": "",
+      "GO_VERSION": "",
+      "RUST_VERSION": "",
+      "JAVA_VERSION": "",
+      "RUBY_VERSION": "",
+
+      // Database version
+      "PG_VERSION": "",
+      "REDIS_VERSION": "",
+
+      // Tool flags
+      "ENABLE_FIREBASE": "false",
+      "ENABLE_DOCKER": "false",
+      "ENABLE_KUBERNETES": "false",
+      "ENABLE_AWS_CLI": "false",
+      "ENABLE_AZURE_CLI": "false",
+      "ENABLE_GCP_CLI": "false",
+      "ENABLE_PLAYWRIGHT": "false",
+      "ENABLE_TIGERVNC": "false"
+    }
+  },
+
+  // Disable IPv6 for Claude Code issue
+  // https://github.com/anthropics/claude-code/issues/1771
+  "runArgs": [
+    "--sysctl", "net.ipv6.conf.all.disable_ipv6=1",
+    "--sysctl", "net.ipv6.conf.default.disable_ipv6=1"
+  ],
+
+  // Features for additional dev container capabilities
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "configureZshAsDefaultShell": false
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.vscode-typescript-next",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-json",
+        "yzhang.markdown-all-in-one",
+        "shd101wyy.markdown-preview-enhanced",
+        "github.copilot",
+        "github.copilot-chat"
+      ],
+      "settings": {
+        "typescript.updateImportsOnFileMove.enabled": "always",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[json]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
+      }
+    }
+  },
+
+  "forwardPorts": [
+    // No specific ports needed for CLI tool development
+  ],
+
+  // Scripts directory for lifecycle commands
+  "postCreateCommand": ".devcontainer/scripts/post-create.sh",
+  "postStartCommand": ".devcontainer/scripts/post-start.sh",
+
+  // Environment variables
+  "containerEnv": {
+    "WORKSPACE_FOLDER": "${containerWorkspaceFolder}",
+    "PROJECT_NAME": "${localWorkspaceFolderBasename}",
+    "GIT_SAFE_DIRECTORY": "${containerWorkspaceFolder}"
+  },
+
+  // Mounts
+  "mounts": [
+    // Git config
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig.host,type=bind,consistency=cached,readonly"
+  ],
+
+  // Container user
+  "remoteUser": "vscode",
+
+  // Update remote user UID/GID to match local user
+  "updateRemoteUserUID": true,
+
+  // Shutdown action
+  "shutdownAction": "stopContainer"
+}
