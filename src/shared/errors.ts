@@ -15,7 +15,10 @@ export type ErrorCode =
   | 'CONFIG_VALIDATION_ERROR'
   | 'PROCESS_NOT_FOUND'
   | 'PROCESS_START_FAILED'
-  | 'LOG_FILE_NOT_FOUND';
+  | 'LOG_FILE_NOT_FOUND'
+  | 'UNKNOWN_ERROR'
+  | 'MESSAGE_PARSE_ERROR'
+  | 'COMMAND_EXECUTION_ERROR';
 
 // エラーメッセージの型定義
 export type ErrorMessage = {
@@ -36,6 +39,9 @@ export const ERROR_MESSAGES: ErrorMessage = {
   PROCESS_NOT_FOUND: 'Process not found. Check process name and namespace.',
   PROCESS_START_FAILED: 'Failed to start process. Check process configuration.',
   LOG_FILE_NOT_FOUND: 'Log file not found.',
+  UNKNOWN_ERROR: 'An unknown error occurred.',
+  MESSAGE_PARSE_ERROR: 'Failed to parse IPC message.',
+  COMMAND_EXECUTION_ERROR: 'Failed to execute command.',
 } as const;
 
 // カスタムエラークラスの型定義

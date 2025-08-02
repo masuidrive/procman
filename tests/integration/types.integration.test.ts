@@ -106,10 +106,10 @@ describe('Core Types Integration', () => {
       };
 
       expect(ipc.isIPCMessage(ipcMessage)).toBe(true);
-      expect(Array.isArray(ipcMessage.payload.processes)).toBe(true);
-      expect(processTypes.isProcessInfo(ipcMessage.payload.processes[0])).toBe(
-        true
-      );
+      expect(Array.isArray((ipcMessage.payload as any).processes)).toBe(true);
+      expect(
+        processTypes.isProcessInfo((ipcMessage.payload as any).processes[0])
+      ).toBe(true);
     });
   });
 

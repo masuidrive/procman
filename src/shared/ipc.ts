@@ -9,6 +9,75 @@ import type { LogEntry, LogOptions } from './logs';
 import type { ProcessInfo } from './process';
 import type { ProcmanConfig } from './config';
 import type { ErrorCode } from './errors';
+import type { EventEmitter } from 'events';
+
+// =============================================================================
+// Event Type Definitions
+// =============================================================================
+
+/**
+ * Base interface for typed event emitters
+ */
+export interface TypedEventEmitter<TEvents extends Record<string, any[]>> {
+  on<K extends keyof TEvents>(
+    event: K,
+    listener: (...args: TEvents[K]) => void
+  ): this;
+  once<K extends keyof TEvents>(
+    event: K,
+    listener: (...args: TEvents[K]) => void
+  ): this;
+  emit<K extends keyof TEvents>(event: K, ...args: TEvents[K]): boolean;
+  removeListener<K extends keyof TEvents>(
+    event: K,
+    listener: (...args: TEvents[K]) => void
+  ): this;
+  removeAllListeners<K extends keyof TEvents>(event?: K): this;
+  setMaxListeners(n: number): this;
+  getMaxListeners(): number;
+  listeners<K extends keyof TEvents>(event: K): Function[];
+  listenerCount<K extends keyof TEvents>(event: K): number;
+}
+
+/**
+ * IPC Client event types
+ */
+export interface IPCClientEvents extends Record<string, any[]> {
+  connected: [];
+  disconnected: [];
+  error: [Error];
+  statusChange: [IPCConnectionStatus, IPCConnectionStatus];
+  messageError: [Error];
+  invalidMessage: [any];
+  unsolicitedMessage: [IPCResponse];
+  logStream: [IPCLogStreamPayload];
+  socketConnected: [];
+}
+
+/**
+ * IPC Server event types
+ */
+export interface IPCServerEvents extends Record<string, any[]> {
+  listening: [];
+  stopped: [];
+  error: [Error];
+  connection: [IPCConnection];
+  disconnection: [IPCConnection];
+  messageError: [IPCConnection, Error];
+  connectionError: [IPCConnection, Error];
+  connectionCloseError: [IPCConnection, Error];
+  close: [];
+}
+
+/**
+ * IPC Connection event types
+ */
+export interface IPCConnectionEvents extends Record<string, any[]> {
+  close: [];
+  error: [Error];
+  data: [Buffer];
+  timeout: [];
+}
 
 // =============================================================================
 // Basic IPC Message Interface
@@ -17,13 +86,13 @@ import type { ErrorCode } from './errors';
 /**
  * Basic IPC message structure for communication between daemon and client
  */
-export interface IPCMessage {
+export interface IPCMessage<TPayload = unknown> {
   /** Unique identifier for the message */
   id: string;
   /** Type of the message */
   type: string;
   /** Message payload data */
-  payload: any;
+  payload: TPayload;
   /** Timestamp when the message was created */
   timestamp: number;
 }
@@ -52,9 +121,24 @@ export type CommandType =
 /**
  * Base interface for all command messages
  */
-export interface IPCCommandMessage extends IPCMessage {
-  type: CommandType;
-  payload: IPCCommandPayload;
+export interface IPCCommandMessage<T extends CommandType = CommandType>
+  extends IPCMessage<IPCCommandPayloadMap[T]> {
+  type: T;
+  payload: IPCCommandPayloadMap[T];
+}
+
+/**
+ * Mapping of command types to their specific payload types
+ */
+export interface IPCCommandPayloadMap {
+  load: LoadCommandPayload;
+  start: StartCommandPayload;
+  stop: StopCommandPayload;
+  restart: RestartCommandPayload;
+  list: ListCommandPayload;
+  log: LogCommandPayload;
+  'clear-log': ClearLogCommandPayload;
+  exit: ExitCommandPayload;
 }
 
 /**
@@ -148,17 +232,32 @@ export interface ExitCommandPayload {
 /**
  * Base interface for all response messages
  */
-export interface IPCResponse extends IPCMessage {
+export interface IPCResponse<TPayload = unknown> extends IPCMessage<TPayload> {
   type: 'response' | 'error' | 'log-stream';
   requestId: string;
 }
 
 /**
+ * Mapping of response types to their specific payload types
+ */
+export interface IPCResponsePayloadMap {
+  load: LoadResponsePayload;
+  start: StartResponsePayload;
+  stop: StopResponsePayload;
+  restart: RestartResponsePayload;
+  list: ListResponsePayload;
+  log: LogResponsePayload;
+  'clear-log': ClearLogResponsePayload;
+  exit: ExitResponsePayload;
+}
+
+/**
  * Success response message
  */
-export interface IPCSuccessResponse extends IPCResponse {
+export interface IPCSuccessResponse<T extends CommandType = CommandType>
+  extends IPCResponse<IPCResponsePayloadMap[T]> {
   type: 'response';
-  payload: IPCResponsePayload;
+  payload: IPCResponsePayloadMap[T];
 }
 
 /**
@@ -267,7 +366,7 @@ export interface ExitResponsePayload {
 /**
  * Error response message
  */
-export interface IPCErrorResponse extends IPCResponse {
+export interface IPCErrorResponse extends IPCResponse<IPCErrorPayload> {
   type: 'error';
   payload: IPCErrorPayload;
 }
@@ -278,8 +377,91 @@ export interface IPCErrorResponse extends IPCResponse {
 export interface IPCErrorPayload {
   code: ErrorCode;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   stack?: string;
+  timestamp?: number;
+  originalError?: {
+    name: string;
+    message: string;
+    stack?: string;
+  };
+}
+
+/**
+ * Structured error for IPC operations
+ */
+export class IPCError extends Error {
+  public readonly code: ErrorCode;
+  public readonly details?: Record<string, unknown>;
+  public readonly timestamp: number;
+  public readonly originalError?: Error;
+
+  constructor(
+    code: ErrorCode,
+    message: string,
+    details?: Record<string, unknown>,
+    originalError?: Error
+  ) {
+    super(message);
+    this.name = 'IPCError';
+    this.code = code;
+    this.details = details;
+    this.timestamp = Date.now();
+    this.originalError = originalError;
+
+    // Ensure proper prototype chain
+    Object.setPrototypeOf(this, IPCError.prototype);
+  }
+
+  /**
+   * Convert to IPC error payload
+   */
+  toPayload(): IPCErrorPayload {
+    return {
+      code: this.code,
+      message: this.message,
+      details: this.details,
+      stack: this.stack,
+      timestamp: this.timestamp,
+      originalError: this.originalError
+        ? {
+            name: this.originalError.name,
+            message: this.originalError.message,
+            stack: this.originalError.stack,
+          }
+        : undefined,
+    };
+  }
+
+  /**
+   * Create from unknown error
+   */
+  static fromUnknown(
+    error: unknown,
+    code: ErrorCode = 'UNKNOWN_ERROR',
+    context?: string
+  ): IPCError {
+    if (error instanceof IPCError) {
+      return error;
+    }
+
+    if (error instanceof Error) {
+      const message = context ? `${context}: ${error.message}` : error.message;
+      return new IPCError(code, message, undefined, error);
+    }
+
+    const message = context
+      ? `${context}: ${String(error)}`
+      : `Unknown error: ${String(error)}`;
+    return new IPCError(code, message, { originalValue: error });
+  }
+}
+
+/**
+ * Type guard to check if error is an IPCError
+ */
+export function isIPCError(error: unknown): error is IPCError {
+  return error instanceof IPCError;
 }
 
 // =============================================================================
@@ -289,7 +471,7 @@ export interface IPCErrorPayload {
 /**
  * Log streaming message
  */
-export interface IPCLogStreamMessage extends IPCResponse {
+export interface IPCLogStreamMessage extends IPCResponse<IPCLogStreamPayload> {
   type: 'log-stream';
   payload: IPCLogStreamPayload;
 }
@@ -343,6 +525,37 @@ export type IPCConnectionStatus =
   | 'error';
 
 /**
+ * Enhanced IPC Connection interface with proper event typing
+ */
+export interface IPCConnection {
+  /** Unique connection identifier */
+  id: string;
+  /** Connection status */
+  status: IPCConnectionStatus;
+  /** Connection timestamp */
+  connectedAt: number;
+  /** Last activity timestamp */
+  lastActivity: number;
+  /** Send message to this connection */
+  send(message: IPCMessage): Promise<void>;
+  /** Close the connection */
+  close(): Promise<void>;
+  /** Check if connection is alive */
+  isAlive(): boolean;
+  /** Event emitter methods for connection events */
+  on(event: string | symbol, listener: (...args: any[]) => void): this;
+  once(event: string | symbol, listener: (...args: any[]) => void): this;
+  emit(event: string | symbol, ...args: any[]): boolean;
+  removeListener(
+    event: string | symbol,
+    listener: (...args: any[]) => void
+  ): this;
+  removeAllListeners(event?: string | symbol): this;
+  listeners(event: string | symbol): Function[];
+  listenerCount(event: string | symbol): number;
+}
+
+/**
  * IPC connection configuration
  */
 export interface IPCConnectionConfig {
@@ -376,13 +589,13 @@ export interface IPCServerConfig extends IPCConnectionConfig {
 /**
  * Type guard to check if an object is an IPCMessage
  */
-export function isIPCMessage(obj: any): obj is IPCMessage {
+export function isIPCMessage(obj: unknown): obj is IPCMessage {
   return (
     typeof obj === 'object' &&
     obj !== null &&
-    typeof obj.id === 'string' &&
-    typeof obj.type === 'string' &&
-    typeof obj.timestamp === 'number' &&
+    typeof (obj as any).id === 'string' &&
+    typeof (obj as any).type === 'string' &&
+    typeof (obj as any).timestamp === 'number' &&
     'payload' in obj
   );
 }
@@ -390,7 +603,7 @@ export function isIPCMessage(obj: any): obj is IPCMessage {
 /**
  * Type guard to check if an object is an IPCCommandMessage
  */
-export function isIPCCommandMessage(obj: any): obj is IPCCommandMessage {
+export function isIPCCommandMessage(obj: unknown): obj is IPCCommandMessage {
   const VALID_COMMANDS: CommandType[] = [
     'load',
     'start',
@@ -406,9 +619,19 @@ export function isIPCCommandMessage(obj: any): obj is IPCCommandMessage {
 }
 
 /**
+ * Type guard to check if an object is a specific command message
+ */
+export function isSpecificCommandMessage<T extends CommandType>(
+  obj: unknown,
+  commandType: T
+): obj is IPCCommandMessage<T> {
+  return isIPCCommandMessage(obj) && obj.type === commandType;
+}
+
+/**
  * Type guard to check if an object is an IPCResponse
  */
-export function isIPCResponse(obj: any): obj is IPCResponse {
+export function isIPCResponse(obj: unknown): obj is IPCResponse {
   return (
     isIPCMessage(obj) &&
     (obj.type === 'response' ||
@@ -421,21 +644,33 @@ export function isIPCResponse(obj: any): obj is IPCResponse {
 /**
  * Type guard to check if an object is an IPCSuccessResponse
  */
-export function isIPCSuccessResponse(obj: any): obj is IPCSuccessResponse {
+export function isIPCSuccessResponse(obj: unknown): obj is IPCSuccessResponse {
   return isIPCResponse(obj) && obj.type === 'response';
+}
+
+/**
+ * Type guard to check if an object is a specific success response
+ */
+export function isSpecificSuccessResponse<T extends CommandType>(
+  obj: unknown,
+  commandType: T
+): obj is IPCSuccessResponse<T> {
+  return isIPCSuccessResponse(obj);
 }
 
 /**
  * Type guard to check if an object is an IPCErrorResponse
  */
-export function isIPCErrorResponse(obj: any): obj is IPCErrorResponse {
+export function isIPCErrorResponse(obj: unknown): obj is IPCErrorResponse {
   return isIPCResponse(obj) && obj.type === 'error';
 }
 
 /**
  * Type guard to check if an object is an IPCLogStreamMessage
  */
-export function isIPCLogStreamMessage(obj: any): obj is IPCLogStreamMessage {
+export function isIPCLogStreamMessage(
+  obj: unknown
+): obj is IPCLogStreamMessage {
   return isIPCResponse(obj) && obj.type === 'log-stream';
 }
 
@@ -443,18 +678,211 @@ export function isIPCLogStreamMessage(obj: any): obj is IPCLogStreamMessage {
  * Type guard to check if a string is a valid CommandType
  */
 export function isValidCommandType(type: string): type is CommandType {
-  const VALID_COMMANDS: CommandType[] = [
-    'load',
-    'start',
-    'stop',
-    'restart',
-    'list',
-    'log',
-    'clear-log',
-    'exit',
-  ];
+  return SUPPORTED_COMMANDS.includes(type as CommandType);
+}
 
-  return VALID_COMMANDS.includes(type as CommandType);
+/**
+ * Comprehensive payload validation functions
+ */
+export const PayloadValidators = {
+  /**
+   * Validate load command payload
+   */
+  isLoadCommandPayload(payload: unknown): payload is LoadCommandPayload {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      typeof (payload as any).configPath === 'string' &&
+      (typeof (payload as any).namespace === 'undefined' ||
+        typeof (payload as any).namespace === 'string') &&
+      (typeof (payload as any).force === 'undefined' ||
+        typeof (payload as any).force === 'boolean')
+    );
+  },
+
+  /**
+   * Validate start command payload
+   */
+  isStartCommandPayload(payload: unknown): payload is StartCommandPayload {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      (typeof (payload as any).name === 'undefined' ||
+        typeof (payload as any).name === 'string') &&
+      (typeof (payload as any).namespace === 'undefined' ||
+        typeof (payload as any).namespace === 'string') &&
+      (typeof (payload as any).all === 'undefined' ||
+        typeof (payload as any).all === 'boolean')
+    );
+  },
+
+  /**
+   * Validate stop command payload
+   */
+  isStopCommandPayload(payload: unknown): payload is StopCommandPayload {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      (typeof (payload as any).name === 'undefined' ||
+        typeof (payload as any).name === 'string') &&
+      (typeof (payload as any).namespace === 'undefined' ||
+        typeof (payload as any).namespace === 'string') &&
+      (typeof (payload as any).all === 'undefined' ||
+        typeof (payload as any).all === 'boolean') &&
+      (typeof (payload as any).force === 'undefined' ||
+        typeof (payload as any).force === 'boolean')
+    );
+  },
+
+  /**
+   * Validate command payload based on type
+   */
+  isValidCommandPayload<T extends CommandType>(
+    type: T,
+    payload: unknown
+  ): payload is IPCCommandPayloadMap[T] {
+    switch (type) {
+      case 'load':
+        return this.isLoadCommandPayload(payload);
+      case 'start':
+        return this.isStartCommandPayload(payload);
+      case 'stop':
+        return this.isStopCommandPayload(payload);
+      case 'restart':
+        return this.isStopCommandPayload(payload); // Same as stop
+      case 'list':
+      case 'log':
+      case 'clear-log':
+      case 'exit':
+        return typeof payload === 'object' && payload !== null;
+      default:
+        return false;
+    }
+  },
+
+  /**
+   * Validate error payload
+   */
+  isIPCErrorPayload(payload: unknown): payload is IPCErrorPayload {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      typeof (payload as any).code === 'string' &&
+      typeof (payload as any).message === 'string' &&
+      (typeof (payload as any).details === 'undefined' ||
+        (typeof (payload as any).details === 'object' &&
+          (payload as any).details !== null)) &&
+      (typeof (payload as any).stack === 'undefined' ||
+        typeof (payload as any).stack === 'string')
+    );
+  },
+
+  /**
+   * Validate log stream payload
+   */
+  isIPCLogStreamPayload(payload: unknown): payload is IPCLogStreamPayload {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      typeof (payload as any).entry === 'object' &&
+      (payload as any).entry !== null &&
+      typeof (payload as any).app === 'string' &&
+      typeof (payload as any).namespace === 'string' &&
+      typeof (payload as any).streamId === 'string'
+    );
+  },
+};
+
+/**
+ * Runtime validation for IPC messages with detailed error reporting
+ */
+export function validateIPCMessage(obj: unknown): {
+  isValid: boolean;
+  message?: IPCMessage;
+  errors: string[];
+} {
+  const errors: string[] = [];
+
+  if (typeof obj !== 'object' || obj === null) {
+    errors.push('Message must be an object');
+    return { isValid: false, errors };
+  }
+
+  const msg = obj as any;
+
+  if (typeof msg.id !== 'string') {
+    errors.push('Message id must be a string');
+  }
+
+  if (typeof msg.type !== 'string') {
+    errors.push('Message type must be a string');
+  }
+
+  if (typeof msg.timestamp !== 'number') {
+    errors.push('Message timestamp must be a number');
+  }
+
+  if (!('payload' in msg)) {
+    errors.push('Message must have a payload property');
+  }
+
+  if (errors.length > 0) {
+    return { isValid: false, errors };
+  }
+
+  return {
+    isValid: true,
+    message: msg as IPCMessage,
+    errors: [],
+  };
+}
+
+/**
+ * Runtime validation for command messages
+ */
+export function validateCommandMessage<T extends CommandType>(
+  obj: unknown,
+  expectedType?: T
+): {
+  isValid: boolean;
+  message?: IPCCommandMessage<T>;
+  errors: string[];
+} {
+  const baseValidation = validateIPCMessage(obj);
+  if (!baseValidation.isValid || !baseValidation.message) {
+    return { isValid: false, errors: baseValidation.errors };
+  }
+
+  const errors: string[] = [];
+  const msg = baseValidation.message;
+
+  if (!isValidCommandType(msg.type)) {
+    errors.push(`Invalid command type: ${msg.type}`);
+  }
+
+  if (expectedType && msg.type !== expectedType) {
+    errors.push(`Expected command type ${expectedType}, got ${msg.type}`);
+  }
+
+  if (
+    msg.type &&
+    !PayloadValidators.isValidCommandPayload(
+      msg.type as CommandType,
+      msg.payload
+    )
+  ) {
+    errors.push(`Invalid payload for command type: ${msg.type}`);
+  }
+
+  if (errors.length > 0) {
+    return { isValid: false, errors };
+  }
+
+  return {
+    isValid: true,
+    message: msg as IPCCommandMessage<T>,
+    errors: [],
+  };
 }
 
 // =============================================================================
@@ -473,11 +901,11 @@ export function generateMessageId(): string {
 /**
  * Create a basic IPC message
  */
-export function createIPCMessage(
+export function createIPCMessage<TPayload = unknown>(
   type: string,
-  payload: any,
+  payload: TPayload,
   id?: string
-): IPCMessage {
+): IPCMessage<TPayload> {
   return {
     id: id || generateMessageId(),
     type,
@@ -491,9 +919,9 @@ export function createIPCMessage(
  */
 export function createIPCCommand<T extends CommandType>(
   type: T,
-  payload: IPCCommandPayload,
+  payload: IPCCommandPayloadMap[T],
   id?: string
-): IPCCommandMessage {
+): IPCCommandMessage<T> {
   return {
     id: id || generateMessageId(),
     type,
@@ -505,11 +933,11 @@ export function createIPCCommand<T extends CommandType>(
 /**
  * Create an IPC success response
  */
-export function createIPCSuccessResponse(
+export function createIPCSuccessResponse<T extends CommandType>(
   requestId: string,
-  payload: IPCResponsePayload,
+  payload: IPCResponsePayloadMap[T],
   id?: string
-): IPCSuccessResponse {
+): IPCSuccessResponse<T> {
   return {
     id: id || generateMessageId(),
     type: 'response',
@@ -524,22 +952,42 @@ export function createIPCSuccessResponse(
  */
 export function createIPCErrorResponse(
   requestId: string,
-  code: ErrorCode,
-  message: string,
-  details?: Record<string, any>,
+  error: IPCError | ErrorCode,
+  message?: string,
+  details?: Record<string, unknown>,
   id?: string
 ): IPCErrorResponse {
+  const payload: IPCErrorPayload =
+    error instanceof IPCError
+      ? error.toPayload()
+      : {
+          code: error,
+          message: message || 'Unknown error',
+          details,
+          timestamp: Date.now(),
+        };
+
   return {
     id: id || generateMessageId(),
     type: 'error',
     requestId,
-    payload: {
-      code,
-      message,
-      details,
-    },
+    payload,
     timestamp: Date.now(),
   };
+}
+
+/**
+ * Create an IPC error response from unknown error
+ */
+export function createIPCErrorFromUnknown(
+  requestId: string,
+  error: unknown,
+  code: ErrorCode = 'UNKNOWN_ERROR',
+  context?: string,
+  id?: string
+): IPCErrorResponse {
+  const ipcError = IPCError.fromUnknown(error, code, context);
+  return createIPCErrorResponse(requestId, ipcError, undefined, undefined, id);
 }
 
 /**
