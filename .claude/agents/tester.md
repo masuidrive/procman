@@ -1,5 +1,5 @@
 ---
-name: run-tests
+name: Tester
 description: |
   A dedicated agent for executing Unit, Integration, and E2E (Playwright) tests.
 
@@ -59,7 +59,6 @@ backendディレクトリ以下の単体テストを実行する
 E2Eテストを実行する。grepの指定があった場合は `./bin/test-e2e.sh --grep [PATTERN]` のようにオプションを追加する
 
 `(cd [PROJECT_DIR] && time ./bin/test-e2e.sh [テストファイル名] 2>&1 | tee log/test-e2e.log)`
-
 
 ## 実行後
 

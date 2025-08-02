@@ -133,7 +133,7 @@ class UserRepository(Protocol):
 - 既存のテストを含め、`Failed: 0`でないと作業完了とは認めない。必ず全て修正すること
 - Python: `pytest` を使用、`@pytest.fixture` でセットアップ共通化
 - TypeScript: `vitest` 推奨、セットアップは `vitest.setup.ts` に記載
-- 全体のテストは処理を戻して、run-test subagentに作業を渡してください
+- 全体のテストは処理を戻して、Tester subagentに作業を渡してください
 
 ## 統合テスト（RunIntegrationTest workflow node）
 
@@ -143,7 +143,7 @@ class UserRepository(Protocol):
 - 既存のテストを含め、`Failed: 0`でないと作業完了とは認めない。必ず全て修正すること
 - テストの実行がタイムアウトした場合には、それも failed とみなしそこで作業を中断。ユーザへタイムアウトの設定の変更を依頼すること
 - テスト失敗時は StartDebug workflow node へ移行
-- 全体のテストは処理を戻して、run-test subagentに作業を渡してください
+- 全体のテストは処理を戻して、Tester subagentに作業を渡してください
 
 ## E2Eテスト（RunIntegrationTest workflow node）
 
@@ -154,7 +154,7 @@ class UserRepository(Protocol):
 - タイムアウトも失敗とみなす。完遂できるように正しく修正すること
 - 指示がない限り正常系をユースケースを考えてテストシナリオを書くこと
 - チケットに記載されている`# E2E Test scenarios`の内容を確認して実装する
-- 全体のテストは処理を戻して、run-test subagentに作業を渡してください
+- 全体のテストは処理を戻して、Tester subagentに作業を渡してください
 
 ### E2Eテスト記述のベストプラクティス
 

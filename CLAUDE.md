@@ -84,12 +84,12 @@ PROJECT_ROOT/
 
 ## x. 専門家(agents)
 
-下記の専門領域については、エージェントに作業を依頼すること.
+下記に代表される専門領域については、エージェントに作業を依頼すること.
 
 - Ticket manager agent
 - Programmer agent
-- Code-reviewer agent
-- Quality assurance agent
+- Code-review agent
+- tester agent
 
 </agents>
 
@@ -107,7 +107,7 @@ flowchart TD
 
     dev-prep --> pick-task{"チケットからタスクを取り出す"}
     pick-task -->|コーディングタスク| engineer{"engineer agentに依頼"}
-    pick-task -->|テストタスク| run-test["run-test agentに依頼"] --> fin-task
+    pick-task -->|テストタスク| run-test["Testet agentに依頼"] --> fin-task
     pick-task -->|コードレビュータスク| code-review["code-review agentに依頼"] --> fin-task
     pick-task -->|ドキュメントタスク| document["<document>に沿ってドキュメントを記述"] --> fin-task
     pick-task -->|ユーザと対話| talk2["ユーザと対話"] --> fin-task
@@ -116,7 +116,7 @@ flowchart TD
     fin-task -->|フェーズ終了| refine-ticker("チケット内容を見直しをproject-manager agentに依頼") --> pick-task
 
     engineer -->|作業完了| fin-task
-    engineer -->|テスト依頼| engineer-test["run-test agentに依頼"] --> engineer
+    engineer -->|テスト依頼| engineer-test["Tester agentに依頼"] --> engineer
 
     no-task -->|明確にチケットを閉じるオファー| close-ticket["完了"]
     no-task -->|追加作業| new-task["依頼をチケットに記載"] --> pick-task
@@ -227,3 +227,49 @@ Closes #123
 - current-ticket.md はコミットしない（.gitignore に含まれているはず）
 
 </git-management>
+
+<documentation>
+# ドキュメント管理
+
+## ドキュメント参照タイミング
+
+### 実装前の確認
+
+- 機能の仕様確認 → `docs/product/features/`
+- システム全体の設計確認 → `docs/technical/architecture.md`
+- 既存のパターン確認 → `docs/technical/patterns/`
+- API 設計方針 → `docs/technical/api-guide.md`
+- データベース設計 → `docs/technical/database.md`
+
+### 実装中の確認
+
+- エラーハンドリング方法 → `docs/technical/patterns/error-handling.md`
+- 認証・認可の実装 → `docs/technical/patterns/auth-middleware.md`
+- ログ出力方法 → `docs/technical/patterns/logging.md`
+- 外部ライブラリの使い方 → `docs/references/vendors/`
+- デバッグ情報 → `docs/development/debug_strategies.md`
+
+### トラブル時の確認
+
+- 既知の問題と解決策 → `docs/operations/troubleshooting/`
+- 過去の技術的決定 → `docs/decisions/`
+
+## ドキュメント更新ルール
+
+### 更新が必要な場合
+
+- 新機能 → `product/features/` に新規ファイル追加 + README.md 更新
+- 設計変更 → `architecture.md` または `patterns/`
+- API 変更 → `api-guide.md`
+- 重要な決定 → `decisions/` に新規ファイル + README.md 更新
+
+### 更新が不要な場合
+
+- 単純なバグ修正（頻出なら `troubleshooting/` に追記）
+- テストの追加のみ
+
+## ドキュメント構造の基本思想
+
+**シンプルに、実用的に、探しやすく。** 過度に細分化せず、関連情報はまとめて配置する。
+
+</documentation>

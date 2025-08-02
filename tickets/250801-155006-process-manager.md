@@ -132,24 +132,14 @@ closed_at: null # Do not modify manually
 
 ### Final Phase: Quality Assurance
 
-- [ ] 単体テストの実装と実行
-  - プロセス起動・停止のテスト
-  - 監視機能のテスト
-  - 自動再起動のテスト
-  - エラーハンドリングのテスト
-- [ ] 統合テストの実装と実行
-  - 複数プロセス管理のテスト
-  - 長時間動作のテスト
-  - メモリリークのテスト
-- [ ] パフォーマンステスト
-  - 大量プロセス管理のテスト
-  - リソース使用量の測定
-  - 応答時間の測定
-- [ ] エラーケースの網羅的テスト
-  - プロセス起動失敗
-  - プロセス異常終了
-  - システムリソース不足
-- [ ] `git commit`
+- [ ] Run unit tests (./bin/test-unit.sh) and pass all tests (No exceptions)
+- [ ] Run integration tests (./bin/test-integration.sh) and pass all tests (No exceptions)
+- [ ] Review `## E2E test scenarios` and write E2E tests code
+- [ ] Run E2E tests and pass all tests (No exceptions)
+- [ ] Call code-review agent and append to `# Review` section
+- [ ] Review and address all reviewer feedback
+- [ ] Update documentation and this ticket
+- [ ] Inform the user of the work, the results of the test, and the results of the review, and obtain permission to complete the work.
 
 ## Wireframes
 

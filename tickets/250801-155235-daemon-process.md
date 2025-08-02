@@ -146,24 +146,14 @@ closed_at: null # Do not modify manually
 
 ### Final Phase: Quality Assurance
 
-- [ ] 単体テストの実装と実行
-  - 各コマンドの動作テスト
-  - エラーケースのテスト
-  - コンポーネント統合のテスト
-- [ ] 統合テストの実装と実行
-  - 完全なデーモンライフサイクルのテスト
-  - 複数クライアント同時接続のテスト
-  - 長時間運用のテスト
-- [ ] パフォーマンステスト
-  - デーモン起動時間の測定
-  - コマンド応答時間の測定
-  - リソース使用量の測定
-- [ ] エラーケースの網羅的テスト
-  - 設定ファイルエラー
-  - IPC 通信エラー
-  - プロセス管理エラー
-  - システムリソース不足
-- [ ] `git commit`
+- [ ] Run unit tests (./bin/test-unit.sh) and pass all tests (No exceptions)
+- [ ] Run integration tests (./bin/test-integration.sh) and pass all tests (No exceptions)
+- [ ] Review `## E2E test scenarios` and write E2E tests code
+- [ ] Run E2E tests and pass all tests (No exceptions)
+- [ ] Call code-review agent and append to `# Review` section
+- [ ] Review and address all reviewer feedback
+- [ ] Update documentation and this ticket
+- [ ] Inform the user of the work, the results of the test, and the results of the review, and obtain permission to complete the work.
 
 ## Wireframes
 

@@ -125,21 +125,14 @@ CLI Client と Daemon Process 間の通信を行う IPC（Inter-Process Communic
 
 ### Final Phase: Quality Assurance
 
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] Unix Domain Socket の動作テスト（Linux/macOS 環境で）
-- [ ] Named Pipe の動作テスト（可能であれば Windows 環境で）
-- [ ] 複数クライアント接続のテスト
-- [ ] 大量メッセージ送信時の安定性テスト（PoC の改善点検証）
-- [ ] エラーケースの網羅的テスト
-- [ ] メモリリークのテスト
-- [ ] パフォーマンステスト（接続時間、スループット）
 - [ ] Run unit tests (./bin/test-unit.sh) and pass all tests (No exceptions)
 - [ ] Run integration tests (./bin/test-integration.sh) and pass all tests (No exceptions)
-- [ ] Run code review (./bin/code-review.sh) and append to `# Review` section
+- [ ] Review `## E2E test scenarios` and write E2E tests code
+- [ ] Run E2E tests and pass all tests (No exceptions)
+- [ ] Call code-review agent and append to `# Review` section
 - [ ] Review and address all reviewer feedback
 - [ ] Update documentation and this ticket
 - [ ] Inform the user of the work, the results of the test, and the results of the review, and obtain permission to complete the work.
-- [ ] `git commit`
 
 ## Wireframes
 
