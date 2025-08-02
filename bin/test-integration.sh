@@ -18,12 +18,20 @@ export TEST_ENV=integration
 echo ""
 echo "🏃 Running integration tests with Vitest..."
 if [ -f "vitest.config.ts" ] || [ -f "vite.config.ts" ]; then
-    # 統合テストのパターンで実行（通常は test/**/*.integration.ts など）
-    npx vitest run --reporter=verbose test/**/*.integration.* || {
-        echo "  ℹ️  No integration test files found, running all tests in integration mode"
-        npx vitest run --reporter=verbose
-    }
-    echo "  ✅ Integration tests passed"
+    # 統合テストファイルの存在確認
+    integration_files=$(find tests -name "*.integration.*" -type f 2>/dev/null | wc -l)
+    
+    if [ "$integration_files" -gt 0 ]; then
+        echo "  📊 Found $integration_files integration test files"
+        # 統合テストのみを実行
+        npx vitest run --reporter=verbose tests/integration/
+        echo "  ✅ Integration tests passed"
+    else
+        echo "  ⚠️  No integration test files found in tests/integration/"
+        echo "  📝 Integration test files should be named *.integration.test.ts"
+        echo "  🔧 Please create integration test files first"
+        exit 1
+    fi
 else
     echo "  ⚠️  No Vitest config found"
     echo "  📝 Integration tests require Vitest configuration"
