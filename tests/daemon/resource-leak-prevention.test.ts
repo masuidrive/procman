@@ -7,9 +7,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   ResourceManager,
-  TrackedTimeout,
-  TrackedInterval,
-  TrackedEventListener,
   DisposableBase,
   DisposalGuard,
   createResourceManager,
@@ -50,7 +47,7 @@ describe('Resource Manager', () => {
       expect(resourceManager.getResourceCount('timeout')).toBe(1);
 
       // Wait for timeout to fire
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => global.setTimeout(resolve, 50));
 
       expect(callback).toHaveBeenCalled();
       expect(resourceManager.getResourceCount('timeout')).toBe(0);
@@ -169,18 +166,18 @@ describe('Resource Manager', () => {
     it('should clean up stale resources', async () => {
       // Manually create stale timeout
       const id1 = 'stale-timeout-1';
-      const timeout1Handle = setTimeout(() => {}, 5000);
+      const timeout1Handle = global.setTimeout(() => {}, 5000);
       const staleTimeout = {
         id: id1,
         type: 'timeout',
         createdAt: Date.now() - 10000, // 10 seconds ago
-        dispose: async () => {
-          clearTimeout(timeout1Handle);
+        dispose: async (): Promise<void> => {
+          global.clearTimeout(timeout1Handle);
         },
       };
 
       resourceManager.trackResource(staleTimeout);
-      const timeout2 = resourceManager.trackTimeout(() => {}, 5000);
+      resourceManager.trackTimeout(() => {}, 5000);
 
       expect(resourceManager.getResourceCount()).toBe(2);
 
@@ -239,11 +236,11 @@ describe('DisposableBase', () => {
       this.disposeCoreCalled = true;
     }
 
-    public testSafeSetTimeout(callback: () => void, delay: number) {
+    public testSafeSetTimeout(callback: () => void, delay: number): void {
       return this.safeSetTimeout(callback, delay);
     }
 
-    public testSafeSetInterval(callback: () => void, interval: number) {
+    public testSafeSetInterval(callback: () => void, interval: number): void {
       return this.safeSetInterval(callback, interval);
     }
 
@@ -251,7 +248,7 @@ describe('DisposableBase', () => {
       emitter: EventEmitter,
       event: string,
       listener: () => void
-    ) {
+    ): void {
       return this.safeAddEventListener(emitter, event, listener);
     }
   }
@@ -290,9 +287,11 @@ describe('DisposableBase', () => {
     disposable.testSafeSetInterval(callback, 1000);
     disposable.testSafeAddEventListener(emitter, 'test', callback);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((disposable as any).resourceManager.getResourceCount()).toBe(3);
 
     await disposable.dispose();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((disposable as any).resourceManager.getResourceCount()).toBe(0);
   });
 
@@ -331,7 +330,7 @@ describe('DisposalGuard', () => {
     // Start disposal process
     const disposalPromise = guard.executeDisposal(async () => {
       disposalStarted = true;
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => global.setTimeout(resolve, 100));
     });
 
     // Try to execute operation while disposing
@@ -395,8 +394,10 @@ describe('DisposalGuard', () => {
 describe('Resource Leak Prevention Integration', () => {
   it('should demonstrate comprehensive resource management', async () => {
     class TestIPCComponent extends DisposableBase {
-      private connections: Set<any> = new Set();
-      private messageHandlers: Map<string, Function> = new Map();
+      private connections: Set<unknown> = new Set();
+
+      private messageHandlers: Map<string, (...args: unknown[]) => unknown> =
+        new Map();
 
       constructor() {
         super();
@@ -404,6 +405,7 @@ describe('Resource Leak Prevention Integration', () => {
         this.setupCleanupTimer();
       }
 
+      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
       private setupPingInterval() {
         this.safeSetInterval(
           () => {
@@ -414,6 +416,7 @@ describe('Resource Leak Prevention Integration', () => {
         );
       }
 
+      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
       private setupCleanupTimer() {
         this.safeSetTimeout(
           () => {
@@ -424,6 +427,7 @@ describe('Resource Leak Prevention Integration', () => {
         );
       }
 
+      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/no-explicit-any
       addConnection(connection: any) {
         this.connections.add(connection);
 
@@ -436,11 +440,14 @@ describe('Resource Leak Prevention Integration', () => {
         );
       }
 
-      addMessageHandler(type: string, handler: Function) {
+      addMessageHandler(
+        type: string,
+        handler: (...args: unknown[]) => unknown
+      ): void {
         this.messageHandlers.set(type, handler);
       }
 
-      private cleanupStaleConnections() {
+      private cleanupStaleConnections(): void {
         // Cleanup logic
       }
 
@@ -450,7 +457,7 @@ describe('Resource Leak Prevention Integration', () => {
         this.messageHandlers.clear();
       }
 
-      getStats() {
+      getStats(): { connections: number; handlers: number; resources: number } {
         return {
           connections: this.connections.size,
           handlers: this.messageHandlers.size,
@@ -461,6 +468,7 @@ describe('Resource Leak Prevention Integration', () => {
 
     const component = new TestIPCComponent();
     const mockConnection = new EventEmitter();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mockConnection as any).id = 'test-connection';
 
     component.addConnection(mockConnection);

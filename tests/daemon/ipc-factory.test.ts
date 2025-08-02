@@ -131,6 +131,7 @@ describe('IPCFactory', () => {
 
     it('should throw error for unsupported platform', () => {
       expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         IPCFactory.createServerForPlatform('unsupported' as any);
       }).toThrow('Unsupported platform: unsupported');
     });
@@ -151,6 +152,7 @@ describe('IPCFactory', () => {
 
     it('should throw error for unsupported platform', () => {
       expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         IPCFactory.createClientForPlatform('unsupported' as any);
       }).toThrow('Unsupported platform: unsupported');
     });
@@ -189,6 +191,7 @@ describe('IPCFactory', () => {
 
     it('should throw error for unsupported platform', () => {
       expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         IPCFactory.getDefaultIPCPathForPlatform('unsupported' as any);
       }).toThrow('Unsupported platform: unsupported');
     });
@@ -249,6 +252,7 @@ describe('IPCFactory', () => {
 
     it('should throw error for unsupported platform', () => {
       expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         IPCFactory.getPlatformConstants('unsupported' as any);
       }).toThrow('Unsupported platform: unsupported');
     });

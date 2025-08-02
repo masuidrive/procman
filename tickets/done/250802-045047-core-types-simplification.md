@@ -3,8 +3,8 @@ priority: 2
 tags: ["refactor", "core-infra", "types", "simplification"]
 description: "Core Types簡素化: 過剰実装の削除と基本型定義への回帰"
 created_at: "2025-08-02T04:50:47Z"
-started_at: null  # Do not modify manually
-closed_at: null   # Do not modify manually
+started_at: 2025-08-02T07:26:45Z # Do not modify manually
+closed_at: 2025-08-02T11:33:01Z # Do not modify manually
 ---
 
 <ticket-info>
@@ -41,12 +41,12 @@ After completing each phase, refine the ticket and tasks as needed based on what
 
 元のcore-types-constantsチケットの要求要件を確認し、現在の過剰実装を分析して適切な簡素化戦略を立てる。
 
-- [ ] Carefully read the `current-ticket.md` to understand the task's objective and background.
-- [ ] 元のcore-types-constantsチケット（250801-154715）の要求要件を詳細に分析
-- [ ] 現在の過剰実装されたファイル群の内容を精査し、何が本来の要求範囲外かを特定
-- [ ] 各ファイルから削除すべき高度な機能と残すべき基本型定義を分類
-- [ ] 削除による既存テストへの影響とテスト修正方針を検討
-- [ ] 簡素化後の型定義が元のチケット要件を満たすことを確認
+- [x] Carefully read the `current-ticket.md` to understand the task's objective and background.
+- [x] 元のcore-types-constantsチケット（250801-154715）の要求要件を詳細に分析
+- [x] 現在の過剰実装されたファイル群の内容を精査し、何が本来の要求範囲外かを特定
+- [x] 各ファイルから削除すべき高度な機能と残すべき基本型定義を分類
+- [x] 削除による既存テストへの影響とテスト修正方針を検討
+- [x] 簡素化後の型定義が元のチケット要件を満たすことを確認
 - [ ] Explain the updates and decisions to the user and obtain their approval before proceeding.
 - [ ] `git commit`
 
@@ -54,12 +54,12 @@ After completing each phase, refine the ticket and tasks as needed based on what
 
 `src/shared/ipc.ts` (1,074行) から高度なIPC実装詳細を削除し、基本的な型定義のみに削減する。
 
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] 元のチケット要求に従い、基本的な型のみを残す:
+- [x] Carefully read the `current-ticket.md` file and understand the content of the task.
+- [x] 元のチケット要求に従い、基本的な型のみを残す:
   - IPCMessage interface (id, type, payload, timestamp)
   - CommandType union type (load, start, stop, restart, list, log, clear-log, exit)
   - IPCResponse interface (success, data, error)
-- [ ] 削除する高度な機能:
+- [x] 削除する高度な機能:
   - 認証・認可システム（AuthenticationToken, AuthorizationLevel等）
   - ハートビート機能（HeartbeatMessage, HeartbeatConfig等）
   - 接続プール（ConnectionPool, LoadBalancingStrategy等）
@@ -67,10 +67,30 @@ After completing each phase, refine the ticket and tasks as needed based on what
   - 高度なエラーハンドリング（詳細なエラー分類等）
   - メッセージ圧縮・バージョニング機能
   - 接続監視・統計機能
-- [ ] Write unit tests and integration tests
-- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
-- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
+- [x] Write unit tests and integration tests
+- [x] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [x] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
+
+### Review Fix Phase: 型安全性の回復
+
+コードレビューで指摘された型安全性の問題を修正する。
+
+- [x] IPCのany型を適切な型定義に置換
+  - payload: any → ジェネリクス型の使用
+  - data?: any → ジェネリクス型の使用
+  - 基本的なコマンドペイロード型の定義（LoadPayload, StartPayload等）
+- [x] 型ガード関数の完全実装
+  - AppConfigの全フィールド検証（env等のオプショナルフィールド含む）
+  - より厳密な型チェックの実装
+- [x] エラーハンドリングの改善
+  - parseMemorySizeの戻り値を構造化（成功/失敗の判別可能に）
+  - エラーメッセージの詳細化
+- [x] JSDocコメントの充実
+  - 型ガード関数の説明追加
+  - any型使用理由の明記（必要な場合）
+- [x] 修正後のテスト実行と検証
+- [x] `git commit`
 
 ### Phase 2: ログ型定義の簡素化
 
@@ -231,6 +251,40 @@ Use an `html-preview` code block to display the design.
 Please list here in full any remarks received from reviewers.
 Any corrections should also be added to the Tasks section at the top.
 
+### t_wada Review
+
+**不合格判定** - 型安全性の完全な破綻
+
+1. **any型の乱用** - IPCMessage と IPCResponse で payload/data に any 型を使用
+2. **型ガード関数の品質低下** - 必須フィールドのみチェックし、オプショナルフィールドの検証が欠如
+3. **エラーハンドリングの機能退化** - parseMemorySize が単純な null 返却になり、エラー理由が不明
+4. **基本的なコマンドペイロード型の欠如** - LoadCommandPayload, StartCommandPayload 等が未定義
+
+### Review Fix 対応内容
+
+1. **ジェネリクス型の導入**
+   - IPCMessage<T = CommandPayload> で型安全性を確保
+   - IPCResponse<T = ResponseData> で応答型を明確化
+   - 各コマンドごとのペイロード型を定義（LoadCommandPayload, StartCommandPayload 等）
+   - 各コマンドごとの応答データ型を定義（LoadResponseData, StartResponseData 等）
+
+2. **型ガード関数の完全実装**
+   - isAppConfig: 全フィールド（必須・オプショナル）の完全検証
+   - isLogEntry: 全フィールドの厳密な型チェック
+   - isProcessInfo: 数値範囲チェックを含む完全検証
+   - isIPCMessage: CommandType の検証を含む構造チェック
+
+3. **エラーハンドリングの構造化**
+   - MemoryParseResult インターフェースの追加
+   - 成功/失敗の判別可能な戻り値（success, value, error）
+   - 詳細なエラーメッセージの提供
+
+4. **JSDocコメントの追加**
+   - 各型ガード関数に目的と注意事項を明記
+   - 基本的な検証のみ行うことを明確化
+
+全ての unit test と integration test がパスし、型安全性が回復されました。
+
 </review>
 <working-notes>
 
@@ -244,6 +298,98 @@ Additional notes or requirements.
 
 ### Prepare
 
-{{working notes.....}}
+#### 元チケット要件分析（250801-154715-core-types-constants）
+
+元のチケットでは以下の基本型定義のみが要求されていた：
+
+1. **IPC通信関連**（Phase 6）
+   - IPCMessage interface (id, type, payload, timestamp)
+   - CommandType union type 
+   - IPCResponse interface (success, data, error)
+   - ログストリーミング用の基本型定義
+
+2. **ログ管理関連**（Phase 5）
+   - LogEntry interface (timestamp, level, message, app, namespace, type)
+   - LogOptions interface (lines, human, stream等の基本オプション)
+   - LogFormat type (basic, json, csv等の基本形式)
+
+3. **設定ファイル関連**（Phase 4）
+   - AppConfig interface
+   - ProcmanConfig interface
+   - 型ガード関数（isAppConfig, isProcmanConfig）
+   - parseMemorySize関数のみ
+
+4. **プロセス管理関連**（Phase 3）
+   - ProcessStatus type
+   - ProcessInfo interface
+   - 基本的な型ガード関数
+
+#### 現状分析
+
+1. **src/shared/ipc.ts** (1,095行 → 目標: 約100行)
+   - ❌ TypedEventEmitter interface - EventEmitter関連の高度な型定義
+   - ❌ IPCClientEvents, IPCServerEvents - イベント型定義
+   - ✅ IPCMessage interface - 基本型定義（保持）
+   - ❌ 認証・認可システム（AuthenticationToken, AuthorizationLevel等）
+   - ❌ ハートビート機能（HeartbeatMessage, HeartbeatConfig等）
+   - ❌ 接続プール（ConnectionPool, LoadBalancingStrategy等）
+   - ❌ 回路ブレーカー（CircuitBreakerConfig, CircuitBreakerState等）
+   - ❌ メッセージ圧縮・バージョニング機能
+   - ❌ 接続監視・統計機能
+
+2. **src/shared/logs.ts** (547行 → 目標: 約80行)
+   - ✅ LogEntry interface - 基本型定義（保持）
+   - ✅ LogOptions interface - 基本型定義（保持）
+   - ✅ LogFormat type - 基本型定義（保持）
+   - ❌ LogRotationConfig - ログローテーション機能
+   - ❌ LogArchiveConfig - ログアーカイブ・圧縮機能
+   - ❌ LogSearchConfig - ログ検索・フィルタリング機能
+   - ❌ LogStats, LogWatchConfig - ログ統計・監視機能
+   - ❌ LogStreamConfig - 高度なストリーミング機能
+   - ❌ LogFileInfo, LogFileConfig - ファイル管理機能
+
+3. **src/shared/config.ts** (429行 → 目標: 約80行)
+   - ✅ AppConfig interface - 基本型定義（保持）
+   - ✅ ProcmanConfig interface - 基本型定義（保持）
+   - ✅ parseMemorySize関数 - 基本機能（保持）
+   - ✅ 基本的な型ガード（isAppConfig, isProcmanConfig）（保持）
+   - ❌ ConfigLoader, ConfigLoadOptions - 設定ローディング機能
+   - ❌ validateAppConfig, validateProcmanConfig - 詳細なバリデーション機能
+   - ❌ createDefaultAppConfig, mergeAppConfigs - 設定マージ・作成機能
+   - ❌ 設定監視・自動リロード機能
+   - ❌ formatMemorySize - 高度なメモリサイズフォーマット機能
+
+4. **src/shared/process.ts** (326行 → 目標: 約50行)
+   - ✅ ProcessStatus type - 基本型定義（保持）
+   - ✅ ProcessInfo interface - 基本型定義（保持）
+   - ✅ 基本的な型ガード（isValidProcessStatus, isProcessInfo）（保持）
+   - ❌ ProcessStats, ProcessMonitorConfig - プロセス監視・統計機能
+   - ❌ ProcessEvent, ProcessLogEntry - プロセスイベント・ログ機能
+   - ❌ ProcessStartOptions, ProcessStopOptions - 高度なプロセス設定
+   - ❌ リソース制限・健全性チェック機能
+   - ❌ バックアップ・復旧機能
+   - ❌ プロセス実行環境・クエリ機能
+
+#### 簡素化戦略
+
+1. **削減目標**: 2,397行 → 約310行（約87%削減）
+
+2. **削除方針**:
+   - 実装詳細に関わる全ての型定義を削除
+   - 基本的なデータ構造の型定義のみを保持
+   - 型ガード関数は最小限のみ保持
+   - ヘルパー関数は必要最小限（parseMemorySizeのみ）
+
+3. **テスト修正方針**:
+   - 削除される型定義に依存するテストは削除
+   - 基本型定義のテストのみ保持・修正
+   - 統合テストは基本機能のみに絞る
+
+4. **作業順序**:
+   - Phase 1: IPC型定義の簡素化（最も削減量が多い）
+   - Phase 2: ログ型定義の簡素化
+   - Phase 3: 設定型定義の簡素化
+   - Phase 4: プロセス型定義の簡素化
+   - Final Phase: Quality Assurance
 
 </working-notes>

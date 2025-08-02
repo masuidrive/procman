@@ -102,6 +102,10 @@ When adding new `// eslint-disable-next-line @typescript-eslint/no-explicit-any`
 2. **Use single-line disable** rather than block disables when possible
 3. **Consider adding a brief comment** if the reason isn't obvious from context
 4. **Test thoroughly** to ensure type safety isn't compromised
+5. **Multiple rules can be disabled on one line** using comma separation:
+   ```typescript
+   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
+   ```
 
 ### Examples
 
@@ -145,3 +149,64 @@ This project uses EventEmitter patterns extensively for IPC communication, which
 - Review and update this document when new patterns emerge
 - Audit disable comments during major refactoring efforts
 - Consider removing disable comments when TypeScript improves type inference
+
+## Test Code ESLint Rules
+
+### Relaxed Rules for Test Files
+
+In test files (`*.test.ts`, `*.spec.ts`), the following ESLint rules can be disabled:
+
+#### 1. `@typescript-eslint/no-explicit-any`
+```typescript
+// OK in tests - for mocking and dynamic test data
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockData: any = { dynamic: 'test data' };
+```
+
+#### 2. `@typescript-eslint/explicit-function-return-type`
+```typescript
+// OK in tests - type inference is sufficient
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function setupTest() {
+  return { fixture: 'data' };
+}
+```
+
+### IMPORTANT: Production Code Standards
+
+**These relaxed rules apply ONLY to test files.** In production code (`src/**/*.ts`):
+- ❌ NEVER use `any` without proper justification
+- ❌ ALWAYS specify return types for exported functions
+- ❌ Follow all ESLint rules strictly
+
+### Quick Reference
+
+| Rule | Test Files | Production Code |
+|------|------------|-----------------|
+| `any` type | ✅ OK with disable comment | ❌ Avoid unless justified |
+| Missing return type | ✅ OK for test helpers | ❌ Always specify |
+| Type assertions | ✅ Liberal use OK | ⚠️ Use sparingly |
+| `as any` casting | ✅ OK for mocking | ❌ Use proper types |
+| Unused variables (destructuring) | ✅ OK with disable comment | ❌ Remove unused vars |
+
+### Common Test File Patterns
+
+1. **Mock objects with any**:
+   ```typescript
+   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   const mockConnection = new EventEmitter() as any;
+   ```
+
+2. **Test helpers without return types**:
+   ```typescript
+   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+   function setupTest() {
+     return { fixture: 'data' };
+   }
+   ```
+
+3. **Destructuring with unused variables**:
+   ```typescript
+   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+   const { self, ...cleanObject } = circularObject as any;
+   ```

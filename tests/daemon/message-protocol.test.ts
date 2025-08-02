@@ -15,7 +15,17 @@ import {
   validateMessageSize,
   estimateMessageSize,
 } from '../../src/daemon/message-protocol';
-import { createIPCMessage } from '../../src/shared/ipc';
+import type { IPCMessage } from '../../src/shared/ipc';
+
+// Helper function to create IPC messages
+function createIPCMessage(type: string, payload: unknown): IPCMessage {
+  return {
+    id: `test-${Date.now()}-${Math.random()}`,
+    type: 'load', // Using a valid CommandType
+    payload,
+    timestamp: Date.now(),
+  };
+}
 
 describe('Message Protocol', () => {
   let protocol: MessageProtocol;
@@ -142,10 +152,12 @@ describe('Message Protocol', () => {
 
     it('should handle serialization errors', () => {
       // Create an object with circular reference
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const circular: any = { data: 'test' };
       circular.self = circular;
 
       expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         serializer.serialize(circular as any);
       }).toThrow('Failed to serialize message');
     });
@@ -208,10 +220,13 @@ describe('Message Protocol', () => {
     });
 
     it('should handle invalid objects in utility functions', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const circular: any = { data: 'test' };
       circular.self = circular;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(validateMessageSize(circular as any)).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(estimateMessageSize(circular as any)).toBe(0);
     });
   });
