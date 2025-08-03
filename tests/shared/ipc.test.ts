@@ -13,6 +13,9 @@ import {
   // Type guards
   isIPCMessage,
   isValidCommandType,
+
+  // Utility functions
+  generateMessageId,
 } from '../../src/shared/ipc';
 
 import type { LogEntry } from '../../src/shared/logs';
@@ -94,6 +97,10 @@ describe('IPC Communication Types', () => {
   describe('IPCResponse interface', () => {
     test('should accept successful response', () => {
       const response: IPCResponse = {
+        id: generateMessageId(),
+        requestId: 'test-request-id',
+        type: 'response',
+        timestamp: Date.now(),
         success: true,
         data: {
           configFile: '/path/to/config.js',
@@ -109,6 +116,10 @@ describe('IPC Communication Types', () => {
 
     test('should accept error response', () => {
       const response: IPCResponse = {
+        id: generateMessageId(),
+        requestId: 'test-request-id',
+        type: 'response',
+        timestamp: Date.now(),
         success: false,
         error: {
           code: 'PROCESS_NOT_FOUND',

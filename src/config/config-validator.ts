@@ -1,13 +1,12 @@
 /**
  * Configuration Validator
- * 
+ *
  * Handles validation logic for procman configuration files.
  * Provides comprehensive validation with detailed error reporting and suggestions.
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
-import { ProcmanConfig, AppConfig, parseMemorySize } from '../shared/config';
+import { ProcmanConfig, parseMemorySize } from '../shared/config';
 import { ProcmanError, createError } from '../shared/errors';
 
 /**
@@ -173,7 +172,12 @@ export class ConfigValidator {
     this.validateOptionalField(appConfig, 'out_log', 'string', index);
     this.validateOptionalField(appConfig, 'error_log', 'string', index);
     this.validateOptionalField(appConfig, 'merge_logs', 'boolean', index);
-    this.validateOptionalField(appConfig, 'max_memory_restart', 'string', index);
+    this.validateOptionalField(
+      appConfig,
+      'max_memory_restart',
+      'string',
+      index
+    );
 
     // Validate env object if present
     if ('env' in appConfig && appConfig.env !== undefined) {
@@ -197,10 +201,18 @@ export class ConfigValidator {
       this.validatePathSecurity(appConfig.out_log as string, index, 'out_log');
     }
     if ('error_log' in appConfig && appConfig.error_log) {
-      this.validatePathSecurity(appConfig.error_log as string, index, 'error_log');
+      this.validatePathSecurity(
+        appConfig.error_log as string,
+        index,
+        'error_log'
+      );
     }
     if ('log_file' in appConfig && appConfig.log_file) {
-      this.validatePathSecurity(appConfig.log_file as string, index, 'log_file');
+      this.validatePathSecurity(
+        appConfig.log_file as string,
+        index,
+        'log_file'
+      );
     }
   }
 
@@ -303,18 +315,19 @@ export class ConfigValidator {
    */
   validateMemorySize(memorySize: string, appIndex: number): void {
     const result = parseMemorySize(memorySize);
-    
+
     if (!result.success) {
       throw createError('CONFIG_VALIDATION_ERROR', {
         message: `App configuration at index ${appIndex}: invalid memory size format "${memorySize}": ${result.error}`,
         details: { appIndex, field: 'max_memory_restart', value: memorySize },
       });
     }
-    
+
     const bytes = result.value!;
-    
+
     // Reject very small memory limits (less than 1MB)
-    if (bytes < 1024 * 1024) { // Less than 1MB
+    if (bytes < 1024 * 1024) {
+      // Less than 1MB
       throw createError('CONFIG_VALIDATION_ERROR', {
         message: `App configuration at index ${appIndex}: Memory limit "${memorySize}" below minimum limit (1MB)`,
         details: { appIndex, field: 'max_memory_restart', value: memorySize },
@@ -322,7 +335,8 @@ export class ConfigValidator {
     }
 
     // Reject very large memory limits (more than 64GB)
-    if (bytes > 64 * 1024 * 1024 * 1024) { // More than 64GB
+    if (bytes > 64 * 1024 * 1024 * 1024) {
+      // More than 64GB
       throw createError('CONFIG_VALIDATION_ERROR', {
         message: `App configuration at index ${appIndex}: Memory limit "${memorySize}" exceeds maximum limit (64GB)`,
         details: { appIndex, field: 'max_memory_restart', value: memorySize },
@@ -335,14 +349,17 @@ export class ConfigValidator {
    * @param scriptPath Script path to validate
    * @param appIndex App index for error reporting
    */
-  private validateScriptPathSecurity(scriptPath: string, appIndex: number): void {
+  private validateScriptPathSecurity(
+    scriptPath: string,
+    appIndex: number
+  ): void {
     // Check for potentially dangerous script patterns
     const dangerousPatterns = [
-      /^\s*sudo\s+/i,           // sudo commands
-      /^\s*su\s+/i,             // su commands
-      /[\|&;`$(){}]/,           // Shell injection characters
-      /\beval\b/i,              // eval functions
-      /\bexec\b/i,              // exec functions
+      /^\s*sudo\s+/i, // sudo commands
+      /^\s*su\s+/i, // su commands
+      /[|&;`$(){}]/, // Shell injection characters
+      /\beval\b/i, // eval functions
+      /\bexec\b/i, // exec functions
     ];
 
     for (const pattern of dangerousPatterns) {
@@ -352,7 +369,7 @@ export class ConfigValidator {
           category: 'security',
           message: `Script "${scriptPath}" contains potentially dangerous patterns`,
           location: { appIndex, field: 'script', value: scriptPath },
-          suggestion: 'Review script for security implications'
+          suggestion: 'Review script for security implications',
         });
         break;
       }
@@ -365,16 +382,23 @@ export class ConfigValidator {
    * @param appIndex App index for error reporting
    * @param fieldName Field name for error reporting
    */
-  private validatePathSecurity(filePath: string, appIndex: number, fieldName: string): void {
+  private validatePathSecurity(
+    filePath: string,
+    appIndex: number,
+    fieldName: string
+  ): void {
     try {
       this.sanitizeFilePath(filePath);
-      
+
       // For relative paths, ensure they don't escape project boundaries
       if (!path.isAbsolute(filePath)) {
         this.validatePathWithinProject(filePath, this.projectRoot);
       }
     } catch (error) {
-      if (error instanceof ProcmanError && error.code === 'CONFIG_SECURITY_ERROR') {
+      if (
+        error instanceof ProcmanError &&
+        error.code === 'CONFIG_SECURITY_ERROR'
+      ) {
         throw createError('CONFIG_VALIDATION_ERROR', {
           message: `App configuration at index ${appIndex}: ${error.message}`,
           details: { appIndex, field: fieldName, value: filePath },
@@ -423,7 +447,7 @@ export class ConfigValidator {
     }
 
     const trimmedPath = filePath.trim();
-    
+
     if (trimmedPath === '') {
       throw createError('CONFIG_SECURITY_ERROR', {
         message: 'File path cannot be empty',
@@ -467,7 +491,10 @@ export class ConfigValidator {
    * @returns Resolved absolute path
    * @throws ProcmanError if path escapes project boundaries
    */
-  private validatePathWithinProject(filePath: string, basePath: string): string {
+  private validatePathWithinProject(
+    filePath: string,
+    basePath: string
+  ): string {
     // Only validate relative paths - absolute paths are allowed as explicit admin choice
     if (path.isAbsolute(filePath)) {
       return filePath;
@@ -482,7 +509,7 @@ export class ConfigValidator {
 
     const resolvedPath = path.resolve(basePath, filePath);
     const normalizedRoot = path.normalize(basePath);
-    
+
     if (!path.normalize(resolvedPath).startsWith(normalizedRoot)) {
       throw createError('CONFIG_SECURITY_ERROR', {
         message: `Path traversal attack detected - path is outside of the project root: ${filePath}`,
@@ -504,7 +531,9 @@ export class ConfigValidator {
     switch (errorCode) {
       case 'CONFIG_VALIDATION_ERROR':
         if (field === 'name') {
-          suggestions.push('Use only alphanumeric characters, dashes, and underscores');
+          suggestions.push(
+            'Use only alphanumeric characters, dashes, and underscores'
+          );
           suggestions.push('Ensure the name is unique across all apps');
         } else if (field === 'script') {
           suggestions.push('Provide the full command to execute');
@@ -514,13 +543,13 @@ export class ConfigValidator {
           suggestions.push('Ensure the unit (K/M/G) is specified');
         }
         break;
-      
+
       case 'CONFIG_SECURITY_ERROR':
         suggestions.push('Use relative paths within the project directory');
         suggestions.push('Avoid ".." in paths to prevent directory traversal');
         suggestions.push('Use absolute paths only when explicitly needed');
         break;
-      
+
       default:
         suggestions.push('Check the configuration documentation');
         suggestions.push('Verify all required fields are present');
@@ -534,7 +563,9 @@ export class ConfigValidator {
    * @param config Unknown input to validate
    * @returns Type predicate indicating if config is a valid object
    */
-  private isValidConfigObject(config: unknown): config is Record<string, unknown> {
+  private isValidConfigObject(
+    config: unknown
+  ): config is Record<string, unknown> {
     return (
       config !== null &&
       config !== undefined &&
@@ -590,6 +621,8 @@ export class ConfigValidator {
  * @param options Validator options
  * @returns ConfigValidator instance
  */
-export function createConfigValidator(options?: ConfigValidatorOptions): ConfigValidator {
+export function createConfigValidator(
+  options?: ConfigValidatorOptions
+): ConfigValidator {
   return new ConfigValidator(options);
 }

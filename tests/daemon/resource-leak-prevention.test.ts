@@ -236,11 +236,13 @@ describe('DisposableBase', () => {
       this.disposeCoreCalled = true;
     }
 
-    public testSafeSetTimeout(callback: () => void, delay: number): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    public testSafeSetTimeout(callback: () => void, delay: number): any {
       return this.safeSetTimeout(callback, delay);
     }
 
-    public testSafeSetInterval(callback: () => void, interval: number): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    public testSafeSetInterval(callback: () => void, interval: number): any {
       return this.safeSetInterval(callback, interval);
     }
 
@@ -248,7 +250,8 @@ describe('DisposableBase', () => {
       emitter: EventEmitter,
       event: string,
       listener: () => void
-    ): void {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ): any {
       return this.safeAddEventListener(emitter, event, listener);
     }
   }

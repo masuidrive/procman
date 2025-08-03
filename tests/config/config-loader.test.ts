@@ -4,8 +4,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
-import * as path from 'path';
-import { ConfigLoader, createConfigLoader } from '../../src/config/config-loader';
+import {
+  ConfigLoader,
+  createConfigLoader,
+} from '../../src/config/config-loader';
 import { ProcmanError } from '../../src/shared/errors';
 
 // Mock modules
@@ -50,7 +52,7 @@ describe('ConfigLoader', () => {
   beforeEach(() => {
     configLoader = createConfigLoader();
     vi.clearAllMocks();
-    
+
     // Clear require cache
     Object.keys(require.cache).forEach((key) => {
       if (key.includes('test')) {
@@ -99,14 +101,18 @@ describe('ConfigLoader', () => {
       await expect(configLoader.load('/test/config.json')).rejects.toThrow(
         ProcmanError
       );
-      await expect(configLoader.load('/test/config.json')).rejects.toMatchObject({
+      await expect(
+        configLoader.load('/test/config.json')
+      ).rejects.toMatchObject({
         code: 'CONFIG_VALIDATION_ERROR',
         message: expect.stringContaining('.js extension'),
       });
     });
 
     it('should throw error for non-existent file', async () => {
-      vi.mocked(fs.promises.access).mockRejectedValue(new Error('ENOENT: no such file or directory'));
+      vi.mocked(fs.promises.access).mockRejectedValue(
+        new Error('ENOENT: no such file or directory')
+      );
 
       await expect(configLoader.load(testConfigPath)).rejects.toThrow(
         ProcmanError
@@ -117,12 +123,14 @@ describe('ConfigLoader', () => {
     });
 
     it('should throw error for file without read permission', async () => {
-      vi.mocked(fs.promises.access).mockImplementation(async (filePath, mode) => {
-        if (mode === fs.constants.F_OK) {
-          return; // File exists
+      vi.mocked(fs.promises.access).mockImplementation(
+        async (filePath, mode) => {
+          if (mode === fs.constants.F_OK) {
+            return; // File exists
+          }
+          throw new Error('EACCES: permission denied');
         }
-        throw new Error('EACCES: permission denied');
-      });
+      );
 
       await expect(configLoader.load(testConfigPath)).rejects.toThrow(
         ProcmanError
@@ -179,7 +187,9 @@ describe('ConfigLoader', () => {
 
       // Mock loader to throw MODULE_NOT_FOUND error
       const mockLoader = vi.fn().mockImplementation(() => {
-        const moduleError = new Error('Cannot find module') as NodeJS.ErrnoException;
+        const moduleError = new Error('Cannot find module') as Error & {
+          code?: string;
+        };
         moduleError.code = 'MODULE_NOT_FOUND';
         throw moduleError;
       });
@@ -224,7 +234,10 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const mockLoader = vi.fn().mockReturnValue(testConfig);
-      configLoader = createConfigLoader({ enableCache: false, moduleLoader: mockLoader });
+      configLoader = createConfigLoader({
+        enableCache: false,
+        moduleLoader: mockLoader,
+      });
 
       // First load
       await configLoader.load(testConfigPath);
@@ -303,7 +316,7 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{ name: 'test-app' }] // missing script
+        apps: [{ name: 'test-app' }], // missing script
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -325,10 +338,12 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'invalid name with spaces',
-          script: 'node app.js'
-        }]
+        apps: [
+          {
+            name: 'invalid name with spaces',
+            script: 'node app.js',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -352,8 +367,8 @@ describe('ConfigLoader', () => {
       const invalidConfig = {
         apps: [
           { name: 'test-app', script: 'node app1.js' },
-          { name: 'test-app', script: 'node app2.js' }
-        ]
+          { name: 'test-app', script: 'node app2.js' },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -375,11 +390,13 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          args: 123, // should be string
-        }]
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            args: 123, // should be string
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -401,11 +418,13 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          env: 'not-an-object', // should be object
-        }]
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            env: 'not-an-object', // should be object
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -427,13 +446,15 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          env: {
-            'INVALID-VAR-NAME': 'value', // invalid env var name with dash
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            env: {
+              'INVALID-VAR-NAME': 'value', // invalid env var name with dash
+            },
           },
-        }]
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -455,13 +476,15 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          env: {
-            VALID_VAR: 123, // should be string
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            env: {
+              VALID_VAR: 123, // should be string
+            },
           },
-        }]
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -494,18 +517,18 @@ describe('ConfigLoader', () => {
             env: {
               NODE_ENV: 'production',
               PORT: '3000',
-              API_KEY: 'secret'
+              API_KEY: 'secret',
             },
             max_memory_restart: '1G',
             log_file: './logs/app.log',
             out_file: './logs/app.out',
-            error_file: './logs/app.err'
+            error_file: './logs/app.err',
           },
           {
             name: 'worker_task',
-            script: 'node worker.js'
-          }
-        ]
+            script: 'node worker.js',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(validConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -523,11 +546,13 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          max_memory_restart: 'invalid-size'
-        }]
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            max_memory_restart: 'invalid-size',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -549,11 +574,13 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          max_memory_restart: '100G' // exceeds 64GB limit
-        }]
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            max_memory_restart: '100G', // exceeds 64GB limit
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -575,11 +602,13 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          max_memory_restart: '512K' // below 1MB minimum
-        }]
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            max_memory_restart: '512K', // below 1MB minimum
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -601,10 +630,12 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: '../malicious/script.js'
-        }]
+        apps: [
+          {
+            name: 'test-app',
+            script: '../malicious/script.js',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -626,11 +657,13 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          cwd: '../malicious'
-        }]
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            cwd: '../malicious',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -652,11 +685,13 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const invalidConfig = {
-        apps: [{
-          name: 'test-app',
-          script: 'node app.js',
-          log_file: '../sensitive/logs/app.log'
-        }]
+        apps: [
+          {
+            name: 'test-app',
+            script: 'node app.js',
+            log_file: '../sensitive/logs/app.log',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(invalidConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -682,19 +717,19 @@ describe('ConfigLoader', () => {
           {
             name: 'app-1',
             script: 'node app.js',
-            max_memory_restart: '512M'
+            max_memory_restart: '512M',
           },
           {
             name: 'app-2',
             script: 'node app.js',
-            max_memory_restart: '1G'
+            max_memory_restart: '1G',
           },
           {
             name: 'app-3',
             script: 'node app.js',
-            max_memory_restart: '2048K'
-          }
-        ]
+            max_memory_restart: '2048K',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(validConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -714,15 +749,17 @@ describe('ConfigLoader', () => {
 
       const configs = [
         testConfig,
-        { 
-          apps: [{
-            name: 'updated-app',
-            script: 'node updated.js'
-          }]
-        }
+        {
+          apps: [
+            {
+              name: 'updated-app',
+              script: 'node updated.js',
+            },
+          ],
+        },
       ];
       let callCount = 0;
-      
+
       const mockLoader = vi.fn().mockImplementation(() => {
         return configs[callCount++];
       });
@@ -863,7 +900,8 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       // Pre-populate require cache
-      require.cache[testConfigPath] = {} as NodeModule;
+      // eslint-disable-next-line no-undef
+      require.cache[testConfigPath] = {} as NodeJS.Module;
 
       const mockLoader = vi.fn().mockReturnValue(testConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -891,13 +929,13 @@ describe('ConfigLoader', () => {
             script: 'node app.js',
             max_memory_restart: '512M',
             env: { NODE_ENV: 'production' },
-            log_file: './logs/app.log'
+            log_file: './logs/app.log',
           },
           {
             name: 'app-2',
-            script: 'python script.py'
-          }
-        ]
+            script: 'python script.py',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(validConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
@@ -987,20 +1025,25 @@ describe('ConfigLoader', () => {
         apps: [
           {
             name: 'test-app',
-            script: 'node app.js'
+            script: 'node app.js',
             // Missing cwd and env - should get defaults
-          }
-        ]
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(testConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
-      const normalizedConfig = await configLoader.loadAndNormalize(testConfigPath);
+      const normalizedConfig =
+        await configLoader.loadAndNormalize(testConfigPath);
 
       expect(normalizedConfig.apps[0].cwd).toBe('/test'); // Defaulted to config dir
       expect(normalizedConfig.apps[0].env).toEqual({}); // Defaulted to empty object
-      expect(normalizedConfig._metadata.defaultsApplied).toContain('apps[0].cwd');
-      expect(normalizedConfig._metadata.defaultsApplied).toContain('apps[0].env');
+      expect(normalizedConfig._metadata.defaultsApplied).toContain(
+        'apps[0].cwd'
+      );
+      expect(normalizedConfig._metadata.defaultsApplied).toContain(
+        'apps[0].env'
+      );
       expect(normalizedConfig._metadata.originalPath).toBe(testConfigPath);
     });
 
@@ -1017,14 +1060,15 @@ describe('ConfigLoader', () => {
             name: 'test-app',
             script: 'node app.js',
             cwd: './workspace',
-            log_file: './logs/app.log'
-          }
-        ]
+            log_file: './logs/app.log',
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(testConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
-      const normalizedConfig = await configLoader.loadAndNormalize(testConfigPath);
+      const normalizedConfig =
+        await configLoader.loadAndNormalize(testConfigPath);
 
       expect(normalizedConfig.apps[0].cwd).toBe('/test/workspace');
       expect(normalizedConfig.apps[0].log_file).toBe('/test/logs/app.log');
@@ -1048,15 +1092,16 @@ describe('ConfigLoader', () => {
             script: 'node app.js',
             env: {
               NODE_ENV: '${NODE_ENV}',
-              PORT: '3000'
-            }
-          }
-        ]
+              PORT: '3000',
+            },
+          },
+        ],
       };
       const mockLoader = vi.fn().mockReturnValue(testConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
-      const normalizedConfig = await configLoader.loadAndNormalize(testConfigPath);
+      const normalizedConfig =
+        await configLoader.loadAndNormalize(testConfigPath);
 
       expect(normalizedConfig.apps[0].env?.NODE_ENV).toBe('production');
       expect(normalizedConfig.apps[0].env?.PORT).toBe('3000');
@@ -1073,13 +1118,13 @@ describe('ConfigLoader', () => {
   describe('compareConfigs', () => {
     it('should detect added apps', () => {
       const config1 = {
-        apps: [{ name: 'app1', script: 'node app1.js' }]
+        apps: [{ name: 'app1', script: 'node app1.js' }],
       };
       const config2 = {
         apps: [
           { name: 'app1', script: 'node app1.js' },
-          { name: 'app2', script: 'node app2.js' }
-        ]
+          { name: 'app2', script: 'node app2.js' },
+        ],
       };
 
       const differences = configLoader.compareConfigs(config1, config2);
@@ -1093,11 +1138,11 @@ describe('ConfigLoader', () => {
       const config1 = {
         apps: [
           { name: 'app1', script: 'node app1.js' },
-          { name: 'app2', script: 'node app2.js' }
-        ]
+          { name: 'app2', script: 'node app2.js' },
+        ],
       };
       const config2 = {
-        apps: [{ name: 'app1', script: 'node app1.js' }]
+        apps: [{ name: 'app1', script: 'node app1.js' }],
       };
 
       const differences = configLoader.compareConfigs(config1, config2);
@@ -1109,10 +1154,10 @@ describe('ConfigLoader', () => {
 
     it('should detect modified apps', () => {
       const config1 = {
-        apps: [{ name: 'app1', script: 'node app1.js' }]
+        apps: [{ name: 'app1', script: 'node app1.js' }],
       };
       const config2 = {
-        apps: [{ name: 'app1', script: 'python app1.py' }]
+        apps: [{ name: 'app1', script: 'python app1.py' }],
       };
 
       const differences = configLoader.compareConfigs(config1, config2);
@@ -1130,9 +1175,13 @@ describe('ConfigLoader', () => {
     });
 
     it('should return true for non-existent file', async () => {
-      vi.mocked(fs.promises.stat).mockRejectedValue(new Error('File not found'));
-      
-      const hasChanged = await configLoader.hasConfigChanged('/nonexistent/config.js');
+      vi.mocked(fs.promises.stat).mockRejectedValue(
+        new Error('File not found')
+      );
+
+      const hasChanged = await configLoader.hasConfigChanged(
+        '/nonexistent/config.js'
+      );
       expect(hasChanged).toBe(true);
     });
   });
@@ -1141,7 +1190,9 @@ describe('ConfigLoader', () => {
   describe('file watching', () => {
     beforeEach(() => {
       // Mock fs.watchFile and fs.unwatchFile
-      vi.spyOn(fs, 'watchFile').mockImplementation(() => ({} as fs.StatWatcher));
+      vi.spyOn(fs, 'watchFile').mockImplementation(
+        () => ({}) as fs.StatWatcher
+      );
       vi.spyOn(fs, 'unwatchFile').mockImplementation(() => {});
     });
 
@@ -1160,10 +1211,11 @@ describe('ConfigLoader', () => {
 
     it('should stop watching file', () => {
       const callback = vi.fn();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const watcher = configLoader.watchConfig(testConfigPath, callback);
-      
+
       configLoader.stopWatching(testConfigPath);
-      
+
       expect(fs.unwatchFile).toHaveBeenCalledWith(testConfigPath);
     });
 
@@ -1171,19 +1223,19 @@ describe('ConfigLoader', () => {
       const callback = vi.fn();
       configLoader.watchConfig(testConfigPath, callback);
       configLoader.watchConfig('/another/config.js', callback);
-      
+
       configLoader.stopAllWatching();
-      
+
       expect(fs.unwatchFile).toHaveBeenCalledTimes(2);
     });
 
     it('should support event listeners', () => {
       const listener = vi.fn();
       configLoader.on('configChanged', listener);
-      
+
       // Event should be added (no easy way to test without triggering)
       configLoader.off('configChanged', listener);
-      
+
       // Should not throw
       expect(true).toBe(true);
     });
@@ -1192,12 +1244,12 @@ describe('ConfigLoader', () => {
   describe('resource management', () => {
     it('should provide resource usage statistics', () => {
       const usage = configLoader.getResourceUsage();
-      
+
       expect(usage).toHaveProperty('watchedFiles');
       expect(usage).toHaveProperty('cachedConfigs');
       expect(usage).toHaveProperty('validationIssues');
       expect(usage).toHaveProperty('memoryUsage');
-      
+
       expect(typeof usage.watchedFiles).toBe('number');
       expect(typeof usage.cachedConfigs).toBe('number');
       expect(typeof usage.validationIssues).toBe('number');
@@ -1205,18 +1257,21 @@ describe('ConfigLoader', () => {
     });
 
     it('should cleanup resources on dispose', () => {
-      vi.spyOn(fs, 'watchFile').mockImplementation(() => ({} as fs.StatWatcher));
+      vi.spyOn(fs, 'watchFile').mockImplementation(
+        () => ({}) as fs.StatWatcher
+      );
       vi.spyOn(fs, 'unwatchFile').mockImplementation(() => {});
-      
+
       const callback = vi.fn();
       configLoader.watchConfig(testConfigPath, callback);
-      
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const initialUsage = configLoader.getResourceUsage();
-      
+
       configLoader.dispose();
-      
+
       expect(fs.unwatchFile).toHaveBeenCalled();
-      
+
       const finalUsage = configLoader.getResourceUsage();
       expect(finalUsage.watchedFiles).toBe(0);
       expect(finalUsage.cachedConfigs).toBe(0);
@@ -1238,8 +1293,8 @@ describe('ConfigLoader', () => {
       const safePaths = [
         '/test/config.js',
         './config.js',
-        '../config.js',  // This might be blocked by security in actual usage
-        'config.js'
+        '../config.js', // This might be blocked by security in actual usage
+        'config.js',
       ];
 
       for (const filePath of safePaths) {
@@ -1276,11 +1331,15 @@ describe('ConfigLoader', () => {
     });
 
     it('should handle broken symbolic links', async () => {
-      vi.mocked(fs.promises.access).mockRejectedValue(new Error('ENOENT: no such file or directory'));
-      
+      vi.mocked(fs.promises.access).mockRejectedValue(
+        new Error('ENOENT: no such file or directory')
+      );
+
       const symlinkPath = '/test/broken-symlink.config.js';
-      
-      await expect(configLoader.load(symlinkPath)).rejects.toThrow(ProcmanError);
+
+      await expect(configLoader.load(symlinkPath)).rejects.toThrow(
+        ProcmanError
+      );
       await expect(configLoader.load(symlinkPath)).rejects.toMatchObject({
         code: 'CONFIG_FILE_NOT_FOUND',
       });
@@ -1290,11 +1349,13 @@ describe('ConfigLoader', () => {
       // First access check succeeds but stat fails due to circular link
       vi.mocked(fs.promises.access).mockResolvedValue(undefined);
       vi.mocked(fs.promises.stat).mockRejectedValue(
-        Object.assign(new Error('ELOOP: too many symbolic links encountered'), { code: 'ELOOP' })
+        Object.assign(new Error('ELOOP: too many symbolic links encountered'), {
+          code: 'ELOOP',
+        })
       );
 
       const circularPath = '/test/circular.config.js';
-      
+
       // Should throw any error (ELOOP will be wrapped in ProcmanError by the loader)
       await expect(configLoader.load(circularPath)).rejects.toThrow();
     });
@@ -1319,12 +1380,12 @@ describe('ConfigLoader', () => {
       const configs = await Promise.all(promises);
 
       // All should return valid configs (may or may not be cached depending on timing)
-      configs.forEach(config => {
+      configs.forEach((config) => {
         expect(config).toBeDefined();
         expect(config.apps).toBeDefined();
         expect(Array.isArray(config.apps)).toBe(true);
       });
-      
+
       // Should have been called at least once, but possibly more due to concurrency
       expect(mockLoader).toHaveBeenCalled();
     });
@@ -1340,7 +1401,7 @@ describe('ConfigLoader', () => {
         { apps: [{ name: 'app2', script: 'node app2.js' }] },
         { apps: [{ name: 'app3', script: 'node app3.js' }] },
       ];
-      
+
       let callIndex = 0;
       const mockLoader = vi.fn().mockImplementation(() => {
         return configs[callIndex++ % configs.length];
@@ -1364,7 +1425,9 @@ describe('ConfigLoader', () => {
       vi.mocked(fs.promises.stat).mockResolvedValue({
         size: 1024,
       } as fs.Stats);
-      vi.spyOn(fs, 'watchFile').mockImplementation(() => ({} as fs.StatWatcher));
+      vi.spyOn(fs, 'watchFile').mockImplementation(
+        () => ({}) as fs.StatWatcher
+      );
       vi.spyOn(fs, 'unwatchFile').mockImplementation(() => {});
 
       const mockLoader = vi.fn().mockReturnValue(testConfig);
@@ -1375,16 +1438,16 @@ describe('ConfigLoader', () => {
 
       // Load while watching
       await configLoader.load(testConfigPath);
-      
+
       // Clear cache while watching
       configLoader.clearCache();
-      
+
       // Load again
       await configLoader.load(testConfigPath);
-      
+
       // Cleanup
       watcher.dispose();
-      
+
       expect(mockLoader).toHaveBeenCalledTimes(2); // Cache was cleared
     });
   });
@@ -1393,7 +1456,7 @@ describe('ConfigLoader', () => {
     it('should handle very large config files near size limit', async () => {
       const maxSize = 10 * 1024 * 1024; // 10MB default limit
       const largeFileSize = maxSize - 1000; // Just under limit
-      
+
       vi.mocked(fs.promises.access).mockResolvedValue(undefined);
       vi.mocked(fs.promises.stat).mockResolvedValue({
         size: largeFileSize,
@@ -1401,14 +1464,18 @@ describe('ConfigLoader', () => {
 
       // Create large config with many apps
       const largeConfig = {
-        apps: Array(1000).fill(0).map((_, i) => ({
-          name: `app-${i}`,
-          script: 'node',
-          args: `script-${i}.js`,
-          env: Object.fromEntries(
-            Array(50).fill(0).map((_, j) => [`VAR_${j}`, `value-${i}-${j}`])
-          )
-        }))
+        apps: Array(1000)
+          .fill(0)
+          .map((_, i) => ({
+            name: `app-${i}`,
+            script: 'node',
+            args: `script-${i}.js`,
+            env: Object.fromEntries(
+              Array(50)
+                .fill(0)
+                .map((_, j) => [`VAR_${j}`, `value-${i}-${j}`])
+            ),
+          })),
       };
 
       const mockLoader = vi.fn().mockReturnValue(largeConfig);
@@ -1454,7 +1521,9 @@ describe('ConfigLoader', () => {
       });
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
-      await expect(configLoader.load(testConfigPath)).rejects.toThrow(ProcmanError);
+      await expect(configLoader.load(testConfigPath)).rejects.toThrow(
+        ProcmanError
+      );
       await expect(configLoader.load(testConfigPath)).rejects.toMatchObject({
         code: 'CONFIG_PARSE_ERROR',
         message: expect.stringContaining('heap out of memory'),
@@ -1465,7 +1534,7 @@ describe('ConfigLoader', () => {
   describe('Edge Cases - Unicode and Special Characters', () => {
     it('should handle Unicode characters in file paths', async () => {
       const unicodePath = '/test/конфиг-файл.config.js'; // Cyrillic characters
-      
+
       vi.mocked(fs.promises.access).mockResolvedValue(undefined);
       vi.mocked(fs.promises.stat).mockResolvedValue({
         size: 1024,
@@ -1486,16 +1555,18 @@ describe('ConfigLoader', () => {
       } as fs.Stats);
 
       const unicodeConfig = {
-        apps: [{
-          name: 'unicode-app',
-          script: 'node',
-          args: 'приложение.js', // Cyrillic filename
-          note: '这是一个测试应用程序', // Chinese description
-          env: {
-            UNICODE_VAR: '🚀 rocket emoji value',
-            JAPANESE: 'こんにちは世界',
-          }
-        }]
+        apps: [
+          {
+            name: 'unicode-app',
+            script: 'node',
+            args: 'приложение.js', // Cyrillic filename
+            note: '这是一个测试应用程序', // Chinese description
+            env: {
+              UNICODE_VAR: '🚀 rocket emoji value',
+              JAPANESE: 'こんにちは世界',
+            },
+          },
+        ],
       };
 
       const mockLoader = vi.fn().mockReturnValue(unicodeConfig);
@@ -1509,7 +1580,7 @@ describe('ConfigLoader', () => {
 
     it('should handle special characters in paths that require escaping', async () => {
       const specialPath = '/test/config with spaces & symbols!@#$%.js';
-      
+
       vi.mocked(fs.promises.access).mockResolvedValue(undefined);
       vi.mocked(fs.promises.stat).mockResolvedValue({
         size: 1024,
@@ -1532,10 +1603,12 @@ describe('ConfigLoader', () => {
 
       // Create config with circular reference
       const circularConfig = {
-        apps: [{
-          name: 'circular-test',
-          script: 'node',
-        }]
+        apps: [
+          {
+            name: 'circular-test',
+            script: 'node',
+          },
+        ],
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (circularConfig.apps[0] as any).parent = circularConfig;
@@ -1567,14 +1640,16 @@ describe('ConfigLoader', () => {
       (current as any).value = 'deep-value';
 
       const deepConfig = {
-        apps: [{
-          name: 'deep-test',
-          script: 'node',
-          env: {
-            DEEP_CONFIG: JSON.stringify(deepObject)
-          }
-        }],
-        metadata: deepObject
+        apps: [
+          {
+            name: 'deep-test',
+            script: 'node',
+            env: {
+              DEEP_CONFIG: JSON.stringify(deepObject),
+            },
+          },
+        ],
+        metadata: deepObject,
       };
 
       const mockLoader = vi.fn().mockReturnValue(deepConfig);
@@ -1596,24 +1671,26 @@ describe('ConfigLoader', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (global as any).someGlobalVar = 'modified by config';
         process.env.CONFIG_LOADED = 'true';
-        
+
         return {
-          apps: [{
-            name: 'global-modifier',
-            script: 'node'
-          }]
+          apps: [
+            {
+              name: 'global-modifier',
+              script: 'node',
+            },
+          ],
         };
       });
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
       const config = await configLoader.load(testConfigPath);
       expect(config.apps[0].name).toBe('global-modifier');
-      
+
       // Verify global state was modified (just for demonstration)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((global as any).someGlobalVar).toBe('modified by config');
       expect(process.env.CONFIG_LOADED).toBe('true');
-      
+
       // Cleanup
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (global as any).someGlobalVar;
@@ -1624,7 +1701,7 @@ describe('ConfigLoader', () => {
   describe('Edge Cases - File System Race Conditions', () => {
     it('should handle file changes during loading', async () => {
       vi.mocked(fs.promises.access).mockResolvedValue(undefined);
-      
+
       // Mock file stat changing during load process
       let statCallCount = 0;
       vi.mocked(fs.promises.stat).mockImplementation(async () => {
@@ -1645,43 +1722,54 @@ describe('ConfigLoader', () => {
     });
 
     it('should handle rapid file watching events', async () => {
-      vi.spyOn(fs, 'watchFile').mockImplementation((filename, options, listener) => {
-        // Simulate rapid fire events
-        const actualListener = typeof options === 'function' ? options : listener;
-        if (typeof actualListener === 'function') {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const current = { mtime: new Date() } as any;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const previous = { mtime: new Date(Date.now() - 1000) } as any;
-          
-          // Fire multiple events rapidly
-          for (let i = 0; i < 10; i++) {
-            setTimeout(() => actualListener(current, previous), i * 10);
+      vi.spyOn(fs, 'watchFile').mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (filename: any, options: any, listener?: any) => {
+          // Simulate rapid fire events
+          const actualListener =
+            typeof options === 'function' ? options : listener;
+          if (typeof actualListener === 'function') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const current = { mtime: new Date() } as any;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const previous = { mtime: new Date(Date.now() - 1000) } as any;
+
+            // Fire multiple events rapidly
+            for (let i = 0; i < 10; i++) {
+              globalThis.setTimeout(
+                () => actualListener(current, previous),
+                i * 10
+              );
+            }
           }
+          return {} as fs.StatWatcher;
         }
-        return {} as fs.StatWatcher;
-      });
+      );
       vi.spyOn(fs, 'unwatchFile').mockImplementation(() => {});
 
       const callback = vi.fn();
       const watcher = configLoader.watchConfig(testConfigPath, callback);
 
       // Wait for rapid events to settle
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 200));
 
       watcher.dispose();
       expect(callback).toHaveBeenCalled();
     });
 
     it('should handle file deletion during watching', async () => {
-      vi.spyOn(fs, 'watchFile').mockImplementation(() => ({} as fs.StatWatcher));
+      vi.spyOn(fs, 'watchFile').mockImplementation(
+        () => ({}) as fs.StatWatcher
+      );
       vi.spyOn(fs, 'unwatchFile').mockImplementation(() => {});
 
       const callback = vi.fn();
       const watcher = configLoader.watchConfig(testConfigPath, callback);
 
       // Simulate file deletion by making hasConfigChanged check fail
-      vi.mocked(fs.promises.stat).mockRejectedValue(new Error('ENOENT: no such file or directory'));
+      vi.mocked(fs.promises.stat).mockRejectedValue(
+        new Error('ENOENT: no such file or directory')
+      );
 
       const hasChanged = await configLoader.hasConfigChanged(testConfigPath);
       expect(hasChanged).toBe(true); // Should detect as changed when file is missing
@@ -1693,7 +1781,7 @@ describe('ConfigLoader', () => {
   describe('Edge Cases - Network Paths and Unusual Filesystems', () => {
     it('should handle UNC paths on Windows-like systems', async () => {
       const uncPath = '//server/share/config.js';
-      
+
       vi.mocked(fs.promises.access).mockResolvedValue(undefined);
       vi.mocked(fs.promises.stat).mockResolvedValue({
         size: 1024,
@@ -1709,8 +1797,9 @@ describe('ConfigLoader', () => {
 
     it('should handle very long file paths', async () => {
       // Create a very long path (approaching filesystem limits)
-      const longPath = '/test/' + 'very-long-directory-name-'.repeat(20) + 'config.js';
-      
+      const longPath =
+        '/test/' + 'very-long-directory-name-'.repeat(20) + 'config.js';
+
       vi.mocked(fs.promises.access).mockResolvedValue(undefined);
       vi.mocked(fs.promises.stat).mockResolvedValue({
         size: 1024,
@@ -1725,7 +1814,7 @@ describe('ConfigLoader', () => {
 
     it('should handle case-sensitive filesystem issues', async () => {
       const mixedCasePath = '/Test/CONFIG.js';
-      
+
       vi.mocked(fs.promises.access).mockResolvedValue(undefined);
       vi.mocked(fs.promises.stat).mockResolvedValue({
         size: 1024,
@@ -1742,7 +1831,9 @@ describe('ConfigLoader', () => {
 
   describe('Edge Cases - Resource Management Under Stress', () => {
     it('should handle resource cleanup under multiple disposal calls', () => {
-      vi.spyOn(fs, 'watchFile').mockImplementation(() => ({} as fs.StatWatcher));
+      vi.spyOn(fs, 'watchFile').mockImplementation(
+        () => ({}) as fs.StatWatcher
+      );
       vi.spyOn(fs, 'unwatchFile').mockImplementation(() => {});
 
       const callback = vi.fn();
@@ -1780,15 +1871,19 @@ describe('ConfigLoader', () => {
       vi.mocked(fs.promises.stat).mockResolvedValue({
         size: 1024,
       } as fs.Stats);
-      vi.spyOn(fs, 'watchFile').mockImplementation(() => ({} as fs.StatWatcher));
+      vi.spyOn(fs, 'watchFile').mockImplementation(
+        () => ({}) as fs.StatWatcher
+      );
       vi.spyOn(fs, 'unwatchFile').mockImplementation(() => {});
 
       const mockLoader = vi.fn().mockReturnValue(testConfig);
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
       // Load multiple configs and start watchers
-      const paths = Array(20).fill(0).map((_, i) => `/test/config-${i}.js`);
-      
+      const paths = Array(20)
+        .fill(0)
+        .map((_, i) => `/test/config-${i}.js`);
+
       for (const configPath of paths) {
         await configLoader.load(configPath);
         configLoader.watchConfig(configPath, () => {});
@@ -1823,7 +1918,9 @@ describe('ConfigLoader', () => {
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
       // First call should fail
-      await expect(configLoader.load(testConfigPath)).rejects.toThrow(ProcmanError);
+      await expect(configLoader.load(testConfigPath)).rejects.toThrow(
+        ProcmanError
+      );
 
       // Second call should succeed
       const config = await configLoader.load(testConfigPath);
@@ -1859,12 +1956,13 @@ describe('ConfigLoader', () => {
 
       // Mock loader throwing non-Error object
       const mockLoader = vi.fn().mockImplementation(() => {
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
         throw 'string error';
       });
       configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
-      await expect(configLoader.load(testConfigPath)).rejects.toThrow(ProcmanError);
+      await expect(configLoader.load(testConfigPath)).rejects.toThrow(
+        ProcmanError
+      );
       await expect(configLoader.load(testConfigPath)).rejects.toMatchObject({
         code: 'CONFIG_PARSE_ERROR',
         message: expect.stringContaining('string error'),
@@ -1877,21 +1975,16 @@ describe('ConfigLoader', () => {
         size: 1024,
       } as fs.Stats);
 
-      const invalidValues = [
-        null,
-        undefined,
-        'string',
-        42,
-        true,
-        [],
-        () => {},
-      ];
+      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+      const invalidValues = [null, undefined, 'string', 42, true, [], () => {}];
 
       for (const invalidValue of invalidValues) {
         const mockLoader = vi.fn().mockReturnValue(invalidValue);
         configLoader = createConfigLoader({ moduleLoader: mockLoader });
 
-        await expect(configLoader.load(testConfigPath)).rejects.toThrow(ProcmanError);
+        await expect(configLoader.load(testConfigPath)).rejects.toThrow(
+          ProcmanError
+        );
         await expect(configLoader.load(testConfigPath)).rejects.toMatchObject({
           code: 'CONFIG_VALIDATION_ERROR',
         });

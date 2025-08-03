@@ -22,5 +22,8 @@ export * from './config';
 // Log management
 export * from './logs';
 
+// Structured logging
+export * from './logger';
+
 // IPC communication
 export * from './ipc';

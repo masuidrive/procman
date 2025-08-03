@@ -1,6 +1,6 @@
 /**
  * Configuration Watcher
- * 
+ *
  * Handles file watching functionality for procman configuration files.
  * Provides change detection and notification capabilities.
  */
@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { EventEmitter } from 'events';
-import { ProcmanError, createError } from '../shared/errors';
+import { createError } from '../shared/errors';
 
 /**
  * File change event types
@@ -68,28 +68,32 @@ export class ConfigWatcher extends EventEmitter {
    */
   watchConfig(filePath: string, callback: WatchCallback): WatcherDisposal {
     const absolutePath = path.resolve(filePath);
-    
+
     // Clean up existing watcher
     this.stopWatching(absolutePath);
 
     try {
-      const watcher = fs.watchFile(absolutePath, { 
-        interval: this.interval,
-        persistent: this.persistent
-      }, async (curr, prev) => {
-        if (curr.mtime !== prev.mtime) {
-          callback('change', path.basename(absolutePath));
-          
-          // Emit internal event
-          this.emit('configChanged', absolutePath);
+      const watcher = fs.watchFile(
+        absolutePath,
+        {
+          interval: this.interval,
+          persistent: this.persistent,
+        },
+        async (curr, prev) => {
+          if (curr.mtime !== prev.mtime) {
+            callback('change', path.basename(absolutePath));
+
+            // Emit internal event
+            this.emit('configChanged', absolutePath);
+          }
         }
-      });
+      );
 
       // Store reference (fs.watchFile doesn't return FSWatcher, so we'll track manually)
       this.fileWatchers.set(absolutePath, watcher as unknown as fs.FSWatcher);
 
       return {
-        dispose: () => this.stopWatching(absolutePath)
+        dispose: () => this.stopWatching(absolutePath),
       };
     } catch (error) {
       throw createError('CONFIG_WATCH_ERROR', {
@@ -107,12 +111,14 @@ export class ConfigWatcher extends EventEmitter {
    * @returns Disposal object to stop watching all files
    */
   watchMultiple(filePaths: string[], callback: WatchCallback): WatcherDisposal {
-    const disposals = filePaths.map(filePath => this.watchConfig(filePath, callback));
+    const disposals = filePaths.map((filePath) =>
+      this.watchConfig(filePath, callback)
+    );
 
     return {
-      dispose: () => {
-        disposals.forEach(disposal => disposal.dispose());
-      }
+      dispose: (): void => {
+        disposals.forEach((disposal) => disposal.dispose());
+      },
     };
   }
 
@@ -122,7 +128,7 @@ export class ConfigWatcher extends EventEmitter {
    */
   stopWatching(filePath: string): void {
     const absolutePath = path.resolve(filePath);
-    
+
     if (this.fileWatchers.has(absolutePath)) {
       fs.unwatchFile(absolutePath);
       this.fileWatchers.delete(absolutePath);
@@ -163,12 +169,15 @@ export class ConfigWatcher extends EventEmitter {
    * @param lastCheckTime Timestamp of last check
    * @returns Promise resolving to true if file has changed
    */
-  async hasConfigChanged(filePath: string, lastCheckTime: number): Promise<boolean> {
+  async hasConfigChanged(
+    filePath: string,
+    lastCheckTime: number
+  ): Promise<boolean> {
     try {
       const absolutePath = path.resolve(filePath);
       const stats = await fs.promises.stat(absolutePath);
       return stats.mtime.getTime() > lastCheckTime;
-    } catch (error) {
+    } catch {
       // File doesn't exist or can't be accessed - consider it changed
       return true;
     }
@@ -201,18 +210,18 @@ export class ConfigWatcher extends EventEmitter {
    * @returns Disposal object to stop watching
    */
   watchConfigDebounced(
-    filePath: string, 
-    callback: WatchCallback, 
+    filePath: string,
+    callback: WatchCallback,
     debounceMs: number = 100
   ): WatcherDisposal {
-    let debounceTimer: NodeJS.Timeout | null = null;
+    let debounceTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 
     const debouncedCallback: WatchCallback = (event, filename) => {
       if (debounceTimer) {
-        clearTimeout(debounceTimer);
+        globalThis.clearTimeout(debounceTimer);
       }
 
-      debounceTimer = setTimeout(() => {
+      debounceTimer = globalThis.setTimeout(() => {
         callback(event, filename);
         debounceTimer = null;
       }, debounceMs);
@@ -226,7 +235,10 @@ export class ConfigWatcher extends EventEmitter {
    * @param event Event name
    * @param listener Event listener function
    */
-  on<K extends keyof ConfigWatcherEvents>(event: K, listener: ConfigWatcherEvents[K]): this;
+  on<K extends keyof ConfigWatcherEvents>(
+    event: K,
+    listener: ConfigWatcherEvents[K]
+  ): this;
   on(event: string | symbol, listener: (...args: unknown[]) => void): this;
   on(event: string | symbol, listener: (...args: unknown[]) => void): this {
     return super.on(event, listener);
@@ -237,7 +249,10 @@ export class ConfigWatcher extends EventEmitter {
    * @param event Event name
    * @param listener Event listener function
    */
-  off<K extends keyof ConfigWatcherEvents>(event: K, listener: ConfigWatcherEvents[K]): this;
+  off<K extends keyof ConfigWatcherEvents>(
+    event: K,
+    listener: ConfigWatcherEvents[K]
+  ): this;
   off(event: string | symbol, listener: (...args: unknown[]) => void): this;
   off(event: string | symbol, listener: (...args: unknown[]) => void): this {
     return super.off(event, listener);
@@ -258,7 +273,7 @@ export class ConfigWatcher extends EventEmitter {
   getResourceUsage(): {
     watcherCount: number;
     watchedFiles: string[];
-    memoryUsage: NodeJS.MemoryUsage;
+    memoryUsage: ReturnType<typeof process.memoryUsage>;
   } {
     return {
       watcherCount: this.fileWatchers.size,
@@ -325,6 +340,8 @@ export class ConfigWatcher extends EventEmitter {
  * @param options Watcher options
  * @returns ConfigWatcher instance
  */
-export function createConfigWatcher(options?: ConfigWatcherOptions): ConfigWatcher {
+export function createConfigWatcher(
+  options?: ConfigWatcherOptions
+): ConfigWatcher {
   return new ConfigWatcher(options);
 }

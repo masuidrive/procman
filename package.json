@@ -59,6 +59,9 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "commander": "^13.1.0"
+    "@types/pidusage": "^2.0.5",
+    "commander": "^13.1.0",
+    "pidusage": "^4.0.1",
+    "winston": "^3.17.0"
   }
 }

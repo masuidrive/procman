@@ -15,14 +15,14 @@ import {
   validateMessageSize,
   estimateMessageSize,
 } from '../../src/daemon/message-protocol';
-import type { IPCMessage } from '../../src/shared/ipc';
+import type { IPCMessage, CommandPayload } from '../../src/shared/ipc';
 
 // Helper function to create IPC messages
 function createIPCMessage(type: string, payload: unknown): IPCMessage {
   return {
     id: `test-${Date.now()}-${Math.random()}`,
     type: 'load', // Using a valid CommandType
-    payload,
+    payload: payload as CommandPayload,
     timestamp: Date.now(),
   };
 }

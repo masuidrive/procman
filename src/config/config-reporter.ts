@@ -1,13 +1,13 @@
 /**
  * Configuration Reporter
- * 
+ *
  * Handles reporting logic for procman configuration validation.
  * Provides detailed validation reports and error tracking.
  */
 
 import * as path from 'path';
 import { ProcmanConfig } from '../shared/config';
-import { ProcmanError, createError } from '../shared/errors';
+import { ProcmanError } from '../shared/errors';
 
 /**
  * Validation issue severity levels
@@ -102,7 +102,11 @@ export class ConfigReporter {
    * @param issues Array of validation issues
    * @returns Validation report
    */
-  generateReport(config: ProcmanConfig | null, filePath: string, issues: ValidationIssue[] = []): ValidationReport {
+  generateReport(
+    config: ProcmanConfig | null,
+    filePath: string,
+    issues: ValidationIssue[] = []
+  ): ValidationReport {
     const absolutePath = path.resolve(filePath);
     this.validationIssues = [...issues];
 
@@ -117,7 +121,7 @@ export class ConfigReporter {
 
     if (config) {
       // Generate app summaries
-      report.apps = config.apps.map(app => ({
+      report.apps = config.apps.map((app) => ({
         name: app.name,
         script: app.script,
         memoryLimit: app.max_memory_restart,
@@ -137,7 +141,7 @@ export class ConfigReporter {
    * @returns Validation report
    */
   async generateReportFromValidation(
-    filePath: string, 
+    filePath: string,
     validationFunction: () => Promise<ProcmanConfig>
   ): Promise<ValidationReport> {
     const absolutePath = path.resolve(filePath);
@@ -154,10 +158,10 @@ export class ConfigReporter {
 
     try {
       const config = await validationFunction();
-      
+
       // Generate app summaries
       report.appCount = config.apps.length;
-      report.apps = config.apps.map(app => ({
+      report.apps = config.apps.map((app) => ({
         name: app.name,
         script: app.script,
         memoryLimit: app.max_memory_restart,
@@ -185,7 +189,7 @@ export class ConfigReporter {
 
     // Add collected issues to report
     report.issues = [...this.validationIssues];
-    
+
     // Calculate summary
     report.summary = this.calculateSummary(report.issues);
 
@@ -231,9 +235,13 @@ export class ConfigReporter {
    * @param issues Array of validation issues
    * @returns Summary object with counts
    */
-  calculateSummary(issues: ValidationIssue[]): { errors: number; warnings: number; infos: number } {
+  calculateSummary(issues: ValidationIssue[]): {
+    errors: number;
+    warnings: number;
+    infos: number;
+  } {
     const summary = { errors: 0, warnings: 0, infos: 0 };
-    
+
     for (const issue of issues) {
       switch (issue.severity) {
         case 'error':
@@ -247,7 +255,7 @@ export class ConfigReporter {
           break;
       }
     }
-    
+
     return summary;
   }
 
@@ -261,8 +269,12 @@ export class ConfigReporter {
     originalError: ProcmanError,
     issues: ValidationIssue[] = []
   ): EnhancedValidationError {
-    const suggestions = this.includeSuggestions ? 
-      this.generateSuggestions(originalError.code, originalError.details?.field as string) : [];
+    const suggestions = this.includeSuggestions
+      ? this.generateSuggestions(
+          originalError.code,
+          originalError.details?.field as string
+        )
+      : [];
 
     const enhancedError = originalError as EnhancedValidationError;
     enhancedError.suggestions = suggestions;
@@ -283,7 +295,9 @@ export class ConfigReporter {
     switch (errorCode) {
       case 'CONFIG_VALIDATION_ERROR':
         if (field === 'name') {
-          suggestions.push('Use only alphanumeric characters, dashes, and underscores');
+          suggestions.push(
+            'Use only alphanumeric characters, dashes, and underscores'
+          );
           suggestions.push('Ensure the name is unique across all apps');
         } else if (field === 'script') {
           suggestions.push('Provide the full command to execute');
@@ -293,19 +307,19 @@ export class ConfigReporter {
           suggestions.push('Ensure the unit (K/M/G) is specified');
         }
         break;
-      
+
       case 'CONFIG_SECURITY_ERROR':
         suggestions.push('Use relative paths within the project directory');
         suggestions.push('Avoid ".." in paths to prevent directory traversal');
         suggestions.push('Use absolute paths only when explicitly needed');
         break;
-      
+
       case 'CONFIG_FILE_ERROR':
         suggestions.push('Ensure the configuration file exists');
         suggestions.push('Check file permissions for read access');
         suggestions.push('Verify the file has .js extension');
         break;
-      
+
       default:
         suggestions.push('Check the configuration documentation');
         suggestions.push('Verify all required fields are present');
@@ -321,7 +335,7 @@ export class ConfigReporter {
    */
   formatReport(report: ValidationReport): string {
     const lines: string[] = [];
-    
+
     lines.push(`Configuration Validation Report`);
     lines.push(`==============================`);
     lines.push(`File: ${report.filePath}`);
@@ -329,21 +343,30 @@ export class ConfigReporter {
     lines.push(`Apps: ${report.appCount}`);
     lines.push('');
 
-    if (report.summary.errors > 0 || report.summary.warnings > 0 || report.summary.infos > 0) {
-      lines.push(`Summary: ${report.summary.errors} errors, ${report.summary.warnings} warnings, ${report.summary.infos} info`);
+    if (
+      report.summary.errors > 0 ||
+      report.summary.warnings > 0 ||
+      report.summary.infos > 0
+    ) {
+      lines.push(
+        `Summary: ${report.summary.errors} errors, ${report.summary.warnings} warnings, ${report.summary.infos} info`
+      );
       lines.push('');
     }
 
     if (report.issues.length > 0) {
       lines.push('Issues:');
       lines.push('-------');
-      
+
       for (const issue of report.issues) {
-        const location = issue.location ? 
-          ` (app[${issue.location.appIndex}]${issue.location.field ? `.${issue.location.field}` : ''})` : '';
-        
-        lines.push(`[${issue.severity.toUpperCase()}] ${issue.message}${location}`);
-        
+        const location = issue.location
+          ? ` (app[${issue.location.appIndex}]${issue.location.field ? `.${issue.location.field}` : ''})`
+          : '';
+
+        lines.push(
+          `[${issue.severity.toUpperCase()}] ${issue.message}${location}`
+        );
+
         if (issue.suggestion && this.includeSuggestions) {
           lines.push(`  Suggestion: ${issue.suggestion}`);
         }
@@ -354,15 +377,15 @@ export class ConfigReporter {
     if (report.success && report.apps.length > 0) {
       lines.push('Apps:');
       lines.push('-----');
-      
+
       for (const app of report.apps) {
         lines.push(`• ${app.name}: ${app.script}`);
-        
+
         const details: string[] = [];
         if (app.memoryLimit) details.push(`memory: ${app.memoryLimit}`);
         if (app.hasEnvVars) details.push('env vars');
         if (app.hasLogFiles) details.push('log files');
-        
+
         if (details.length > 0) {
           lines.push(`  (${details.join(', ')})`);
         }
@@ -379,7 +402,10 @@ export class ConfigReporter {
    * @param pretty Whether to pretty-print JSON (default: false)
    * @returns JSON string
    */
-  formatReportAsJson(report: ValidationReport, pretty: boolean = false): string {
+  formatReportAsJson(
+    report: ValidationReport,
+    pretty: boolean = false
+  ): string {
     return JSON.stringify(report, null, pretty ? 2 : undefined);
   }
 
@@ -414,7 +440,6 @@ export class ConfigReporter {
   getMaxIssues(): number {
     return this.maxIssues;
   }
-
 }
 
 /**
@@ -422,6 +447,8 @@ export class ConfigReporter {
  * @param options Reporter options
  * @returns ConfigReporter instance
  */
-export function createConfigReporter(options?: ConfigReporterOptions): ConfigReporter {
+export function createConfigReporter(
+  options?: ConfigReporterOptions
+): ConfigReporter {
   return new ConfigReporter(options);
 }

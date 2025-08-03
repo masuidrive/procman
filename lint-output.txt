@@ -1,4 +1,0 @@
-
-> @masuidrive/procman@0.1.0 lint
-> eslint src/**/*.ts tests/**/*.ts 2
-

@@ -20,7 +20,6 @@ import type {
   IPCConnectionStatus,
   CommandType,
   IPCClientEvents,
-  TypedEventEmitter,
   IPCCommandPayloadMap,
 } from '../shared/ipc';
 import {
@@ -44,10 +43,7 @@ interface PendingRequest {
 /**
  * Abstract base class for IPC clients
  */
-export abstract class IPCClientBase
-  extends SimpleDisposableBase
-  implements TypedEventEmitter<IPCClientEvents>
-{
+export abstract class IPCClientBase extends SimpleDisposableBase {
   protected config: Required<IPCClientConfig>;
   protected connectionStatus: IPCConnectionStatus = 'disconnected';
   protected clientInstance: EventEmitter | null = null;
@@ -59,18 +55,23 @@ export abstract class IPCClientBase
   protected pendingPingId: string | null = null;
   private eventEmitter = new EventEmitter();
 
-  constructor(config: IPCClientConfig = {}) {
+  constructor(config: IPCClientConfig = { path: '' }) {
     super();
 
     // Set default configuration
     this.config = {
-      socketPath: config.socketPath || '',
-      namedPipePath: config.namedPipePath || '',
-      timeout: config.timeout || 5000,
+      path: config.path,
+      socketPath: config.socketPath || config.path || '',
+      namedPipePath: config.namedPipePath || config.path || '',
+      timeout: config.timeout || config.requestTimeout || 5000,
       retryAttempts: config.retryAttempts || 3,
-      retryDelay: config.retryDelay || 1000,
-      autoReconnect: config.autoReconnect ?? true,
+      retryDelay: config.retryDelay || config.reconnectDelay || 1000,
+      reconnectDelay: config.reconnectDelay || config.retryDelay || 1000,
+      autoReconnect: config.autoReconnect ?? config.reconnect ?? true,
+      reconnect: config.reconnect ?? config.autoReconnect ?? true,
       heartbeatInterval: config.heartbeatInterval || 30000,
+      maxReconnectAttempts: config.maxReconnectAttempts || 10,
+      requestTimeout: config.requestTimeout || config.timeout || 5000,
     };
   }
 
@@ -382,7 +383,8 @@ export abstract class IPCClientBase
    * Handle log stream message
    */
   protected handleLogStreamMessage(message: IPCLogStreamMessage): void {
-    this.emit('logStream', message.payload);
+    this.emit('logStream', message);
+    this.emit('log-stream', message);
   }
 
   /**
@@ -557,33 +559,43 @@ export abstract class IPCClientBase
    */
   on<K extends keyof IPCClientEvents>(
     event: K,
-    listener: (...args: IPCClientEvents[K]) => void
+    listener: IPCClientEvents[K]
   ): this {
-    this.eventEmitter.on(event as string, listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.eventEmitter.on(event as string, listener as any);
     return this;
   }
 
   once<K extends keyof IPCClientEvents>(
     event: K,
-    listener: (...args: IPCClientEvents[K]) => void
+    listener: IPCClientEvents[K]
   ): this {
-    this.eventEmitter.once(event as string, listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.eventEmitter.once(event as string, listener as any);
     return this;
   }
 
   emit<K extends keyof IPCClientEvents>(
     event: K,
-    ...args: IPCClientEvents[K]
+    ...args: Parameters<IPCClientEvents[K]>
   ): boolean {
     return this.eventEmitter.emit(event as string, ...args);
   }
 
   removeListener<K extends keyof IPCClientEvents>(
     event: K,
-    listener: (...args: IPCClientEvents[K]) => void
+    listener: IPCClientEvents[K]
   ): this {
-    this.eventEmitter.removeListener(event as string, listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.eventEmitter.removeListener(event as string, listener as any);
     return this;
+  }
+
+  off<K extends keyof IPCClientEvents>(
+    event: K,
+    listener: IPCClientEvents[K]
+  ): this {
+    return this.removeListener(event, listener);
   }
 
   removeAllListeners<K extends keyof IPCClientEvents>(event?: K): this {

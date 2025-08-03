@@ -81,7 +81,7 @@ describe('IPCFactory', () => {
 
     it('should pass config to server', () => {
       mockOs.platform.mockReturnValue('linux');
-      const config = { timeout: 10000 };
+      const config = { path: '/tmp/test.sock', timeout: 10000 };
 
       const server = IPCFactory.createServer(config);
 
@@ -108,7 +108,7 @@ describe('IPCFactory', () => {
 
     it('should pass config to client', () => {
       mockOs.platform.mockReturnValue('linux');
-      const config = { timeout: 10000 };
+      const config = { path: '/tmp/test.sock', timeout: 10000 };
 
       const client = IPCFactory.createClient(config);
 
@@ -279,7 +279,7 @@ describe('Convenience functions', () => {
 
     it('should pass config to server', () => {
       mockOs.platform.mockReturnValue('linux');
-      const config = { timeout: 10000 };
+      const config = { path: '/tmp/test.sock', timeout: 10000 };
 
       const server = createIPCServer(config);
 
@@ -298,7 +298,7 @@ describe('Convenience functions', () => {
 
     it('should pass config to client', () => {
       mockOs.platform.mockReturnValue('linux');
-      const config = { timeout: 10000 };
+      const config = { path: '/tmp/test.sock', timeout: 10000 };
 
       const client = createIPCClient(config);
 

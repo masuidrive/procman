@@ -30,12 +30,13 @@ export class UnixSocketServer extends IPCServerBase {
   private server: net.Server | null = null;
   private readonly socketPath: string;
 
-  constructor(config: IPCServerConfig = {}) {
+  constructor(config: IPCServerConfig = { path: '' }) {
     super(config);
 
     // Determine socket path
     this.socketPath =
       config.socketPath ||
+      config.path ||
       this.expandPath('~/.masuidrive-procman/procman.sock');
   }
 

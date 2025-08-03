@@ -26,11 +26,12 @@ export class NamedPipeClient extends IPCClientBase {
     listener: (...args: any[]) => void;
   }> = new Set();
 
-  constructor(config: IPCClientConfig = {}) {
+  constructor(config: IPCClientConfig = { path: '' }) {
     super(config);
 
     // Determine pipe path
-    this.pipePath = config.namedPipePath || '\\\\.\\pipe\\masuidrive-procman';
+    this.pipePath =
+      config.namedPipePath || config.path || '\\\\.\\pipe\\masuidrive-procman';
     this.protocol = new MessageProtocol();
   }
 

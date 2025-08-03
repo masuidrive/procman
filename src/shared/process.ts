@@ -95,3 +95,75 @@ export function isProcessInfo(obj: unknown): obj is ProcessInfo {
 
   return true;
 }
+
+// =============================================================================
+// Process State Change Interface
+// =============================================================================
+
+/**
+ * Process state change record for history tracking
+ */
+export interface ProcessStateChange {
+  /** Timestamp of the state change */
+  timestamp: number;
+  /** Previous status */
+  from: ProcessStatus;
+  /** New status */
+  to: ProcessStatus;
+  /** Optional reason for the change */
+  reason?: string;
+}
+
+/**
+ * Memory usage sample for history tracking
+ */
+export interface MemorySample {
+  /** Timestamp of the measurement */
+  timestamp: number;
+  /** Memory usage in bytes */
+  usage: number;
+}
+
+/**
+ * CPU usage sample for history tracking
+ */
+export interface CPUSample {
+  /** Timestamp of the measurement */
+  timestamp: number;
+  /** CPU usage percentage */
+  usage: number;
+}
+
+// =============================================================================
+// Process Persistence Interface
+// =============================================================================
+
+/**
+ * Persisted process information for state restoration
+ */
+export interface PersistedManagedProcessInfo {
+  /** Process name */
+  name: string;
+  /** Process status */
+  status: ProcessStatus;
+  /** Process ID (null after manager restart) */
+  pid: number | null;
+  /** Restart count */
+  restartCount: number;
+  /** Auto-restart enabled flag */
+  autoRestartEnabled: boolean;
+  /** Last start time timestamp */
+  lastStartTime: number | null;
+  /** State change history */
+  stateHistory: ProcessStateChange[];
+  /** Memory usage history */
+  memoryHistory: MemorySample[];
+  /** CPU usage history */
+  cpuHistory: CPUSample[];
+  /** Consecutive restart failures */
+  consecutiveRestarts: number;
+  /** Last restart time timestamp */
+  lastRestartTime: number | null;
+  /** Last crash time timestamp */
+  lastCrashTime: number | null;
+}

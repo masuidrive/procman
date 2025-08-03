@@ -28,12 +28,13 @@ export class UnixSocketClient extends IPCClientBase {
     listener: (...args: any[]) => void;
   }> = new Set();
 
-  constructor(config: IPCClientConfig = {}) {
+  constructor(config: IPCClientConfig = { path: '' }) {
     super(config);
 
     // Determine socket path
     this.socketPath =
       config.socketPath ||
+      config.path ||
       this.expandPath('~/.masuidrive-procman/procman.sock');
     this.protocol = new MessageProtocol();
   }

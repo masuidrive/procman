@@ -35,7 +35,7 @@ export class IPCFactory {
   /**
    * Create an IPC server for the current platform
    */
-  static createServer(config: IPCServerConfig = {}): IPCServerBase {
+  static createServer(config: IPCServerConfig = { path: '' }): IPCServerBase {
     const platform = this.getCurrentPlatform();
     return this.createServerForPlatform(platform, config);
   }
@@ -43,7 +43,7 @@ export class IPCFactory {
   /**
    * Create an IPC client for the current platform
    */
-  static createClient(config: IPCClientConfig = {}): IPCClientBase {
+  static createClient(config: IPCClientConfig = { path: '' }): IPCClientBase {
     const platform = this.getCurrentPlatform();
     return this.createClientForPlatform(platform, config);
   }
@@ -53,7 +53,7 @@ export class IPCFactory {
    */
   static createServerForPlatform(
     platform: Platform,
-    config: IPCServerConfig = {}
+    config: IPCServerConfig = { path: '' }
   ): IPCServerBase {
     const mergedConfig = this.mergeConfigWithDefaults(platform, config);
 
@@ -72,7 +72,7 @@ export class IPCFactory {
    */
   static createClientForPlatform(
     platform: Platform,
-    config: IPCClientConfig = {}
+    config: IPCClientConfig = { path: '' }
   ): IPCClientBase {
     const mergedConfig = this.mergeConfigWithDefaults(platform, config);
 

@@ -1,6 +1,6 @@
 /**
  * Configuration Normalizer
- * 
+ *
  * Handles normalization logic for procman configuration files.
  * Applies default values, normalizes paths, and expands environment variables.
  */
@@ -50,7 +50,10 @@ export class ConfigNormalizer {
    * @param originalPath Original configuration file path
    * @returns Normalized configuration
    */
-  normalizeConfig(config: ProcmanConfig, originalPath: string): NormalizedConfig {
+  normalizeConfig(
+    config: ProcmanConfig,
+    originalPath: string
+  ): NormalizedConfig {
     const defaultsApplied: string[] = [];
     const configDir = path.dirname(path.resolve(originalPath));
 
@@ -72,13 +75,22 @@ export class ConfigNormalizer {
       normalizedApp.cwd = this.normalizePath(normalizedApp.cwd, configDir);
 
       if (normalizedApp.log_file) {
-        normalizedApp.log_file = this.normalizePath(normalizedApp.log_file, configDir);
+        normalizedApp.log_file = this.normalizePath(
+          normalizedApp.log_file,
+          configDir
+        );
       }
       if (normalizedApp.out_file) {
-        normalizedApp.out_file = this.normalizePath(normalizedApp.out_file, configDir);
+        normalizedApp.out_file = this.normalizePath(
+          normalizedApp.out_file,
+          configDir
+        );
       }
       if (normalizedApp.error_file) {
-        normalizedApp.error_file = this.normalizePath(normalizedApp.error_file, configDir);
+        normalizedApp.error_file = this.normalizePath(
+          normalizedApp.error_file,
+          configDir
+        );
       }
 
       // Expand environment variables
@@ -148,21 +160,26 @@ export class ConfigNormalizer {
    * @param env Environment variables object
    * @returns Environment variables with expanded values
    */
-  expandEnvironmentVariables(env: Record<string, string>): Record<string, string> {
+  expandEnvironmentVariables(
+    env: Record<string, string>
+  ): Record<string, string> {
     const expanded: Record<string, string> = {};
 
     for (const [key, value] of Object.entries(env)) {
       // Simple environment variable expansion
       let expandedValue = value;
-      
+
       // Replace ${VAR} and $VAR patterns
       expandedValue = expandedValue.replace(/\$\{([^}]+)\}/g, (_, varName) => {
         return process.env[varName] || `\${${varName}}`;
       });
-      
-      expandedValue = expandedValue.replace(/\$([A-Z_][A-Z0-9_]*)/g, (_, varName) => {
-        return process.env[varName] || `$${varName}`;
-      });
+
+      expandedValue = expandedValue.replace(
+        /\$([A-Z_][A-Z0-9_]*)/g,
+        (_, varName) => {
+          return process.env[varName] || `$${varName}`;
+        }
+      );
 
       expanded[key] = expandedValue;
     }
@@ -212,14 +229,19 @@ export class ConfigNormalizer {
    * @param override Configuration to merge in
    * @returns Merged configuration
    */
-  mergeConfigs(base: ProcmanConfig, override: Partial<ProcmanConfig>): ProcmanConfig {
+  mergeConfigs(
+    base: ProcmanConfig,
+    override: Partial<ProcmanConfig>
+  ): ProcmanConfig {
     const mergedApps = [...base.apps];
 
     // If override has apps, merge them by name
     if (override.apps) {
       for (const overrideApp of override.apps) {
-        const existingIndex = mergedApps.findIndex(app => app.name === overrideApp.name);
-        
+        const existingIndex = mergedApps.findIndex(
+          (app) => app.name === overrideApp.name
+        );
+
         if (existingIndex !== -1) {
           // Merge existing app
           mergedApps[existingIndex] = {
@@ -251,7 +273,7 @@ export class ConfigNormalizer {
    */
   cloneConfig(config: ProcmanConfig): ProcmanConfig {
     return {
-      apps: config.apps.map(app => ({
+      apps: config.apps.map((app) => ({
         ...app,
         env: app.env ? { ...app.env } : undefined,
       })),
@@ -264,7 +286,7 @@ export class ConfigNormalizer {
    * @returns True if all defaults are present
    */
   hasAllDefaults(config: ProcmanConfig): boolean {
-    return config.apps.every(app => {
+    return config.apps.every((app) => {
       return app.cwd !== undefined && app.env !== undefined;
     });
   }
@@ -306,7 +328,10 @@ export class ConfigNormalizer {
    * @param config Normalized configuration to save
    * @param outputPath Output file path
    */
-  async saveNormalizedConfig(config: NormalizedConfig, outputPath: string): Promise<void> {
+  async saveNormalizedConfig(
+    config: NormalizedConfig,
+    outputPath: string
+  ): Promise<void> {
     const configToSave = {
       apps: config.apps,
       // Don't save metadata
@@ -330,7 +355,10 @@ module.exports = ${JSON.stringify(configToSave, null, 2)};
    * @param config2 Second configuration
    * @returns Array of differences
    */
-  compareConfigs(config1: ProcmanConfig, config2: ProcmanConfig): Array<{
+  compareConfigs(
+    config1: ProcmanConfig,
+    config2: ProcmanConfig
+  ): Array<{
     type: 'added' | 'removed' | 'modified';
     path: string;
     oldValue?: unknown;
@@ -344,8 +372,8 @@ module.exports = ${JSON.stringify(configToSave, null, 2)};
     }> = [];
 
     // Create Maps for O(1) lookup instead of O(n) with Array.find()
-    const apps1Map = new Map(config1.apps.map(app => [app.name, app]));
-    const apps2Map = new Map(config2.apps.map(app => [app.name, app]));
+    const apps1Map = new Map(config1.apps.map((app) => [app.name, app]));
+    const apps2Map = new Map(config2.apps.map((app) => [app.name, app]));
 
     // Find added apps
     for (const [appName, app] of Array.from(apps2Map.entries())) {
@@ -386,6 +414,8 @@ module.exports = ${JSON.stringify(configToSave, null, 2)};
  * @param options Normalizer options
  * @returns ConfigNormalizer instance
  */
-export function createConfigNormalizer(options?: ConfigNormalizerOptions): ConfigNormalizer {
+export function createConfigNormalizer(
+  options?: ConfigNormalizerOptions
+): ConfigNormalizer {
   return new ConfigNormalizer(options);
 }

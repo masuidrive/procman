@@ -69,3 +69,14 @@ export const CONFIG_FILE_PERMISSIONS = 0o600;
 
 // 追加のデフォルト値
 export const DEFAULT_PROCESS_CWD = process.cwd();
+
+// 自動再起動の定数
+export const MAX_RESTART_COUNT = 10;
+export const RESTART_BACKOFF_BASE_DELAY = 1000; // 1秒
+export const RESTART_BACKOFF_MAX_DELAY = 30000; // 30秒
+export const RESTART_BACKOFF_MULTIPLIER = 2;
+export const RESTART_WINDOW_TIME = 300000; // 5分 - この時間内の連続失敗をカウント
+
+// 履歴管理の定数
+export const MAX_HISTORY_LENGTH = 100; // 履歴の最大保持件数
+export const DEBOUNCE_SAVE_STATE_DELAY = 300; // 状態保存のデバウンス遅延時間（ミリ秒）

@@ -180,6 +180,10 @@ describe('Core Types Integration', () => {
 
       // Error should be usable in IPC responses
       const errorResponse: ipc.IPCResponse = {
+        id: ipc.generateMessageId(),
+        requestId: 'test-request-id',
+        type: 'response',
+        timestamp: Date.now(),
         success: false,
         error: {
           code: configError.code,

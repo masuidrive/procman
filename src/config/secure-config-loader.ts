@@ -1,6 +1,6 @@
 /**
  * Secure Configuration Loader
- * 
+ *
  * Provides safer alternatives to using require() for loading configuration files.
  * Implements multiple security modes including sandboxed execution and template-based configs.
  */
@@ -13,10 +13,10 @@ import { createError } from '../shared/errors';
 import { ConfigLoader, ConfigLoaderOptions } from './config-loader';
 
 export enum ConfigSecurityMode {
-  LEGACY = 'legacy',      // Current require() approach
-  HYBRID = 'hybrid',      // Static analysis + VM sandbox
-  TEMPLATE = 'template',  // JSON + template engine (future)
-  ISOLATED = 'isolated'   // isolated-vm (future)
+  LEGACY = 'legacy', // Current require() approach
+  HYBRID = 'hybrid', // Static analysis + VM sandbox
+  TEMPLATE = 'template', // JSON + template engine (future)
+  ISOLATED = 'isolated', // isolated-vm (future)
 }
 
 export interface SecureConfigLoaderOptions extends ConfigLoaderOptions {
@@ -36,7 +36,9 @@ export class SecureConfigLoader extends ConfigLoader {
   constructor(options: SecureConfigLoaderOptions = {}) {
     super(options);
     this.securityMode = options.securityMode || ConfigSecurityMode.LEGACY;
-    this.allowedModules = new Set(options.allowedModules || ['path', 'os', 'url']);
+    this.allowedModules = new Set(
+      options.allowedModules || ['path', 'os', 'url']
+    );
     this.sandboxTimeout = options.sandboxTimeout || 1000;
   }
 
@@ -45,8 +47,8 @@ export class SecureConfigLoader extends ConfigLoader {
       case ConfigSecurityMode.LEGACY:
         console.warn(
           '⚠️  WARNING: Using legacy require() mode to load configuration.\n' +
-          '   This allows arbitrary code execution. Consider using HYBRID mode.\n' +
-          '   See: https://github.com/yourusername/procman/docs/config-security'
+            '   This allows arbitrary code execution. Consider using HYBRID mode.\n' +
+            '   See: https://github.com/yourusername/procman/docs/config-security'
         );
         return super.load(filePath);
 
@@ -56,19 +58,20 @@ export class SecureConfigLoader extends ConfigLoader {
       case ConfigSecurityMode.TEMPLATE:
         throw createError('CONFIG_SECURITY_ERROR', {
           message: 'Template mode not yet implemented',
-          details: { mode: this.securityMode }
+          details: { mode: this.securityMode },
         });
 
       case ConfigSecurityMode.ISOLATED:
         throw createError('CONFIG_SECURITY_ERROR', {
-          message: 'Isolated mode not yet implemented. Install isolated-vm package.',
-          details: { mode: this.securityMode }
+          message:
+            'Isolated mode not yet implemented. Install isolated-vm package.',
+          details: { mode: this.securityMode },
         });
 
       default:
         throw createError('CONFIG_SECURITY_ERROR', {
           message: `Unknown security mode: ${this.securityMode}`,
-          details: { mode: this.securityMode }
+          details: { mode: this.securityMode },
         });
     }
   }
@@ -76,14 +79,16 @@ export class SecureConfigLoader extends ConfigLoader {
   /**
    * Load configuration using VM sandbox with restricted context
    */
-  private async loadWithHybridSandbox(filePath: string): Promise<ProcmanConfig> {
+  private async loadWithHybridSandbox(
+    filePath: string
+  ): Promise<ProcmanConfig> {
     const absolutePath = path.resolve(filePath);
-    
+
     // Validate file exists and is readable
     await this.validateFilePathSecure(filePath);
 
     const content = await fs.promises.readFile(absolutePath, 'utf-8');
-    
+
     // Quick check for obvious dangerous patterns
     this.performBasicSecurityCheck(content, absolutePath);
 
@@ -94,9 +99,8 @@ export class SecureConfigLoader extends ConfigLoader {
       // Compile and run script in sandbox
       const script = new vm.Script(content, {
         filename: path.basename(absolutePath),
-        timeout: this.sandboxTimeout,
-        // @ts-ignore - displayErrors exists but not in types
-        displayErrors: true
+        // @ts-expect-error - displayErrors exists but not in types
+        displayErrors: true,
       });
 
       const context = vm.createContext(sandbox);
@@ -104,24 +108,24 @@ export class SecureConfigLoader extends ConfigLoader {
 
       // Extract configuration from sandbox
       const config = sandbox.module.exports;
-      
+
       // Validate the configuration
       this.validator.validateConfig(config);
-      
+
       return config as ProcmanConfig;
     } catch (error) {
       if (error instanceof Error && error.message.includes('timed out')) {
         throw createError('CONFIG_PARSE_ERROR', {
           message: `Configuration script execution timed out after ${this.sandboxTimeout}ms`,
           cause: error,
-          details: { filePath: absolutePath, timeout: this.sandboxTimeout }
+          details: { filePath: absolutePath, timeout: this.sandboxTimeout },
         });
       }
-      
+
       throw createError('CONFIG_PARSE_ERROR', {
         message: `Failed to execute configuration in sandbox: ${error instanceof Error ? error.message : String(error)}`,
         cause: error instanceof Error ? error : undefined,
-        details: { filePath: absolutePath }
+        details: { filePath: absolutePath },
       });
     }
   }
@@ -140,17 +144,17 @@ export class SecureConfigLoader extends ConfigLoader {
       /__proto__/,
       /process\.exit/,
       /process\.kill/,
-      /fs\.(unlink|rmdir|rm)/
+      /fs\.(unlink|rmdir|rm)/,
     ];
 
     for (const pattern of dangerousPatterns) {
       if (pattern.test(content)) {
         throw createError('CONFIG_SECURITY_ERROR', {
           message: `Configuration contains potentially dangerous pattern: ${pattern}`,
-          details: { 
+          details: {
             filePath,
-            pattern: pattern.toString()
-          }
+            pattern: pattern.toString(),
+          },
         });
       }
     }
@@ -160,14 +164,18 @@ export class SecureConfigLoader extends ConfigLoader {
     let match;
     while ((match = requirePattern.exec(content)) !== null) {
       const moduleName = match[1];
-      if (!this.allowedModules.has(moduleName) && !moduleName.startsWith('./') && !moduleName.startsWith('../')) {
+      if (
+        !this.allowedModules.has(moduleName) &&
+        !moduleName.startsWith('./') &&
+        !moduleName.startsWith('../')
+      ) {
         throw createError('CONFIG_SECURITY_ERROR', {
           message: `Configuration attempts to require disallowed module: ${moduleName}`,
-          details: { 
+          details: {
             filePath,
             module: moduleName,
-            allowedModules: Array.from(this.allowedModules)
-          }
+            allowedModules: Array.from(this.allowedModules),
+          },
         });
       }
     }
@@ -176,18 +184,32 @@ export class SecureConfigLoader extends ConfigLoader {
   /**
    * Create sandboxed context for VM execution
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private createSandboxContext(filePath: string): any {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sandbox: any = {
       // Basic module structure
       module: { exports: {} },
       exports: {},
-      
+
       // Limited console (no access to real console)
       console: {
-        log: (...args: any[]) => { /* silent */ },
-        error: (...args: any[]) => { /* silent */ },
-        warn: (...args: any[]) => { /* silent */ },
-        info: (...args: any[]) => { /* silent */ }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+        log: (...args: any[]) => {
+          /* silent */
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+        error: (...args: any[]) => {
+          /* silent */
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+        warn: (...args: any[]) => {
+          /* silent */
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+        info: (...args: any[]) => {
+          /* silent */
+        },
       },
 
       // Limited process object
@@ -197,7 +219,7 @@ export class SecureConfigLoader extends ConfigLoader {
         arch: process.arch,
         version: process.version,
         versions: process.versions,
-        cwd: () => path.dirname(filePath)
+        cwd: () => path.dirname(filePath),
       },
 
       // Paths relative to config file
@@ -207,25 +229,36 @@ export class SecureConfigLoader extends ConfigLoader {
       // Controlled require function
       require: (id: string) => {
         if (!this.allowedModules.has(id)) {
-          throw new Error(`Module '${id}' is not allowed in sandboxed configuration`);
+          throw new Error(
+            `Module '${id}' is not allowed in sandboxed configuration`
+          );
         }
 
         // Limited module access
         switch (id) {
           case 'path':
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             return require('path');
           case 'os':
             return {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               cpus: require('os').cpus,
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               platform: require('os').platform,
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               arch: require('os').arch,
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               hostname: require('os').hostname,
-              homedir: require('os').homedir
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              homedir: require('os').homedir,
             };
           case 'url':
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             return require('url');
           default:
-            throw new Error(`Module '${id}' is not available in sandboxed configuration`);
+            throw new Error(
+              `Module '${id}' is not available in sandboxed configuration`
+            );
         }
       },
 
@@ -234,7 +267,7 @@ export class SecureConfigLoader extends ConfigLoader {
       setTimeout: undefined,
       setInterval: undefined,
       setImmediate: undefined,
-      Buffer: undefined
+      Buffer: undefined,
     };
 
     return sandbox;
@@ -280,23 +313,23 @@ export class SecureConfigLoader extends ConfigLoader {
    */
   private async validateFilePathSecure(filePath: string): Promise<string> {
     const absolutePath = path.resolve(filePath);
-    
+
     if (path.extname(absolutePath) !== '.js') {
       throw createError('CONFIG_VALIDATION_ERROR', {
         message: 'Configuration file must have .js extension',
         details: { filePath: absolutePath },
       });
     }
-    
+
     try {
       await fs.promises.access(absolutePath, fs.constants.F_OK);
-    } catch (error) {
+    } catch {
       throw createError('CONFIG_FILE_NOT_FOUND', {
         message: `Configuration file not found: ${absolutePath}`,
         details: { filePath: absolutePath },
       });
     }
-    
+
     try {
       await fs.promises.access(absolutePath, fs.constants.R_OK);
     } catch (error) {
@@ -306,19 +339,21 @@ export class SecureConfigLoader extends ConfigLoader {
         details: { filePath: absolutePath },
       });
     }
-    
+
     return absolutePath;
   }
 
   /**
    * Validate that a configuration file is safe to load
    */
-  async validateConfigSecurity(filePath: string): Promise<{ safe: boolean; issues: string[] }> {
+  async validateConfigSecurity(
+    filePath: string
+  ): Promise<{ safe: boolean; issues: string[] }> {
     const issues: string[] = [];
-    
+
     try {
       const content = await fs.promises.readFile(filePath, 'utf-8');
-      
+
       // Check for dangerous patterns
       try {
         this.performBasicSecurityCheck(content, filePath);
@@ -327,17 +362,19 @@ export class SecureConfigLoader extends ConfigLoader {
           issues.push(error.message);
         }
       }
-      
+
       // Additional checks can be added here
-      
+
       return {
         safe: issues.length === 0,
-        issues
+        issues,
       };
     } catch (error) {
       return {
         safe: false,
-        issues: [`Failed to read file: ${error instanceof Error ? error.message : String(error)}`]
+        issues: [
+          `Failed to read file: ${error instanceof Error ? error.message : String(error)}`,
+        ],
       };
     }
   }
@@ -346,6 +383,8 @@ export class SecureConfigLoader extends ConfigLoader {
 /**
  * Create a secure configuration loader instance
  */
-export function createSecureConfigLoader(options?: SecureConfigLoaderOptions): SecureConfigLoader {
+export function createSecureConfigLoader(
+  options?: SecureConfigLoaderOptions
+): SecureConfigLoader {
   return new SecureConfigLoader(options);
 }

@@ -138,17 +138,16 @@ module.exports = {
         expect(startCommand.type).toBe('start');
 
         // Simulate process started successfully
-        const successResponse: ipc.IPCResponse = {
+        const successResponse: ipc.IPCResponse<ipc.StartResponseData> = {
+          id: ipc.generateMessageId(),
+          requestId: startCommand.id,
+          type: 'response',
+          timestamp: Date.now(),
           success: true,
           data: {
-            startedProcesses: [
-              {
-                ...procInfo,
-                status: 'online' as const,
-                pid: Math.floor(Math.random() * 90000) + 10000,
-              },
-            ],
-            failedProcesses: [],
+            started: ['test-process'],
+            alreadyRunning: [],
+            failed: [],
           },
         };
 
@@ -253,6 +252,10 @@ module.exports = {
 
       // 4. Create IPC error response
       const errorResponse: ipc.IPCResponse = {
+        id: ipc.generateMessageId(),
+        requestId: 'test-request-id',
+        type: 'response',
+        timestamp: Date.now(),
         success: false,
         error: {
           code: configError.code,
@@ -300,7 +303,7 @@ module.exports = {
       }
 
       // 2. Create process info with high memory usage
-      const limitInMB = Math.floor(memoryResult.value / (1024 * 1024));
+      const limitInMB = Math.floor((memoryResult.value || 0) / (1024 * 1024));
       const processInfo: processTypes.ProcessInfo = {
         name: appConfig.name,
         namespace: constants.DEFAULT_NAMESPACE,
@@ -318,7 +321,7 @@ module.exports = {
       // Make sure the process memory is set higher than the limit for test
       processInfo.memory = 600; // Set to 600MB, higher than 512MB limit
       const currentMemoryBytes = processInfo.memory * 1024 * 1024;
-      const exceedsLimit = currentMemoryBytes > memoryResult.value;
+      const exceedsLimit = currentMemoryBytes > (memoryResult.value || 0);
       expect(exceedsLimit).toBe(true);
 
       // 4. Create restart command
@@ -653,11 +656,16 @@ module.exports = {
         timestamp: Date.now(),
       };
 
-      const listResponse: ipc.IPCResponse = {
+      const listResponse: ipc.IPCResponse<ipc.ListResponseData> = {
+        id: ipc.generateMessageId(),
+        requestId: listCommand.id,
+        type: 'response',
+        timestamp: Date.now(),
         success: true,
         data: {
+          configFile: '/path/to/config.js',
+          daemonUptime: 3600,
           processes,
-          totalCount: processes.length,
         },
       };
 

@@ -15,17 +15,16 @@ import type {
   IPCServerConfig,
   IPCConnection,
   IPCServerEvents,
-  TypedEventEmitter,
   CommandType,
 } from '../shared/ipc';
 import type { ErrorCode } from '../shared/errors';
 import { generateMessageId } from '../shared/ipc';
 
 /**
- * Message handler function type with generic command type constraint
+ * Message handler function type
  */
-export type MessageHandler<T extends CommandType = CommandType> = (
-  message: IPCCommandMessage<T>,
+export type MessageHandler = (
+  message: IPCCommandMessage,
   connection: IPCConnection
 ) => Promise<IPCResponse | void>;
 
@@ -33,19 +32,16 @@ export type MessageHandler<T extends CommandType = CommandType> = (
  * Mapped type for command-specific handlers
  */
 export type CommandHandlerMap = {
-  [K in CommandType]: MessageHandler<K>;
+  [K in CommandType]: MessageHandler;
 };
 
 /**
  * Type-safe message handler registry
  */
 export interface MessageHandlerRegistry {
-  register<T extends CommandType>(
-    commandType: T,
-    handler: MessageHandler<T>
-  ): void;
+  register(commandType: CommandType, handler: MessageHandler): void;
   unregister(commandType: CommandType): void;
-  get<T extends CommandType>(commandType: T): MessageHandler<T> | undefined;
+  get(commandType: CommandType): MessageHandler | undefined;
   has(commandType: CommandType): boolean;
   clear(): void;
 }
@@ -53,10 +49,7 @@ export interface MessageHandlerRegistry {
 /**
  * Abstract base class for IPC servers
  */
-export abstract class IPCServerBase
-  extends SimpleDisposableBase
-  implements TypedEventEmitter<IPCServerEvents>
-{
+export abstract class IPCServerBase extends SimpleDisposableBase {
   protected config: Required<IPCServerConfig>;
   protected connections: Map<string, IPCConnection> = new Map();
   protected messageHandlers: Map<string, MessageHandler> = new Map();
@@ -64,18 +57,17 @@ export abstract class IPCServerBase
   protected serverInstance: EventEmitter | null = null;
   private eventEmitter = new EventEmitter();
 
-  constructor(config: IPCServerConfig = {}) {
+  constructor(config: IPCServerConfig = { path: '' }) {
     super();
 
     // Set default configuration
     this.config = {
-      socketPath: config.socketPath || '',
-      namedPipePath: config.namedPipePath || '',
-      timeout: config.timeout || 5000,
-      retryAttempts: config.retryAttempts || 3,
-      retryDelay: config.retryDelay || 1000,
+      path: config.path,
+      socketPath: config.socketPath || config.path || '',
+      namedPipePath: config.namedPipePath || config.path || '',
+      cleanupOnStart: config.cleanupOnStart ?? true,
       maxConnections: config.maxConnections || 100,
-      allowAnonymous: config.allowAnonymous ?? true,
+      connectionTimeout: config.connectionTimeout || 30000,
     };
   }
 
@@ -117,7 +109,7 @@ export abstract class IPCServerBase
         async (connection) => {
           try {
             await Promise.race([
-              connection.close(),
+              connection.close ? connection.close() : Promise.resolve(),
               new Promise((_, reject) =>
                 setTimeout(
                   () => reject(new Error('Connection close timeout')),
@@ -129,8 +121,8 @@ export abstract class IPCServerBase
             // Log error but continue with other connections
             this.emit(
               'connectionCloseError',
-              connection,
-              error instanceof Error ? error : new Error(String(error))
+              error instanceof Error ? error : new Error(String(error)),
+              connection.id
             );
           }
         }
@@ -154,11 +146,8 @@ export abstract class IPCServerBase
   /**
    * Register a message handler for a specific command type
    */
-  registerHandler<T extends CommandType>(
-    commandType: T,
-    handler: MessageHandler<T>
-  ): void {
-    this.messageHandlers.set(commandType, handler as MessageHandler);
+  registerHandler(commandType: CommandType, handler: MessageHandler): void {
+    this.messageHandlers.set(commandType, handler);
   }
 
   /**
@@ -171,12 +160,8 @@ export abstract class IPCServerBase
   /**
    * Get a message handler for a specific command type
    */
-  getHandler<T extends CommandType>(
-    commandType: T
-  ): MessageHandler<T> | undefined {
-    return this.messageHandlers.get(commandType) as
-      | MessageHandler<T>
-      | undefined;
+  getHandler(commandType: CommandType): MessageHandler | undefined {
+    return this.messageHandlers.get(commandType);
   }
 
   /**
@@ -224,7 +209,9 @@ export abstract class IPCServerBase
       async (connection) => {
         try {
           await Promise.race([
-            connection.send(message),
+            connection.send
+              ? connection.send(message)
+              : Promise.reject(new Error('send method not available')),
             new Promise((_, reject) =>
               setTimeout(() => reject(new Error('Broadcast timeout')), 5000)
             ),
@@ -232,8 +219,8 @@ export abstract class IPCServerBase
         } catch (error) {
           this.emit(
             'connectionError',
-            connection,
-            error instanceof Error ? error : new Error(String(error))
+            error instanceof Error ? error : new Error(String(error)),
+            connection.id
           );
         }
       }
@@ -248,12 +235,14 @@ export abstract class IPCServerBase
     data: Buffer,
     connection: IPCConnection
   ): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let messages: any[] = [];
     try {
       // Update last activity
       connection.lastActivity = Date.now();
 
       // Parse messages from buffer (handle multiple messages)
-      const messages = this.parseMessages(data);
+      messages = this.parseMessages(data);
 
       for (const messageData of messages) {
         await this.processMessage(messageData, connection);
@@ -261,8 +250,9 @@ export abstract class IPCServerBase
     } catch (error) {
       this.emit(
         'messageError',
-        connection,
-        error instanceof Error ? error : new Error(String(error))
+        error instanceof Error ? error : new Error(String(error)),
+        messages, // The message data that caused the error
+        connection.id
       );
 
       // Send error response if possible
@@ -271,21 +261,24 @@ export abstract class IPCServerBase
           id: generateMessageId(),
           type: 'error',
           requestId: 'unknown',
-          payload: {
+          timestamp: Date.now(),
+          success: false,
+          error: {
             code: 'MESSAGE_PARSE_ERROR' as ErrorCode,
             message: 'Failed to parse message',
             details: {
               error: error instanceof Error ? error.message : String(error),
             },
           },
-          timestamp: Date.now(),
         };
-        await connection.send(errorResponse);
+        if (connection.send) {
+          await connection.send(errorResponse);
+        }
       } catch (sendError) {
         this.emit(
           'connectionError',
-          connection,
-          sendError instanceof Error ? sendError : new Error(String(sendError))
+          sendError instanceof Error ? sendError : new Error(String(sendError)),
+          connection.id
         );
       }
     }
@@ -356,14 +349,18 @@ export abstract class IPCServerBase
 
       // Handle ping message specially for heartbeat monitoring (internal message)
       if (messageData.type === 'ping') {
-        const pongResponse = {
+        const pongResponse: IPCResponse = {
           id: generateMessageId(),
           type: 'response', // Use existing response type for internal pong
           requestId: messageData.id,
-          payload: { timestamp: Date.now() },
           timestamp: Date.now(),
+          success: true,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data: { timestamp: Date.now() } as any,
         };
-        await connection.send(pongResponse as IPCResponse);
+        if (connection.send) {
+          await connection.send(pongResponse);
+        }
         return;
       }
 
@@ -381,7 +378,9 @@ export abstract class IPCServerBase
 
       // Send response if handler returned one
       if (response) {
-        await connection.send(response);
+        if (connection.send) {
+          await connection.send(response);
+        }
       }
     } catch (error) {
       // Send error response
@@ -397,7 +396,8 @@ export abstract class IPCServerBase
             ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (messageData as any).id
             : 'unknown',
-        payload: {
+        success: false,
+        error: {
           code: 'COMMAND_EXECUTION_ERROR' as ErrorCode,
           message: error instanceof Error ? error.message : String(error),
           details: { originalMessage: messageData },
@@ -406,12 +406,14 @@ export abstract class IPCServerBase
       };
 
       try {
-        await connection.send(errorResponse);
+        if (connection.send) {
+          await connection.send(errorResponse);
+        }
       } catch (sendError) {
         this.emit(
           'connectionError',
-          connection,
-          sendError instanceof Error ? sendError : new Error(String(sendError))
+          sendError instanceof Error ? sendError : new Error(String(sendError)),
+          connection.id
         );
       }
     }
@@ -440,7 +442,12 @@ export abstract class IPCServerBase
   public handleConnection(connection: IPCConnection): void {
     // Check connection limit
     if (this.connections.size >= this.config.maxConnections) {
-      connection.close().catch(() => {});
+      if (connection.close) {
+        const closePromise = connection.close();
+        if (closePromise && typeof closePromise.catch === 'function') {
+          closePromise.catch(() => {});
+        }
+      }
       return;
     }
 
@@ -459,7 +466,7 @@ export abstract class IPCServerBase
     // Remove connection when it closes
     const cleanup = (): void => {
       this.connections.delete(connection.id);
-      this.emit('disconnection', connection);
+      this.emit('disconnection', connection.id);
     };
 
     // Track event listeners for proper cleanup
@@ -476,7 +483,7 @@ export abstract class IPCServerBase
         connection as any as EventEmitter,
         'error',
         (error: Error) => {
-          this.emit('connectionError', connection, error);
+          this.emit('connectionError', error, connection.id);
           cleanup();
         }
       );
@@ -489,14 +496,16 @@ export abstract class IPCServerBase
    */
   protected setupConnectionEvents(connection: IPCConnection): void {
     // Set up connection data handler
-    connection.on('data', (data: Buffer) => {
-      this.handleMessage(data, connection);
-    });
+    if (connection.on) {
+      connection.on('data', (data: Buffer) => {
+        this.handleMessage(data, connection);
+      });
 
-    // Clean up connection when it's disposed
-    connection.on('close', () => {
-      // Connection cleanup is handled in base class
-    });
+      // Clean up connection when it's disposed
+      connection.on('close', () => {
+        // Connection cleanup is handled in base class
+      });
+    }
 
     // Handle the new connection
     this.handleConnection(connection);
@@ -539,9 +548,14 @@ export abstract class IPCServerBase
     const connectionsArray = Array.from(this.connections.values());
     for (const connection of connectionsArray) {
       try {
-        connection.close().catch(() => {
-          /* ignore */
-        });
+        if (connection.close) {
+          const closePromise = connection.close();
+          if (closePromise && typeof closePromise.catch === 'function') {
+            closePromise.catch(() => {
+              /* ignore */
+            });
+          }
+        }
       } catch {
         // Ignore errors during disposal
       }
@@ -583,33 +597,43 @@ export abstract class IPCServerBase
    */
   on<K extends keyof IPCServerEvents>(
     event: K,
-    listener: (...args: IPCServerEvents[K]) => void
+    listener: IPCServerEvents[K]
   ): this {
-    this.eventEmitter.on(event as string, listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.eventEmitter.on(event as string, listener as any);
     return this;
   }
 
   once<K extends keyof IPCServerEvents>(
     event: K,
-    listener: (...args: IPCServerEvents[K]) => void
+    listener: IPCServerEvents[K]
   ): this {
-    this.eventEmitter.once(event as string, listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.eventEmitter.once(event as string, listener as any);
     return this;
   }
 
   emit<K extends keyof IPCServerEvents>(
     event: K,
-    ...args: IPCServerEvents[K]
+    ...args: Parameters<IPCServerEvents[K]>
   ): boolean {
     return this.eventEmitter.emit(event as string, ...args);
   }
 
   removeListener<K extends keyof IPCServerEvents>(
     event: K,
-    listener: (...args: IPCServerEvents[K]) => void
+    listener: IPCServerEvents[K]
   ): this {
-    this.eventEmitter.removeListener(event as string, listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.eventEmitter.removeListener(event as string, listener as any);
     return this;
+  }
+
+  off<K extends keyof IPCServerEvents>(
+    event: K,
+    listener: IPCServerEvents[K]
+  ): this {
+    return this.removeListener(event, listener);
   }
 
   removeAllListeners<K extends keyof IPCServerEvents>(event?: K): this {

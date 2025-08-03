@@ -27,11 +27,12 @@ export class NamedPipeServer extends IPCServerBase {
   private server: net.Server | null = null;
   private readonly pipePath: string;
 
-  constructor(config: IPCServerConfig = {}) {
+  constructor(config: IPCServerConfig = { path: '' }) {
     super(config);
 
     // Determine pipe path
-    this.pipePath = config.namedPipePath || '\\\\.\\pipe\\masuidrive-procman';
+    this.pipePath =
+      config.namedPipePath || config.path || '\\\\.\\pipe\\masuidrive-procman';
   }
 
   /**

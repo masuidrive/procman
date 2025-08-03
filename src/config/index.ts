@@ -1,6 +1,6 @@
 /**
  * Configuration Module Exports
- * 
+ *
  * Main entry point for configuration-related functionality.
  * Exports all public interfaces and classes for configuration management.
  */
@@ -11,16 +11,32 @@ export type { ConfigLoaderOptions, LoadedConfig } from './config-loader';
 
 // Re-export specialized classes for advanced usage
 export { ConfigValidator } from './config-validator';
-export type { ConfigValidatorOptions, ValidationIssue, ValidationSeverity } from './config-validator';
+export type {
+  ConfigValidatorOptions,
+  ValidationIssue,
+  ValidationSeverity,
+} from './config-validator';
 
 export { ConfigNormalizer } from './config-normalizer';
-export type { ConfigNormalizerOptions, NormalizedConfig } from './config-normalizer';
+export type {
+  ConfigNormalizerOptions,
+  NormalizedConfig,
+} from './config-normalizer';
 
 export { ConfigWatcher } from './config-watcher';
-export type { ConfigWatcherOptions, WatchCallback, WatcherDisposal, FileChangeEvent } from './config-watcher';
+export type {
+  ConfigWatcherOptions,
+  WatchCallback,
+  WatcherDisposal,
+  FileChangeEvent,
+} from './config-watcher';
 
 export { ConfigReporter } from './config-reporter';
-export type { ConfigReporterOptions, ValidationReport, EnhancedValidationError } from './config-reporter';
+export type {
+  ConfigReporterOptions,
+  ValidationReport,
+  EnhancedValidationError,
+} from './config-reporter';
 
 // Re-export secure config loader for safer configuration loading
 export { SecureConfigLoader, ConfigSecurityMode } from './secure-config-loader';
@@ -41,7 +57,10 @@ export { createSecureConfigLoader } from './secure-config-loader';
  * @param options Optional configuration options
  * @returns ConfigLoader instance
  */
-export function createConfigLoader(options?: import('./config-loader').ConfigLoaderOptions): import('./config-loader').ConfigLoader {
+export function createConfigLoader(
+  options?: import('./config-loader').ConfigLoaderOptions
+): import('./config-loader').ConfigLoader {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ConfigLoader } = require('./config-loader');
   return new ConfigLoader(options);
 }
@@ -50,7 +69,9 @@ export function createConfigLoader(options?: import('./config-loader').ConfigLoa
  * Default ConfigLoader instance for convenience
  * Use this for simple use cases where you don't need custom configuration
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const defaultConfigLoader = (() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ConfigLoader } = require('./config-loader');
   return new ConfigLoader();
 })();
