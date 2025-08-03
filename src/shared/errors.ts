@@ -13,6 +13,8 @@ export type ErrorCode =
   | 'CONFIG_FILE_NOT_FOUND'
   | 'CONFIG_PARSE_ERROR'
   | 'CONFIG_VALIDATION_ERROR'
+  | 'CONFIG_SECURITY_ERROR'
+  | 'CONFIG_WATCH_ERROR'
   | 'PROCESS_NOT_FOUND'
   | 'PROCESS_START_FAILED'
   | 'LOG_FILE_NOT_FOUND'
@@ -36,6 +38,9 @@ export const ERROR_MESSAGES: ErrorMessage = {
   CONFIG_PARSE_ERROR: 'Failed to parse configuration file. Check file syntax.',
   CONFIG_VALIDATION_ERROR:
     'Configuration validation failed. Check configuration values.',
+  CONFIG_SECURITY_ERROR:
+    'Configuration security validation failed. Potential security risk detected.',
+  CONFIG_WATCH_ERROR: 'Failed to watch configuration file for changes.',
   PROCESS_NOT_FOUND: 'Process not found. Check process name and namespace.',
   PROCESS_START_FAILED: 'Failed to start process. Check process configuration.',
   LOG_FILE_NOT_FOUND: 'Log file not found.',
