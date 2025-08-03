@@ -23,14 +23,17 @@ describe('ProcessLifecycleManagerImpl', () => {
   beforeEach(() => {
     processes = new Map();
     childProcesses = new Map();
-    lifecycleManager = new ProcessLifecycleManagerImpl(processes, childProcesses);
+    lifecycleManager = new ProcessLifecycleManagerImpl(
+      processes,
+      childProcesses
+    );
 
     // Create a mock child process
     mockChildProcess = new EventEmitter() as ChildProcess;
     Object.defineProperty(mockChildProcess, 'pid', {
       value: 12345,
       writable: false,
-      configurable: true
+      configurable: true,
     });
     mockChildProcess.kill = vi.fn().mockReturnValue(true);
     mockChildProcess.stdin = new EventEmitter() as any;
@@ -65,7 +68,7 @@ describe('ProcessLifecycleManagerImpl', () => {
       processes.set('test-process', managedProcess);
 
       // Mock spawn to return our mock child process
-      const spawn = await import('child_process').then(m => m.spawn);
+      const spawn = await import('child_process').then((m) => m.spawn);
       vi.mocked(spawn).mockReturnValue(mockChildProcess);
 
       // Start the process
@@ -87,7 +90,9 @@ describe('ProcessLifecycleManagerImpl', () => {
       const result = await lifecycleManager.startProcess('non-existent');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe(`Process 'non-existent' not found. Use initializeProcess() first.`);
+      expect(result.error).toBe(
+        `Process 'non-existent' not found. Use initializeProcess() first.`
+      );
     });
 
     it('should fail if process already running', async () => {
@@ -137,7 +142,7 @@ describe('ProcessLifecycleManagerImpl', () => {
       processes.set('test-process', managedProcess);
 
       // Mock spawn to return our mock child process
-      const spawn = await import('child_process').then(m => m.spawn);
+      const spawn = await import('child_process').then((m) => m.spawn);
       vi.mocked(spawn).mockReturnValue(mockChildProcess);
 
       // Start the process
@@ -146,7 +151,7 @@ describe('ProcessLifecycleManagerImpl', () => {
       // Simulate spawn error
       const error = new Error('spawn ENOENT');
       (error as any).code = 'ENOENT';
-      
+
       process.nextTick(() => {
         mockChildProcess.emit('error', error);
       });
@@ -183,14 +188,14 @@ describe('ProcessLifecycleManagerImpl', () => {
       childProcesses.set('test-process', mockChildProcess);
 
       const resultPromise = lifecycleManager.stopProcess('test-process');
-      
+
       // Process should transition to stopping
       expect(managedProcess.getStatus()).toBe('stopping');
       expect(mockChildProcess.kill).toHaveBeenCalledWith('SIGTERM');
-      
+
       // Simulate process exit
       mockChildProcess.emit('exit', 0, null);
-      
+
       const result = await resultPromise;
       expect(result.success).toBe(true);
     });
@@ -251,25 +256,28 @@ describe('ProcessLifecycleManagerImpl', () => {
       childProcesses.set('test-process', mockChildProcess);
 
       // Mock kill to return false (failed)
-      mockChildProcess.kill = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+      mockChildProcess.kill = vi
+        .fn()
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
 
       vi.useFakeTimers();
       const resultPromise = lifecycleManager.stopProcess('test-process');
-      
+
       // Process should first receive SIGTERM
       expect(mockChildProcess.kill).toHaveBeenCalledWith('SIGTERM');
       expect(mockChildProcess.kill).toHaveBeenCalledTimes(1);
-      
+
       // Wait for timeout to trigger SIGKILL
       await vi.advanceTimersByTimeAsync(15000);
-      
+
       // Now SIGKILL should have been sent
       expect(mockChildProcess.kill).toHaveBeenCalledTimes(2);
       expect(mockChildProcess.kill).toHaveBeenLastCalledWith('SIGKILL');
-      
+
       // Simulate force kill success
       mockChildProcess.emit('exit', -1, 'SIGKILL');
-      
+
       const result = await resultPromise;
       expect(result.success).toBe(true);
       vi.useRealTimers();
@@ -300,12 +308,12 @@ describe('ProcessLifecycleManagerImpl', () => {
       childProcesses.set('test-process', mockChildProcess);
 
       // Mock spawn for restart
-      const spawn = await import('child_process').then(m => m.spawn);
+      const spawn = await import('child_process').then((m) => m.spawn);
       const newMockProcess = new EventEmitter() as ChildProcess;
       Object.defineProperty(newMockProcess, 'pid', {
         value: 12346,
         writable: false,
-        configurable: true
+        configurable: true,
       });
       newMockProcess.kill = vi.fn().mockReturnValue(true);
       newMockProcess.stdin = new EventEmitter() as any;
@@ -318,7 +326,7 @@ describe('ProcessLifecycleManagerImpl', () => {
       // Simulate process exit quickly
       process.nextTick(() => {
         mockChildProcess.emit('exit', 0, null);
-        
+
         // Simulate new process spawn after a tick
         process.nextTick(() => {
           newMockProcess.emit('spawn');
@@ -353,7 +361,7 @@ describe('ProcessLifecycleManagerImpl', () => {
       processes.set('test-process', managedProcess);
 
       // Mock spawn
-      const spawn = await import('child_process').then(m => m.spawn);
+      const spawn = await import('child_process').then((m) => m.spawn);
       vi.mocked(spawn).mockReturnValue(mockChildProcess);
 
       const resultPromise = lifecycleManager.restartProcess('test-process');
@@ -391,7 +399,10 @@ describe('ProcessLifecycleManagerImpl', () => {
       processes.set('test-process', managedProcess);
       childProcesses.set('test-process', mockChildProcess);
 
-      const result = await lifecycleManager.sendSignalToProcess('test-process', 'SIGKILL');
+      const result = await lifecycleManager.sendSignalToProcess(
+        'test-process',
+        'SIGKILL'
+      );
 
       expect(result.success).toBe(true);
       expect(mockChildProcess.kill).toHaveBeenCalledWith('SIGKILL');
@@ -419,7 +430,10 @@ describe('ProcessLifecycleManagerImpl', () => {
       processes.set('test-process', managedProcess);
       childProcesses.set('test-process', mockChildProcess);
 
-      const result = await lifecycleManager.sendSignalToProcess('test-process', 'SIGUSR1');
+      const result = await lifecycleManager.sendSignalToProcess(
+        'test-process',
+        'SIGUSR1'
+      );
 
       expect(result.success).toBe(true);
       expect(mockChildProcess.kill).toHaveBeenCalledWith('SIGUSR1');
@@ -445,7 +459,10 @@ describe('ProcessLifecycleManagerImpl', () => {
       managedProcess.setStatus('stopped');
       processes.set('test-process', managedProcess);
 
-      const result = await lifecycleManager.sendSignalToProcess('test-process', 'SIGUSR1');
+      const result = await lifecycleManager.sendSignalToProcess(
+        'test-process',
+        'SIGUSR1'
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBe(`Process 'test-process' is not running`);

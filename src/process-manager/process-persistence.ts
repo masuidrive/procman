@@ -149,9 +149,9 @@ export class ProcessPersistenceImpl
       const persistenceData = {
         version: '1.0',
         timestamp: Date.now(),
-        processes: processes
+        processes: processes,
       };
-      
+
       const jsonState = JSON.stringify(persistenceData, null, 2);
 
       // Use atomic write pattern
@@ -249,13 +249,17 @@ export class ProcessPersistenceImpl
     try {
       const data = await fs.readFile(this.config.filePath, 'utf-8');
       const parsedData = JSON.parse(data);
-      
+
       // Handle both old format (array) and new format (object with version)
       let persistedProcs: PersistedManagedProcessInfo[];
       if (Array.isArray(parsedData)) {
         // Old format - direct array
         persistedProcs = parsedData;
-      } else if (parsedData && typeof parsedData === 'object' && parsedData.processes) {
+      } else if (
+        parsedData &&
+        typeof parsedData === 'object' &&
+        parsedData.processes
+      ) {
         // New format with version
         persistedProcs = parsedData.processes;
       } else {
@@ -315,13 +319,17 @@ export class ProcessPersistenceImpl
     try {
       const data = await fs.readFile(backupFilePath, 'utf-8');
       const parsedData = JSON.parse(data);
-      
+
       // Handle both old format (array) and new format (object with version)
       let persistedProcs: PersistedManagedProcessInfo[];
       if (Array.isArray(parsedData)) {
         // Old format - direct array
         persistedProcs = parsedData;
-      } else if (parsedData && typeof parsedData === 'object' && parsedData.processes) {
+      } else if (
+        parsedData &&
+        typeof parsedData === 'object' &&
+        parsedData.processes
+      ) {
         // New format with version
         persistedProcs = parsedData.processes;
       } else {

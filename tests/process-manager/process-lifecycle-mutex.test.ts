@@ -23,14 +23,17 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
   beforeEach(() => {
     processes = new Map();
     childProcesses = new Map();
-    lifecycleManager = new ProcessLifecycleManagerImpl(processes, childProcesses);
+    lifecycleManager = new ProcessLifecycleManagerImpl(
+      processes,
+      childProcesses
+    );
 
     // Create a mock child process
     mockChildProcess = new EventEmitter() as ChildProcess;
     Object.defineProperty(mockChildProcess, 'pid', {
       value: 12345,
       writable: false,
-      configurable: true
+      configurable: true,
     });
     mockChildProcess.kill = vi.fn().mockReturnValue(true);
     mockChildProcess.stdin = new EventEmitter() as any;
@@ -64,29 +67,33 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
     processes.set('test-process', managedProcess);
 
     // Mock spawn to return our mock child process
-    const spawn = await import('child_process').then(m => m.spawn);
+    const spawn = await import('child_process').then((m) => m.spawn);
     vi.mocked(spawn).mockReturnValue(mockChildProcess);
 
     // Track operation order
     const operationLog: string[] = [];
-    
+
     // Override setStatus to log operations
     const originalSetStatus = managedProcess.setStatus.bind(managedProcess);
-    managedProcess.setStatus = function(status: any, ...args: any[]) {
+    managedProcess.setStatus = function (status: any, ...args: any[]) {
       operationLog.push(`setStatus:${status}`);
       return originalSetStatus(status, ...args);
     };
 
     // Start two concurrent operations
-    const promise1 = lifecycleManager.startProcess('test-process').then((result) => {
-      operationLog.push('operation1:complete');
-      return result;
-    });
+    const promise1 = lifecycleManager
+      .startProcess('test-process')
+      .then((result) => {
+        operationLog.push('operation1:complete');
+        return result;
+      });
 
-    const promise2 = lifecycleManager.startProcess('test-process').then((result) => {
-      operationLog.push('operation2:complete');
-      return result;
-    });
+    const promise2 = lifecycleManager
+      .startProcess('test-process')
+      .then((result) => {
+        operationLog.push('operation2:complete');
+        return result;
+      });
 
     // Simulate first process spawn
     process.nextTick(() => {
@@ -97,7 +104,7 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
 
     // First operation should succeed
     expect(result1.success).toBe(true);
-    
+
     // Second operation should fail because process is already running
     expect(result2.success).toBe(false);
     expect(result2.error).toContain('already online');
@@ -134,12 +141,12 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
     childProcesses.set('test-process', mockChildProcess);
 
     // Mock spawn for restart
-    const spawn = await import('child_process').then(m => m.spawn);
+    const spawn = await import('child_process').then((m) => m.spawn);
     const newMockProcess = new EventEmitter() as ChildProcess;
     Object.defineProperty(newMockProcess, 'pid', {
       value: 12346,
-      writable: false,  
-      configurable: true
+      writable: false,
+      configurable: true,
     });
     newMockProcess.kill = vi.fn().mockReturnValue(true);
     newMockProcess.stdin = new EventEmitter() as any;
@@ -160,7 +167,7 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
     // Simulate process exit for stop
     setTimeout(() => {
       mockChildProcess.emit('exit', 0, null);
-      
+
       // After stop completes, start should proceed
       setTimeout(() => {
         newMockProcess.emit('spawn');
@@ -169,13 +176,16 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
 
     vi.runAllTimers();
 
-    const [stopResult, startResult] = await Promise.all([stopPromise, startPromise]);
+    const [stopResult, startResult] = await Promise.all([
+      stopPromise,
+      startPromise,
+    ]);
 
     vi.useRealTimers();
 
     // Stop should succeed
     expect(stopResult.success).toBe(true);
-    
+
     // Start should succeed after stop completes
     expect(startResult.success).toBe(true);
 
@@ -187,7 +197,7 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
 
   it('should allow concurrent operations on different processes', async () => {
     // Create two different processes
-    const configs = ['process1', 'process2'].map(name => ({
+    const configs = ['process1', 'process2'].map((name) => ({
       name,
       script: 'node',
       args: ['--version'],
@@ -202,33 +212,33 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
       restart_delay: 1000,
     }));
 
-    configs.forEach(config => {
+    configs.forEach((config) => {
       const managedProcess = new ManagedProcessInfo(config);
       processes.set(config.name, managedProcess);
     });
 
     // Mock spawn
-    const spawn = await import('child_process').then(m => m.spawn);
+    const spawn = await import('child_process').then((m) => m.spawn);
     const mockProcesses = new Map<string, ChildProcess>();
-    
+
     vi.mocked(spawn).mockImplementation((command, args, options) => {
       const mock = new EventEmitter() as ChildProcess;
       Object.defineProperty(mock, 'pid', {
         value: Math.floor(Math.random() * 10000) + 1000,
         writable: false,
-        configurable: true
+        configurable: true,
       });
       mock.kill = vi.fn().mockReturnValue(true);
       mock.stdin = new EventEmitter() as any;
       mock.stdout = new EventEmitter() as any;
       mock.stderr = new EventEmitter() as any;
-      
+
       // Store for later reference
       mockProcesses.set(mock.pid!.toString(), mock);
-      
+
       // Emit spawn after a delay
       setTimeout(() => mock.emit('spawn'), 10);
-      
+
       return mock;
     });
 
@@ -277,12 +287,12 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
     childProcesses.set('test-process', mockChildProcess);
 
     // Mock spawn for restart
-    const spawn = await import('child_process').then(m => m.spawn);
+    const spawn = await import('child_process').then((m) => m.spawn);
     const newMockProcess = new EventEmitter() as ChildProcess;
     Object.defineProperty(newMockProcess, 'pid', {
       value: 12346,
-      writable: false,  
-      configurable: true
+      writable: false,
+      configurable: true,
     });
     newMockProcess.kill = vi.fn().mockReturnValue(true);
     newMockProcess.stdin = new EventEmitter() as any;
@@ -292,23 +302,27 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
 
     // Track operations
     const operations: string[] = [];
-    
+
     // Start restart and stop concurrently
-    const restartPromise = lifecycleManager.restartProcess('test-process').then((result) => {
-      operations.push('restart:complete');
-      return result;
-    });
-    
-    const stopPromise = lifecycleManager.stopProcess('test-process').then((result) => {
-      operations.push('stop:complete');
-      return result;
-    });
+    const restartPromise = lifecycleManager
+      .restartProcess('test-process')
+      .then((result) => {
+        operations.push('restart:complete');
+        return result;
+      });
+
+    const stopPromise = lifecycleManager
+      .stopProcess('test-process')
+      .then((result) => {
+        operations.push('stop:complete');
+        return result;
+      });
 
     // Simulate process exit
     setTimeout(() => {
       operations.push('exit:emitted');
       mockChildProcess.emit('exit', 0, null);
-      
+
       // Simulate new process spawn after delay
       setTimeout(() => {
         operations.push('spawn:emitted');
@@ -318,13 +332,16 @@ describe('ProcessLifecycleManager - Mutex functionality', () => {
 
     vi.runAllTimers();
 
-    const [restartResult, stopResult] = await Promise.all([restartPromise, stopPromise]);
+    const [restartResult, stopResult] = await Promise.all([
+      restartPromise,
+      stopPromise,
+    ]);
 
     vi.useRealTimers();
 
     // Restart should complete successfully
     expect(restartResult.success).toBe(true);
-    
+
     // Stop should see the process as already stopped
     expect(stopResult.success).toBe(true);
     expect(stopResult.metadata?.wasAlreadyStopped).toBe(true);

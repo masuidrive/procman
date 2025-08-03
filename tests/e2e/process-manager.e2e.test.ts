@@ -10,6 +10,7 @@ import * as os from 'os';
 import { ConfigLoader } from '../../src/config/config-loader';
 import { ProcessManager } from '../../src/process-manager/process-manager';
 import { PROCESSES_FILE } from '../../src/shared/constants';
+import { AppConfig } from '../../src/shared/config';
 
 // Test helper functions
 const sleep = (ms: number): Promise<void> =>
@@ -340,12 +341,12 @@ describe('Process Manager E2E Tests', () => {
       // Cleanup the fast process manager
       await fastProcessManager.cleanup();
     }, 60000); // Longer timeout for memory consumption test
-    
+
     test('should detect and handle memory limit exceeded', async () => {
       // This is a simpler test that verifies the memory limit detection works
       const testManager = new ProcessManager(500, 1000); // Fast intervals
       await testManager.initialize();
-      
+
       try {
         // Use a simple script that allocates memory
         const memoryConfig: AppConfig = {
@@ -353,13 +354,13 @@ describe('Process Manager E2E Tests', () => {
           script: process.execPath,
           args: '-e "const arr=[]; setInterval(() => { arr.push(Buffer.alloc(2*1024*1024)); }, 100); setInterval(() => console.log(\'alive\'), 1000);"',
           max_memory_restart: '15M', // Low memory limit
-          namespace: 'memory-test'
+          namespace: 'memory-test',
         };
-        
+
         testManager.configureProcess(memoryConfig);
         testManager.initializeProcess('simple-memory-test');
         testManager.enableAutoRestart('simple-memory-test');
-        
+
         // Track events
         let restartCount = 0;
         testManager.on('process:restarted', (name: string) => {
@@ -367,22 +368,22 @@ describe('Process Manager E2E Tests', () => {
             restartCount++;
           }
         });
-        
+
         // Start monitoring and process
         testManager.startMonitoring();
         await testManager.startProcess('simple-memory-test');
         await waitForProcessStatus(testManager, 'simple-memory-test', 'online');
-        
+
         const startPid = testManager.getProcessInfo('simple-memory-test')!.pid;
         console.log('Test process started with PID:', startPid);
-        
+
         // Wait up to 20 seconds for a restart or memory limit
         const timeout = 20000;
         const startTime = Date.now();
-        
+
         while (Date.now() - startTime < timeout) {
           await sleep(1000);
-          
+
           const info = testManager.getProcessInfo('simple-memory-test');
           if (info) {
             // Check if process restarted
@@ -390,7 +391,7 @@ describe('Process Manager E2E Tests', () => {
               console.log('Process restarted with new PID:', info.pid);
               break;
             }
-            
+
             // Check restart count
             if (info.restarts > 0) {
               console.log('Process restart count:', info.restarts);
@@ -398,12 +399,12 @@ describe('Process Manager E2E Tests', () => {
             }
           }
         }
-        
+
         // Verify the process is configured correctly
         const finalInfo = testManager.getProcessInfo('simple-memory-test');
         expect(finalInfo).toBeDefined();
         expect(finalInfo!.namespace).toBe('memory-test');
-        
+
         // Clean up
         await testManager.stopProcess('simple-memory-test');
       } finally {

@@ -96,7 +96,7 @@ export class ProcessLifecycleManagerImpl
         // Determine the command and arguments
         let command: string;
         let commandArgs: string[];
-        
+
         // If script ends with .js, .mjs, or .cjs, run it with node
         if (config.script.match(/\.(js|mjs|cjs)$/i)) {
           command = process.execPath; // Use the same node binary that's running this process
@@ -272,7 +272,11 @@ export class ProcessLifecycleManagerImpl
               resolved = true;
               console.error(`Failed to kill process '${name}'`);
               managedProcess.setStatus('errored');
-              this.emit('process:error', name, new Error('Failed to kill process'));
+              this.emit(
+                'process:error',
+                name,
+                new Error('Failed to kill process')
+              );
               resolve({
                 success: false,
                 error: 'Failed to kill process after timeout',

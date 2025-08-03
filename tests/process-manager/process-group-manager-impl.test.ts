@@ -24,7 +24,7 @@ describe('ProcessGroupManagerImpl', () => {
       stopProcess: vi.fn().mockResolvedValue({ success: true }),
       restartProcess: vi.fn().mockResolvedValue({ success: true }),
     };
-    
+
     groupManager = new ProcessGroupManagerImpl(processes, mockLifecycle);
   });
 
@@ -34,7 +34,10 @@ describe('ProcessGroupManagerImpl', () => {
   });
 
   // Helper function to create test processes
-  function createTestProcess(name: string, namespace: string = 'default'): ManagedProcessInfo {
+  function createTestProcess(
+    name: string,
+    namespace: string = 'default'
+  ): ManagedProcessInfo {
     const config: ProcessConfig = {
       name,
       script: 'node',
@@ -120,7 +123,7 @@ describe('ProcessGroupManagerImpl', () => {
       const webProcesses = groupManager.getProcessesByNamespace('web');
 
       expect(webProcesses).toHaveLength(2);
-      expect(webProcesses.map(p => p.name)).toEqual(['web-1', 'web-2']);
+      expect(webProcesses.map((p) => p.name)).toEqual(['web-1', 'web-2']);
     });
 
     it('should return empty array for non-existent namespace', () => {
@@ -246,7 +249,9 @@ describe('ProcessGroupManagerImpl', () => {
     it('should handle promise rejections gracefully', async () => {
       processes.set('proc-1', createTestProcess('proc-1'));
 
-      mockLifecycle.startProcess.mockRejectedValueOnce(new Error('Network error'));
+      mockLifecycle.startProcess.mockRejectedValueOnce(
+        new Error('Network error')
+      );
 
       const result = await groupManager.startProcesses(['proc-1']);
 

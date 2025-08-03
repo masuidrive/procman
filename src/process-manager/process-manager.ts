@@ -99,7 +99,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     healthCheckInterval = 5000,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     memoryCheckInterval = 30000,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     persistenceFilePath?: string
   ) {
     super();
@@ -111,19 +111,17 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     );
     this.monitor = new ProcessMonitorImpl(this.processes, this.childProcesses);
     this.persistence = new ProcessPersistenceImpl(this.processes);
-    
+
     // Initialize persistence with default config
-    const defaultPersistencePath = persistenceFilePath || path.join(
-      os.homedir(),
-      '.masuidrive-procman',
-      'processes.json'
-    );
+    const defaultPersistencePath =
+      persistenceFilePath ||
+      path.join(os.homedir(), '.masuidrive-procman', 'processes.json');
     this.persistence.initialize({
       filePath: defaultPersistencePath,
       saveDelay: 1000,
       enableBackup: true,
     });
-    
+
     this.groups = new ProcessGroupManagerImpl(this.processes, {
       // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
       startProcess: (name: string) => this.lifecycle.startProcess(name),
@@ -135,7 +133,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
 
     // Forward events from components
     this.setupEventForwarding();
-    
+
     // Setup internal event handlers
     this.setupInternalEventHandlers();
   }
@@ -151,15 +149,12 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     const groupsEmitter = this.groups as unknown as EventEmitter;
 
     // Forward lifecycle events
-    lifecycleEmitter.on(
-      'process:started',
-      (name: string, pid: number) => {
-        const processInfo = this.processes.get(name)?.getProcessInfo();
-        if (processInfo) {
-          this.emit('process:started', name, processInfo);
-        }
+    lifecycleEmitter.on('process:started', (name: string, pid: number) => {
+      const processInfo = this.processes.get(name)?.getProcessInfo();
+      if (processInfo) {
+        this.emit('process:started', name, processInfo);
       }
-    );
+    });
     lifecycleEmitter.on(
       'process:stopped',
       (name: string, code: number | null, signal: string | null) => {
@@ -171,7 +166,12 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     );
     lifecycleEmitter.on(
       'process:exit',
-      (name: string, code: number | null, signal: string | null, wasUnexpected: boolean) => {
+      (
+        name: string,
+        code: number | null,
+        signal: string | null,
+        wasUnexpected: boolean
+      ) => {
         this.emit('process:exit', name, code, signal);
       }
     );
@@ -186,9 +186,12 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
         this.emit('process:memory-limit', data.name, data.usage, data.limit);
       }
     );
-    monitorEmitter.on('process:unhealthy', (data: { name: string; consecutiveFailures: number }) => {
-      this.emit('process:unhealthy', data.name, data.consecutiveFailures);
-    });
+    monitorEmitter.on(
+      'process:unhealthy',
+      (data: { name: string; consecutiveFailures: number }) => {
+        this.emit('process:unhealthy', data.name, data.consecutiveFailures);
+      }
+    );
     monitorEmitter.on('process:died', (data: { name: string }) => {
       this.emit('process:died', data.name);
     });
@@ -253,19 +256,27 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    */
   private setupInternalEventHandlers(): void {
     // Handle memory limit exceeded - trigger restart
-    this.on('process:memory-limit', async (name: string, usage: number, limit: number) => {
-      console.log(`Process '${name}' exceeded memory limit: ${Math.round(usage / 1024 / 1024)}MB > ${Math.round(limit / 1024 / 1024)}MB`);
-      
-      const managedProcess = this.processes.get(name);
-      if (managedProcess && managedProcess.isAutoRestartEnabled()) {
-        console.log(`Auto-restarting process '${name}' due to memory limit`);
-        try {
-          await this.restartProcess(name);
-        } catch (error) {
-          console.error(`Failed to restart process '${name}' after memory limit:`, error);
+    this.on(
+      'process:memory-limit',
+      async (name: string, usage: number, limit: number) => {
+        console.log(
+          `Process '${name}' exceeded memory limit: ${Math.round(usage / 1024 / 1024)}MB > ${Math.round(limit / 1024 / 1024)}MB`
+        );
+
+        const managedProcess = this.processes.get(name);
+        if (managedProcess && managedProcess.isAutoRestartEnabled()) {
+          console.log(`Auto-restarting process '${name}' due to memory limit`);
+          try {
+            await this.restartProcess(name);
+          } catch (error) {
+            console.error(
+              `Failed to restart process '${name}' after memory limit:`,
+              error
+            );
+          }
         }
       }
-    });
+    );
   }
 
   // ===== CONFIGURATION MANAGEMENT =====
@@ -679,7 +690,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
 
     // Load persisted state
     const persistedProcesses = await this.persistence.loadState();
-    
+
     // Restore process states
     for (const persistedProcess of persistedProcesses) {
       // Check if we have a configuration for this process
@@ -697,7 +708,9 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    * Save current state
    */
   public async saveState(): Promise<void> {
-    const processData = Array.from(this.processes.values()).map((p) => p.toJSON());
+    const processData = Array.from(this.processes.values()).map((p) =>
+      p.toJSON()
+    );
     await this.persistence.saveState(processData);
   }
 
@@ -705,7 +718,9 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    * Force save state immediately
    */
   public async forceSaveState(): Promise<void> {
-    const processData = Array.from(this.processes.values()).map((p) => p.toJSON());
+    const processData = Array.from(this.processes.values()).map((p) =>
+      p.toJSON()
+    );
     await this.persistence.forceSaveState(processData);
   }
 

@@ -41,7 +41,7 @@ describe('ProcessMonitorImpl', () => {
     Object.defineProperty(mockChildProcess, 'pid', {
       value: 12345,
       writable: false,
-      configurable: true
+      configurable: true,
     });
     mockChildProcess.kill = vi.fn().mockReturnValue(true);
 
@@ -246,7 +246,7 @@ describe('ProcessMonitorImpl', () => {
   describe('stopMonitoring', () => {
     it('should stop monitoring when called', async () => {
       monitor.startMonitoring({ healthCheckInterval: 5000 });
-      
+
       // Verify monitoring is active
       expect(monitor.isMonitoringEnabled()).toBe(true);
 
@@ -448,7 +448,7 @@ describe('ProcessMonitorImpl', () => {
 
       const result: any = await deathPromise;
       expect(result.name).toBe('test-process');
-      
+
       vi.useRealTimers();
     });
   });
