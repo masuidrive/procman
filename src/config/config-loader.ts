@@ -101,7 +101,10 @@ export class ConfigLoader extends EventEmitter {
           details: { filePath: absolutePath },
         });
       }
-      if (isError && error instanceof SyntaxError) {
+      if (
+        isError &&
+        (error instanceof SyntaxError || error instanceof ReferenceError)
+      ) {
         throw createError('CONFIG_PARSE_ERROR', {
           message: `Failed to parse configuration file: ${error.message}`,
           cause: error,
@@ -164,6 +167,28 @@ export class ConfigLoader extends EventEmitter {
   }
 
   private async validateFilePath(filePath: string): Promise<string> {
+    // t_wada boundary principle: validate inputs at boundaries
+    if (filePath == null) {
+      throw createError('CONFIG_VALIDATION_ERROR', {
+        message: 'Configuration file path cannot be null or undefined',
+        details: { filePath: filePath },
+      });
+    }
+
+    if (typeof filePath !== 'string') {
+      throw createError('CONFIG_VALIDATION_ERROR', {
+        message: 'Configuration file path must be a string',
+        details: { filePath: filePath },
+      });
+    }
+
+    if (filePath.trim() === '') {
+      throw createError('CONFIG_VALIDATION_ERROR', {
+        message: 'Configuration file path cannot be empty',
+        details: { filePath: filePath },
+      });
+    }
+
     const absolutePath = path.resolve(filePath);
     const ext = path.extname(absolutePath);
     if (ext !== '.js' && ext !== '.cjs') {

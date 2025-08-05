@@ -36,6 +36,14 @@ export class UnixSocketClient extends IPCClientBase {
       config.socketPath ||
       config.path ||
       this.expandPath('~/.masuidrive-procman/procman.sock');
+
+    // Validate the expanded path
+    if (this.socketPath.includes('~')) {
+      throw new Error(
+        `Failed to expand socket path: ${this.socketPath}. HOME environment variable may not be set.`
+      );
+    }
+
     this.protocol = new MessageProtocol();
   }
 
@@ -296,6 +304,9 @@ export class UnixSocketClient extends IPCClientBase {
   private expandPath(filePath: string): string {
     if (filePath.startsWith('~/')) {
       const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+      if (!homeDir) {
+        throw new Error('Unable to resolve home directory for socket path');
+      }
       return path.join(homeDir, filePath.slice(2));
     }
     return filePath;

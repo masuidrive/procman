@@ -12,6 +12,12 @@ import * as processTypes from '../../src/shared/process';
 import * as config from '../../src/shared/config';
 import * as logs from '../../src/shared/logs';
 import * as ipc from '../../src/shared/ipc';
+import {
+  TEST_PORTS,
+  TEST_TIMEOUTS,
+  TEST_MEMORY_SIZES,
+  TEST_COUNTS,
+} from '../helpers/test-constants';
 
 describe('Core Types Integration', () => {
   describe('Cross-module Type Compatibility', () => {
@@ -319,11 +325,10 @@ describe('Core Types Integration', () => {
     it('should handle type validation exceptions gracefully', () => {
       // Test try-catch for type validation with problematic objects
       const problematicObject = {
-        // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
         get name() {
           throw new Error('getter error');
         },
-        // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+
         get status() {
           throw new Error('status getter error');
         },
@@ -369,7 +374,6 @@ describe('Core Types Integration', () => {
       const problematicConfig = {
         apps: [
           {
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
             get name() {
               throw new Error('name getter error');
             },
@@ -439,7 +443,7 @@ describe('Core Types Integration', () => {
       };
 
       // Add circular reference
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (processInfo as any).self = processInfo;
 
       // Test that JSON.stringify throws for circular reference
@@ -450,7 +454,6 @@ describe('Core Types Integration', () => {
 
       // Test that we can handle this gracefully by removing problematic properties
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
         const { self, ...cleanProcessInfo } = processInfo as any;
         const json = JSON.stringify(cleanProcessInfo);
         const parsed = JSON.parse(json);

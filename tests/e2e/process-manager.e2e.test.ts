@@ -11,6 +11,13 @@ import { ConfigLoader } from '../../src/config/config-loader';
 import { ProcessManager } from '../../src/process-manager/process-manager';
 import { PROCESSES_FILE } from '../../src/shared/constants';
 import { AppConfig } from '../../src/shared/config';
+import {
+  TEST_TIMEOUTS,
+  TEST_DELAYS,
+  TEST_MEMORY_SIZES,
+  TEST_MONITORING,
+  TEST_COUNTS,
+} from '../helpers/test-constants';
 
 // Test helper functions
 const sleep = (ms: number): Promise<void> =>
@@ -20,7 +27,7 @@ const waitForProcessStatus = async (
   processManager: ProcessManager,
   processName: string,
   expectedStatus: string,
-  timeoutMs = 10000
+  timeoutMs = TEST_TIMEOUTS.LONG
 ): Promise<void> => {
   const startTime = Date.now();
   while (Date.now() - startTime < timeoutMs) {
@@ -28,7 +35,7 @@ const waitForProcessStatus = async (
     if (processInfo && processInfo.status === expectedStatus) {
       return;
     }
-    await sleep(100);
+    await sleep(TEST_DELAYS.SHORT);
   }
   const currentStatus = processManager.getProcessInfo(processName)?.status;
   throw new Error(
@@ -39,7 +46,7 @@ const waitForProcessStatus = async (
 const waitForEvent = async (
   processManager: ProcessManager,
   eventName: string,
-  timeoutMs = 5000
+  timeoutMs = TEST_TIMEOUTS.MEDIUM
 ): Promise<string> => {
   return new Promise((resolve, reject) => {
     const timer = globalThis.setTimeout(() => {
@@ -55,7 +62,6 @@ const waitForEvent = async (
       resolve(args[0] as string);
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (processManager as any).on(eventName, handler);
   });
 };
@@ -85,7 +91,6 @@ describe('Process Manager E2E Tests', () => {
       const processesFile = path.join(process.cwd(), PROCESSES_FILE);
       try {
         await fs.unlink(processesFile);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         // Ignore if file doesn't exist
       }

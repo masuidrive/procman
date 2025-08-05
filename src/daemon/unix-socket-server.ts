@@ -38,6 +38,13 @@ export class UnixSocketServer extends IPCServerBase {
       config.socketPath ||
       config.path ||
       this.expandPath('~/.masuidrive-procman/procman.sock');
+
+    // Validate the expanded path
+    if (this.socketPath.includes('~')) {
+      throw new Error(
+        `Failed to expand socket path: ${this.socketPath}. HOME environment variable may not be set.`
+      );
+    }
   }
 
   /**
@@ -63,15 +70,24 @@ export class UnixSocketServer extends IPCServerBase {
 
     // Start listening
     return new Promise<void>((resolve, reject) => {
+      // Add error handler before listening
+      const errorHandler = (error: Error): void => {
+        this.server!.removeListener('error', errorHandler);
+        reject(error);
+      };
+      
+      this.server!.on('error', errorHandler);
+      
       this.server!.listen(this.socketPath, () => {
+        // Remove error handler after successful listen
+        this.server!.removeListener('error', errorHandler);
+        
         this.setSocketPermissions()
           .then(() => {
             resolve();
           })
           .catch(reject);
       });
-
-      this.server!.on('error', reject);
     });
   }
 
@@ -139,6 +155,14 @@ export class UnixSocketServer extends IPCServerBase {
     }
 
     this.server.on('connection', (socket: net.Socket) => {
+      // Check connection limit before accepting
+      if (this.connections.size >= this.config.maxConnections) {
+        // Immediately destroy socket when limit exceeded
+        socket.end();
+        socket.destroy();
+        return;
+      }
+      
       const connection = new UnixSocketConnection(socket);
       this.setupConnectionEvents(connection);
     });
@@ -151,9 +175,11 @@ export class UnixSocketServer extends IPCServerBase {
    */
   private async setSocketPermissions(): Promise<void> {
     try {
+      // Check if socket file exists before trying to set permissions
+      await fs.access(this.socketPath, fs.constants.F_OK);
       await fs.chmod(this.socketPath, SOCKET_PERMISSIONS);
     } catch (error) {
-      // Log warning but don't fail
+      // Log warning but don't fail - socket permissions may not be critical in test environments
       console.warn(`Failed to set socket permissions: ${error}`);
     }
   }
@@ -202,6 +228,9 @@ export class UnixSocketServer extends IPCServerBase {
   private expandPath(filePath: string): string {
     if (filePath.startsWith('~/')) {
       const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+      if (!homeDir) {
+        throw new Error('Unable to resolve home directory for socket path');
+      }
       return path.join(homeDir, filePath.slice(2));
     }
     return filePath;

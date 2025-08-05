@@ -12,6 +12,14 @@ import {
   createConfigLoader,
 } from '../../src/config/config-loader';
 import { ProcmanError } from '../../src/shared/errors';
+import {
+  TEST_FILE_SIZES,
+  TEST_COUNTS,
+  TEST_PORTS,
+  TEST_TIMEOUTS,
+  TEST_STRING_LENGTHS,
+  TEST_DELAYS,
+} from '../helpers/test-constants';
 
 describe('ConfigLoader Integration', () => {
   let tempDir: string;
@@ -43,7 +51,7 @@ module.exports = {
       namespace: "test",
       env: {
         NODE_ENV: "test",
-        PORT: "3000"
+        PORT: "${TEST_PORTS.BASE}"
       }
     }
   ]
@@ -256,12 +264,12 @@ module.exports = {
 
       // First load
       const config1 = await configLoader.load(configPath);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       expect((config1.apps[0] as any).loadCount).toBe(1);
 
       // Second load should use cache
       const config2 = await configLoader.load(configPath);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       expect((config2.apps[0] as any).loadCount).toBe(1); // Same value, from cache
     });
 
@@ -370,7 +378,7 @@ module.exports = {
 
   describe('File size limits', () => {
     it('should reject files exceeding size limit', async () => {
-      const loader = createConfigLoader({ maxFileSize: 100 }); // 100 bytes limit
+      const loader = createConfigLoader({ maxFileSize: TEST_FILE_SIZES.TINY }); // Small file size limit
       const configPath = path.join(tempDir, 'large.config.js');
 
       // Create content larger than 100 bytes
@@ -472,7 +480,7 @@ module.exports = {
       fs.writeFileSync(configPath, configContent, 'utf8');
 
       // Create multiple loader instances to simulate different processes
-      const loaders = Array(5)
+      const loaders = Array(TEST_COUNTS.TINY)
         .fill(0)
         .map(() => createConfigLoader());
 
@@ -508,7 +516,7 @@ module.exports = {
 
       // Rapidly modify file and reload
       const promises = [];
-      for (let i = 2; i <= 10; i++) {
+      for (let i = 2; i <= TEST_COUNTS.TINY; i++) {
         promises.push(
           (async () => {
             // Modify file
@@ -545,7 +553,7 @@ module.exports = {
       const largeConfigPath = path.join(tempDir, 'large-real.config.js');
 
       // Generate a large but valid config
-      const apps = Array(500)
+      const apps = Array(TEST_COUNTS.LARGE)
         .fill(0)
         .map(
           (_, i) => `
@@ -557,7 +565,7 @@ module.exports = {
       env: {
         APP_ID: "${i}",
         NODE_ENV: "production",
-        PORT: "${3000 + i}",
+        PORT: "${TEST_PORTS.BASE + i}",
         LOG_LEVEL: "info"
       },
       note: "Auto-generated app ${i} for large config testing"
@@ -576,20 +584,22 @@ module.exports = {
       const config = await configLoader.load(largeConfigPath);
       const loadTime = Date.now() - startTime;
 
-      expect(config.apps).toHaveLength(500);
+      expect(config.apps).toHaveLength(TEST_COUNTS.LARGE);
       expect(config.apps[0].name).toBe('app-0');
-      expect(config.apps[499].name).toBe('app-499');
+      expect(config.apps[TEST_COUNTS.LARGE - 1].name).toBe(
+        `app-${TEST_COUNTS.LARGE - 1}`
+      );
 
-      // Should load reasonably quickly (less than 5 seconds)
-      expect(loadTime).toBeLessThan(5000);
+      // Should load reasonably quickly
+      expect(loadTime).toBeLessThan(TEST_TIMEOUTS.MEDIUM);
     });
 
     it('should handle config with very long strings', async () => {
       const longStringPath = path.join(tempDir, 'long-strings.config.js');
 
       // Create very long strings for testing
-      const longString = 'a'.repeat(10000);
-      const longEnvValue = 'env-value-'.repeat(1000);
+      const longString = 'a'.repeat(TEST_STRING_LENGTHS.LONG);
+      const longEnvValue = 'env-value-'.repeat(TEST_COUNTS.VERY_LARGE);
 
       const configContent = `
 module.exports = {
@@ -609,7 +619,7 @@ module.exports = {
 
       const config = await configLoader.load(longStringPath);
       expect(config.apps[0].name).toBe('long-string-test');
-      expect(config.apps[0].args).toHaveLength(10000);
+      expect(config.apps[0].args).toHaveLength(TEST_STRING_LENGTHS.LONG);
       expect(config.apps[0].env?.LONG_VALUE).toContain('env-value-');
     });
   });
@@ -690,7 +700,7 @@ module.exports = {
       });
 
       // Rapid file changes
-      for (let i = 1; i <= 20; i++) {
+      for (let i = 1; i <= TEST_COUNTS.SMALL; i++) {
         fs.writeFileSync(
           watchPath,
           `
@@ -705,11 +715,15 @@ module.exports = {
         );
 
         // Small delay to avoid overwhelming the file system
-        await new Promise((resolve) => globalThis.setTimeout(resolve, 50));
+        await new Promise((resolve) =>
+          globalThis.setTimeout(resolve, TEST_DELAYS.TINY)
+        );
       }
 
       // Wait for events to settle
-      await new Promise((resolve) => globalThis.setTimeout(resolve, 1000));
+      await new Promise((resolve) =>
+        globalThis.setTimeout(resolve, TEST_DELAYS.LONG)
+      );
 
       watcher.dispose();
 
@@ -718,7 +732,7 @@ module.exports = {
 
       // Final config should reflect the last change
       const finalConfig = await configLoader.reload(watchPath);
-      expect(finalConfig.apps[0].name).toBe('watch-test-20');
+      expect(finalConfig.apps[0].name).toBe(`watch-test-${TEST_COUNTS.SMALL}`);
     });
 
     it('should handle file deletion and recreation during watching', async () => {
@@ -750,7 +764,9 @@ module.exports = {
       fs.unlinkSync(deletePath);
 
       // Wait a bit
-      await new Promise((resolve) => globalThis.setTimeout(resolve, 100));
+      await new Promise((resolve) =>
+        globalThis.setTimeout(resolve, TEST_DELAYS.SHORT)
+      );
 
       // Recreate with different content
       fs.writeFileSync(
@@ -766,7 +782,9 @@ module.exports = {
       );
 
       // Wait for events
-      await new Promise((resolve) => globalThis.setTimeout(resolve, 200));
+      await new Promise((resolve) =>
+        globalThis.setTimeout(resolve, TEST_DELAYS.MEDIUM)
+      );
 
       watcher.dispose();
 
@@ -896,7 +914,7 @@ module.exports = {
 
   describe('Real File System Edge Cases - Performance Under Load', () => {
     it('should handle multiple watchers on different files', async () => {
-      const watcherCount = 20;
+      const watcherCount = TEST_COUNTS.SMALL;
       const watchers: Array<{ dispose: () => void }> = [];
       const configPaths: string[] = [];
 
@@ -961,7 +979,7 @@ module.exports = {
       );
 
       // Rapidly load, clear cache, reload many times
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < TEST_COUNTS.MEDIUM; i++) {
         await configLoader.load(thrashPath);
 
         if (i % 3 === 0) {
@@ -979,7 +997,7 @@ module.exports = {
     });
 
     it('should handle resource cleanup under stress', async () => {
-      const stressCount = 50;
+      const stressCount = TEST_COUNTS.SMALL;
       const loaders: ConfigLoader[] = [];
 
       try {

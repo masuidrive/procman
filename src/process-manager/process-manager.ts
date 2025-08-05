@@ -149,29 +149,21 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     const groupsEmitter = this.groups as unknown as EventEmitter;
 
     // Forward lifecycle events
-    lifecycleEmitter.on('process:started', (name: string, pid: number) => {
+    lifecycleEmitter.on('process:started', (name: string) => {
       const processInfo = this.processes.get(name)?.getProcessInfo();
       if (processInfo) {
         this.emit('process:started', name, processInfo);
       }
     });
-    lifecycleEmitter.on(
-      'process:stopped',
-      (name: string, code: number | null, signal: string | null) => {
-        const processInfo = this.processes.get(name)?.getProcessInfo();
-        if (processInfo) {
-          this.emit('process:stopped', name, processInfo);
-        }
+    lifecycleEmitter.on('process:stopped', (name: string) => {
+      const processInfo = this.processes.get(name)?.getProcessInfo();
+      if (processInfo) {
+        this.emit('process:stopped', name, processInfo);
       }
-    );
+    });
     lifecycleEmitter.on(
       'process:exit',
-      (
-        name: string,
-        code: number | null,
-        signal: string | null,
-        wasUnexpected: boolean
-      ) => {
+      (name: string, code: number | null, signal: string | null) => {
         this.emit('process:exit', name, code, signal);
       }
     );
@@ -285,6 +277,27 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    * Configure a process from app configuration
    */
   public configureProcess(appConfig: AppConfig): void {
+    // t_wada boundary principle: validate inputs at boundaries
+    if (appConfig == null) {
+      throw new Error('App configuration cannot be null or undefined');
+    }
+
+    if (typeof appConfig !== 'object') {
+      throw new Error('App configuration must be an object');
+    }
+
+    if (!appConfig.name || typeof appConfig.name !== 'string') {
+      throw new Error('App configuration must have a valid name');
+    }
+
+    // Validate process name contains only safe characters
+    const namePattern = /^[a-zA-Z0-9_-]+$/;
+    if (!namePattern.test(appConfig.name.trim())) {
+      throw new Error(
+        `Invalid process name: "${appConfig.name}". Name must contain only alphanumeric characters, hyphens, and underscores`
+      );
+    }
+
     const processConfig = this.convertAppConfigToProcessConfig(appConfig);
     this.processConfigs.set(appConfig.name, processConfig);
 
@@ -431,10 +444,10 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     this.processes.set(name, processInfo);
 
     // Forward ManagedProcessInfo events
-    processInfo.on('start', (pid: number) => {
+    processInfo.on('start', () => {
       this.emit('process:started', name, processInfo.getProcessInfo());
     });
-    processInfo.on('stop', (code: number | null) => {
+    processInfo.on('stop', () => {
       this.emit('process:stopped', name, processInfo.getProcessInfo());
     });
     processInfo.on('error', (error: Error) => {
@@ -465,6 +478,19 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    * Start a process
    */
   public async startProcess(name: string): Promise<void> {
+    // t_wada boundary principle: validate inputs at boundaries
+    if (name == null) {
+      throw new Error('Process name cannot be null or undefined');
+    }
+
+    if (typeof name !== 'string') {
+      throw new Error('Process name must be a string');
+    }
+
+    if (name.trim() === '') {
+      throw new Error('Process name cannot be empty');
+    }
+
     const result = await this.lifecycle.startProcess(name);
     if (!result.success) {
       throw new Error(result.error || `Failed to start process: ${name}`);

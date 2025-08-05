@@ -283,7 +283,7 @@ export class LogPathValidator {
     }
 
     // 危険な文字の検出
-    const dangerousChars = /[\/\\<>:"|?*\0]/;
+    const dangerousChars = /[/\\<>:"|?*\0]/;
     if (dangerousChars.test(trimmedName)) {
       throw new PathValidationError(
         'Application name contains invalid characters',

@@ -6,6 +6,8 @@
  */
 
 import { EventEmitter } from 'events';
+import * as os from 'os';
+import * as path from 'path';
 import { LogManager } from './log-manager.js';
 import {
   LogManagerConfig,
@@ -74,8 +76,11 @@ interface ILogLevelStrategy {
 }
 
 interface IEventManager {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emitLogEvent(logEntry: any): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emitFileChangeEvent(data: any): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emitDiskSpaceErrorEvent(data: any): void;
 }
 
@@ -96,23 +101,17 @@ export class DefaultLogManagerFactory implements ILogManagerFactory {
     const mergedConfig = mergeLogManagerConfig(config);
     validateLogManagerConfig(mergedConfig);
 
-    return this.createLogManagerWithConfig(
-      logDir || this.getDefaultLogDir(),
-      mergedConfig
-    );
+    return this.createLogManagerWithConfig(logDir || this.getDefaultLogDir());
   }
 
   /**
    * 設定を使用してログマネージャーを作成
    */
-  public createLogManagerWithConfig(
-    logDir: string,
-    config: LogManagerConfig
-  ): LogManager {
+  public createLogManagerWithConfig(logDir: string): LogManager {
     // ファイルマネージャーを作成（DI）
     const fileManager =
       this.serviceContainer.fileManagerFactory?.() ||
-      this.createDefaultFileManager(config);
+      this.createDefaultFileManager();
 
     // ログマネージャーを作成
     return new LogManager(logDir, fileManager);
@@ -122,19 +121,17 @@ export class DefaultLogManagerFactory implements ILogManagerFactory {
    * デフォルトのログディレクトリパスを取得
    */
   private getDefaultLogDir(): string {
-    const os = require('os');
-    const path = require('path');
     return path.join(os.homedir(), '.masuidrive-procman', 'app-logs');
   }
 
   /**
    * デフォルトのファイルマネージャーを作成
    */
-  private createDefaultFileManager(config: LogManagerConfig): IFileManager {
+  private createDefaultFileManager(): IFileManager {
     // 設定を注入したFileManagerの作成
     // 注意：実際の実装では、FileManagerクラスのコンストラクタに設定を渡す必要があります
-    const { FileManager } = require('./log-manager.js');
-    return new FileManager();
+    // TODO: FileManagerの実装を追加
+    throw new Error('FileManager implementation not available');
   }
 }
 
@@ -149,21 +146,11 @@ export class TestLogManagerFactory implements ILogManagerFactory {
     private mockEventManager?: IEventManager
   ) {}
 
-  public createLogManager(
-    logDir?: string,
-    config: Partial<LogManagerConfig> = {}
-  ): LogManager {
-    const mergedConfig = mergeLogManagerConfig(config);
-    return this.createLogManagerWithConfig(
-      logDir || '/tmp/test-logs',
-      mergedConfig
-    );
+  public createLogManager(logDir?: string): LogManager {
+    return this.createLogManagerWithConfig(logDir || '/tmp/test-logs');
   }
 
-  public createLogManagerWithConfig(
-    logDir: string,
-    config: LogManagerConfig
-  ): LogManager {
+  public createLogManagerWithConfig(logDir: string): LogManager {
     // テスト用のモックを注入
     return new LogManager(logDir, this.mockFileManager);
   }
@@ -202,7 +189,6 @@ export class DevelopmentLogManagerFactory implements ILogManagerFactory {
   }
 
   private getDevLogDir(): string {
-    const path = require('path');
     return path.join(process.cwd(), 'logs', 'dev');
   }
 }
@@ -245,8 +231,6 @@ export class ProductionLogManagerFactory implements ILogManagerFactory {
   }
 
   private getProdLogDir(): string {
-    const os = require('os');
-    const path = require('path');
     return path.join(os.homedir(), '.masuidrive-procman', 'app-logs');
   }
 }

@@ -15,6 +15,13 @@ import * as processTypes from '../../src/shared/process';
 import * as config from '../../src/shared/config';
 import * as logs from '../../src/shared/logs';
 import * as ipc from '../../src/shared/ipc';
+import {
+  TEST_PORTS,
+  TEST_DELAYS,
+  TEST_MEMORY_SIZES,
+  TEST_COUNTS,
+  TEST_TIMEOUTS,
+} from '../helpers/test-constants';
 
 describe('Real-World Integration Scenarios', () => {
   let tempDir: string;
@@ -309,8 +316,8 @@ module.exports = {
         namespace: constants.DEFAULT_NAMESPACE,
         status: 'online',
         pid: 12345,
-        uptime: 300000, // 5 minutes
-        memory: limitInMB + 50, // Set memory higher than limit to test restart
+        uptime: TEST_TIMEOUTS.MEDIUM * 60, // 5 minutes
+        memory: limitInMB + TEST_COUNTS.SMALL, // Set memory higher than limit to test restart
         cpu: 15.5,
         restarts: 0,
       };
@@ -319,7 +326,9 @@ module.exports = {
 
       // 3. Check if process exceeds memory limit
       // Make sure the process memory is set higher than the limit for test
-      processInfo.memory = 600; // Set to 600MB, higher than 512MB limit
+      processInfo.memory =
+        TEST_MEMORY_SIZES.LARGE / (1024 * 1024) +
+        TEST_MEMORY_SIZES.SMALL / (1024 * 1024); // Set higher than limit
       const currentMemoryBytes = processInfo.memory * 1024 * 1024;
       const exceedsLimit = currentMemoryBytes > (memoryResult.value || 0);
       expect(exceedsLimit).toBe(true);
@@ -428,7 +437,7 @@ module.exports = {
           type: 'stdout' as const,
         },
         {
-          timestamp: Date.now() + 100,
+          timestamp: Date.now() + TEST_DELAYS.SHORT,
           level: 'info' as const,
           message: 'Connected to database',
           app: appConfig.name,
@@ -436,7 +445,7 @@ module.exports = {
           type: 'stdout' as const,
         },
         {
-          timestamp: Date.now() + 200,
+          timestamp: Date.now() + TEST_DELAYS.MEDIUM,
           level: 'info' as const,
           message: 'HTTP server listening on port 3000',
           app: appConfig.name,
@@ -444,7 +453,7 @@ module.exports = {
           type: 'stdout' as const,
         },
         {
-          timestamp: Date.now() + 300,
+          timestamp: Date.now() + TEST_DELAYS.MEDIUM + TEST_DELAYS.SHORT,
           level: 'warn' as const,
           message: 'Warning: deprecated API usage detected',
           app: appConfig.name,
@@ -452,7 +461,7 @@ module.exports = {
           type: 'stderr' as const,
         },
         {
-          timestamp: Date.now() + 400,
+          timestamp: Date.now() + TEST_DELAYS.MEDIUM * 2,
           level: 'error' as const,
           message: 'Database connection temporarily lost',
           app: appConfig.name,
@@ -519,7 +528,7 @@ module.exports = {
         payload: {
           name: appConfig.name,
           options: {
-            lines: 10,
+            lines: TEST_COUNTS.TINY,
             follow: true,
           },
         },
@@ -622,7 +631,7 @@ module.exports = {
   describe('Performance and Scale Testing', () => {
     it('should handle large numbers of processes and logs efficiently', () => {
       // Create many process infos
-      const processCount = 100;
+      const processCount = TEST_COUNTS.MEDIUM;
       const processes: processTypes.ProcessInfo[] = [];
 
       for (let i = 0; i < processCount; i++) {
@@ -637,11 +646,14 @@ module.exports = {
           status: ['online', 'stopped', 'starting'][
             i % 3
           ] as processTypes.ProcessStatus,
-          pid: i > 50 ? 10000 + i : null,
-          uptime: Math.floor(Math.random() * 86400000), // Random uptime up to 1 day
-          memory: Math.floor(Math.random() * 512) + 32, // 32-544 MB
-          cpu: Math.random() * 100,
-          restarts: Math.floor(Math.random() * 5),
+          pid: i > TEST_COUNTS.SMALL ? 10000 + i : null,
+          uptime: Math.floor(Math.random() * TEST_TIMEOUTS.EXTRA_LONG * 1440), // Random uptime up to 1 day
+          memory:
+            Math.floor(
+              (Math.random() * TEST_MEMORY_SIZES.LARGE) / (1024 * 1024)
+            ) + 32, // Random MB
+          cpu: Math.random() * TEST_COUNTS.MEDIUM,
+          restarts: Math.floor((Math.random() * TEST_COUNTS.TINY) / 2),
         };
 
         expect(processTypes.isProcessInfo(processInfo)).toBe(true);
@@ -664,20 +676,20 @@ module.exports = {
         success: true,
         data: {
           configFile: '/path/to/config.js',
-          daemonUptime: 3600,
+          daemonUptime: TEST_TIMEOUTS.EXTRA_LONG,
           processes,
         },
       };
 
       expect(ipc.isIPCMessage(listCommand)).toBe(true);
       expect(listResponse.success).toBe(true);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const data = listResponse.data as any;
       expect(Array.isArray(data.processes)).toBe(true);
       expect(data.processes).toHaveLength(processCount);
 
       // Create many log entries
-      const logCount = 1000;
+      const logCount = TEST_COUNTS.VERY_LARGE;
       const logEntries: logs.LogEntry[] = [];
 
       for (let i = 0; i < logCount; i++) {

@@ -151,12 +151,12 @@ export class IPCFactory {
 
     if (platform === 'unix') {
       return {
-        socketPath: defaultPath,
+        socketPath: config.path || config.socketPath || defaultPath,
         ...config,
       };
     } else {
       return {
-        namedPipePath: defaultPath,
+        namedPipePath: config.path || config.namedPipePath || defaultPath,
         ...config,
       };
     }

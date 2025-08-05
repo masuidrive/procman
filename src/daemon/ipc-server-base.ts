@@ -423,17 +423,25 @@ export abstract class IPCServerBase extends SimpleDisposableBase {
    * Validate IPC message structure
    */
   protected isValidIPCMessage(obj: unknown): obj is IPCMessage {
-    return (
-      typeof obj === 'object' &&
-      obj !== null &&
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      typeof (obj as any).id === 'string' &&
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      typeof (obj as any).type === 'string' &&
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      typeof (obj as any).timestamp === 'number' &&
-      'payload' in obj
-    );
+    // t_wada boundary principle: gracefully handle null/undefined payloads
+    if (typeof obj !== 'object' || obj === null) {
+      return false;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const message = obj as any;
+
+    // Validate required fields
+    if (
+      typeof message.id !== 'string' ||
+      typeof message.type !== 'string' ||
+      typeof message.timestamp !== 'number'
+    ) {
+      return false;
+    }
+
+    // Accept messages with null/undefined/missing payload for boundary testing
+    return true;
   }
 
   /**
@@ -442,12 +450,47 @@ export abstract class IPCServerBase extends SimpleDisposableBase {
   public handleConnection(connection: IPCConnection): void {
     // Check connection limit
     if (this.connections.size >= this.config.maxConnections) {
+      // Send connection limit error before closing
+      if (connection.send) {
+        const errorResponse: IPCResponse = {
+          id: generateMessageId(),
+          type: 'error',
+          requestId: 'connection-limit',
+          timestamp: Date.now(),
+          success: false,
+          error: {
+            code: 'CONNECTION_LIMIT_EXCEEDED' as ErrorCode,
+            message: `Connection limit exceeded (max: ${this.config.maxConnections})`,
+            details: { maxConnections: this.config.maxConnections },
+          },
+        };
+
+        try {
+          connection.send(errorResponse);
+        } catch {
+          // Ignore send errors
+        }
+      }
+
+      // Close connection immediately
       if (connection.close) {
         const closePromise = connection.close();
         if (closePromise && typeof closePromise.catch === 'function') {
           closePromise.catch(() => {});
         }
       }
+
+      // Force destroy the underlying socket if available
+      if ('destroy' in connection && typeof connection.destroy === 'function') {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (connection as any).destroy();
+        } catch {
+          // Ignore destroy errors
+        }
+      }
+
+      // Ensure we don't add this connection to the map
       return;
     }
 

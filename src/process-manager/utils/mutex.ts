@@ -143,8 +143,11 @@ export function withMutex(
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this: any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...args: any[]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ): Promise<any> {
       const key = typeof mutexKey === 'function' ? mutexKey(args) : mutexKey;
 

@@ -236,12 +236,10 @@ describe('DisposableBase', () => {
       this.disposeCoreCalled = true;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public testSafeSetTimeout(callback: () => void, delay: number): any {
       return this.safeSetTimeout(callback, delay);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public testSafeSetInterval(callback: () => void, interval: number): any {
       return this.safeSetInterval(callback, interval);
     }
@@ -250,7 +248,6 @@ describe('DisposableBase', () => {
       emitter: EventEmitter,
       event: string,
       listener: () => void
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ): any {
       return this.safeAddEventListener(emitter, event, listener);
     }
@@ -290,11 +287,10 @@ describe('DisposableBase', () => {
     disposable.testSafeSetInterval(callback, 1000);
     disposable.testSafeAddEventListener(emitter, 'test', callback);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((disposable as any).resourceManager.getResourceCount()).toBe(3);
 
     await disposable.dispose();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     expect((disposable as any).resourceManager.getResourceCount()).toBe(0);
   });
 
@@ -408,7 +404,6 @@ describe('Resource Leak Prevention Integration', () => {
         this.setupCleanupTimer();
       }
 
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
       private setupPingInterval() {
         this.safeSetInterval(
           () => {
@@ -419,7 +414,6 @@ describe('Resource Leak Prevention Integration', () => {
         );
       }
 
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
       private setupCleanupTimer() {
         this.safeSetTimeout(
           () => {
@@ -430,7 +424,6 @@ describe('Resource Leak Prevention Integration', () => {
         );
       }
 
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/no-explicit-any
       addConnection(connection: any) {
         this.connections.add(connection);
 
@@ -471,7 +464,7 @@ describe('Resource Leak Prevention Integration', () => {
 
     const component = new TestIPCComponent();
     const mockConnection = new EventEmitter();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (mockConnection as any).id = 'test-connection';
 
     component.addConnection(mockConnection);

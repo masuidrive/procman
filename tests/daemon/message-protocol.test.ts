@@ -152,12 +152,11 @@ describe('Message Protocol', () => {
 
     it('should handle serialization errors', () => {
       // Create an object with circular reference
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const circular: any = { data: 'test' };
       circular.self = circular;
 
       expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         serializer.serialize(circular as any);
       }).toThrow('Failed to serialize message');
     });
@@ -220,13 +219,11 @@ describe('Message Protocol', () => {
     });
 
     it('should handle invalid objects in utility functions', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const circular: any = { data: 'test' };
       circular.self = circular;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(validateMessageSize(circular as any)).toBe(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       expect(estimateMessageSize(circular as any)).toBe(0);
     });
   });

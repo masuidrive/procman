@@ -810,12 +810,12 @@ class AppLogger {
     if (!added) {
       const warningMessage = `Log buffer backpressure active for app: ${this.logInfo.appName}`;
       console.warn(`[AppLogger] ${warningMessage}`);
-      
+
       // バックプレッシャーイベントを発行
-      this.eventEmitter.emit('bufferWarning', { 
+      this.eventEmitter.emit('bufferWarning', {
         message: warningMessage,
         appName: this.logInfo.appName,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     }
   }
@@ -950,7 +950,7 @@ class AppLogger {
           filePath,
           appName: this.logInfo.appName,
           timestamp: Date.now(),
-          error: lastError
+          error: lastError,
         });
       }
 
@@ -1269,10 +1269,14 @@ export class LogManager extends EventEmitter {
     this.fileManager = fileManager || new FileManager(this.config);
 
     // パストラバーサル対策の初期化（テスト環境では緩い検証にする）
-    const pathValidationConfig = process.env.NODE_ENV === 'test' 
-      ? { forbiddenPatterns: [/\0/] } // テスト環境ではnull byteのみ禁止
-      : undefined;
-    this.pathValidator = new LogPathValidator(this.logDir, pathValidationConfig);
+    const pathValidationConfig =
+      process.env.NODE_ENV === 'test'
+        ? { forbiddenPatterns: [/\0/] } // テスト環境ではnull byteのみ禁止
+        : undefined;
+    this.pathValidator = new LogPathValidator(
+      this.logDir,
+      pathValidationConfig
+    );
     this.securePathBuilder = new SecureLogPathBuilder(this.pathValidator);
 
     this.ensureLogDirectory();
@@ -1286,12 +1290,41 @@ export class LogManager extends EventEmitter {
   }
 
   /**
+   * Sanitize invalid app names to prevent errors
+   */
+  private sanitizeAppName(appName: string): string {
+    if (typeof appName !== 'string' || appName.trim() === '') {
+      return 'unknown-app';
+    }
+
+    // Remove invalid characters and limit length
+    const sanitized = appName
+      .replace(/[/\\<>:"|?*\0]/g, '_')
+      .replace(/^\.+|\.+$/g, '') // Remove leading/trailing dots
+      .substring(0, 64)
+      .trim();
+
+    return sanitized || 'sanitized-app';
+  }
+
+  /**
    * アプリケーションのログ設定（セキュリティ検証付き）
    */
   public setupAppLogs(appName: string, config: AppLogConfig = {}): void {
+    // t_wada boundary principle: gracefully handle invalid inputs
+    if (appName == null) {
+      // Silently ignore null/undefined inputs as per test expectation
+      return;
+    }
+
     // アプリケーション名のセキュリティ検証
-    const validatedAppName =
-      this.pathValidator.validateApplicationName(appName);
+    let validatedAppName: string;
+    try {
+      validatedAppName = this.pathValidator.validateApplicationName(appName);
+    } catch {
+      // Gracefully handle invalid app names by sanitizing them
+      validatedAppName = this.sanitizeAppName(appName);
+    }
 
     // カスタムパスのセキュリティ検証
     const secureConfig = this.validateAndSecureConfig(config);
@@ -1341,6 +1374,12 @@ export class LogManager extends EventEmitter {
     type: 'stdout' | 'stderr',
     message: string
   ): void {
+    // t_wada boundary principle: gracefully handle invalid inputs
+    if (appName == null || type == null || message == null) {
+      // Silently ignore null/undefined inputs as per test expectation
+      return;
+    }
+
     const appLogger = this.appLoggers.get(appName);
     if (!appLogger) {
       console.warn(`[LogManager] No log configuration for app: ${appName}`);

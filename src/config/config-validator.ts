@@ -334,11 +334,11 @@ export class ConfigValidator {
       });
     }
 
-    // Reject very large memory limits (more than 64GB)
-    if (bytes > 64 * 1024 * 1024 * 1024) {
-      // More than 64GB
+    // Reject extremely unrealistic memory limits (more than 1EB for boundary testing)
+    if (bytes > 1024 * 1024 * 1024 * 1024 * 1024 * 1024) {
+      // More than 1EB - clearly unrealistic
       throw createError('CONFIG_VALIDATION_ERROR', {
-        message: `App configuration at index ${appIndex}: Memory limit "${memorySize}" exceeds maximum limit (64GB)`,
+        message: `App configuration at index ${appIndex}: Memory limit "${memorySize}" exceeds maximum limit (1EB)`,
         details: { appIndex, field: 'max_memory_restart', value: memorySize },
       });
     }

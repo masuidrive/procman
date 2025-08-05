@@ -429,7 +429,7 @@ describe('Exception Handling', () => {
       try {
         const error = new ProcmanError({
           code: 'DAEMON_NOT_RUNNING',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           cause: null as any, // Invalid cause type
         });
 
@@ -445,7 +445,7 @@ describe('Exception Handling', () => {
 
     it('should handle JSON serialization errors', () => {
       // Create error with circular reference in details
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const circularObject: any = { name: 'test' };
       circularObject.self = circularObject;
 
@@ -474,12 +474,10 @@ describe('Exception Handling', () => {
         const error = new ProcmanError({
           code: 'PROCESS_START_FAILED',
           details: {
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
             func: () => {
               throw new Error('function error');
             },
             getter: {
-              // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
               get value() {
                 throw new Error('getter error');
               },
@@ -503,7 +501,7 @@ describe('Exception Handling', () => {
       try {
         expect(isProcmanError(null)).toBe(false);
         expect(isProcmanError(undefined)).toBe(false);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         expect(isProcmanError({} as any)).toBe(false);
       } catch (error) {
         // Type guards should handle null/undefined gracefully
@@ -514,11 +512,10 @@ describe('Exception Handling', () => {
 
     it('should handle objects with problematic properties', () => {
       const problematicObject = {
-        // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
         get code() {
           throw new Error('getter error');
         },
-        // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+
         get name() {
           throw new Error('name error');
         },
@@ -559,7 +556,7 @@ describe('Exception Handling', () => {
     it('should handle invalid error objects in createFailure', () => {
       try {
         // This might not be a valid pattern, but test graceful handling
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const result = createFailure(null as any);
         expect(isFailure(result)).toBe(true);
         if (isFailure(result)) {

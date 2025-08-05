@@ -24,7 +24,13 @@ export default [
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
-        global: 'readonly'
+        global: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        setImmediate: 'readonly',
+        clearImmediate: 'readonly'
       }
     },
     plugins: {
@@ -40,6 +46,15 @@ export default [
     }
   },
   prettierConfig,
+  // Test files specific configuration
+  {
+    files: ['tests/**/*.ts', 'tests/**/*.test.ts', 'tests/**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-unused-vars': 'off'
+    }
+  },
   {
     ignores: ['dist/', 'node_modules/', '*.js', 'poc/', 'tests/**/*.js']
   }
