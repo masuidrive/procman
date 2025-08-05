@@ -3,6 +3,7 @@
 *.log
 .env*
 .env.*
+.serena
 
 # Node.js
 node_modules/

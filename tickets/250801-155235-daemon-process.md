@@ -1,8 +1,8 @@
 ---
 priority: 7
-tags: ["daemon", "integration", "lifecycle"]
-description: "IPC通信、プロセス管理、ログ管理を統合したメインデーモンプロセスの実装"
-created_at: "2025-08-01T15:52:35Z"
+tags: ['daemon', 'integration', 'lifecycle']
+description: 'IPC通信、プロセス管理、ログ管理を統合したメインデーモンプロセスの実装'
+created_at: '2025-08-01T15:52:35Z'
 started_at: null # Do not modify manually
 closed_at: null # Do not modify manually
 ---
@@ -24,14 +24,20 @@ closed_at: null # Do not modify manually
 
 ### Prepare: Context Alignment
 
-- [ ] 各コンポーネント（IPC、Config、ProcessManager、LogManager）の完成状況を確認する
-- [ ] 仕様書のデーモン要件とコマンド仕様を再確認する
-- [ ] デーモンのライフサイクル管理方針を決定する
-- [ ] PID ファイル管理とプロセス検出の方針を確認する
+This phase ensures that the ticket's assumptions, scope, and context are still valid and aligned with the current implementation and specifications.
+The goal is to surface any gaps, outdated information, or uncertainties early, and to update the ticket accordingly so that implementation can proceed with clarity and confidence.
+
+- [ ] Carefully read the `current-ticket.md` to understand the task's objective and background.
+- [ ] Verify the assumptions described in the ticket against the current code and specifications, and add initial notes (e.g. expected flow, concerns) as comments.
+- [ ] Identify unclear or undecided items and ask questions to stakeholders to reach agreement.
+- [ ] Review related tickets, documents, and source code to uncover any duplication, inconsistencies, or improvement opportunities, and document your findings.
+- [ ] Reflect your findings and discussions in the ticket by updating the description, considerations, acceptance criteria, and subtasks as needed.
+- [ ] Explain the updates and decisions to the user and obtain their approval before proceeding.
 - [ ] `git commit`
 
 ### Phase 1: デーモン基盤の実装
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] ProcmanDaemon クラスの基本構造を実装
   - デーモンの状態管理
   - コンポーネントの初期化・終了処理
@@ -44,10 +50,14 @@ closed_at: null # Do not modify manually
   - ~/.masuidrive-procman/ ディレクトリの作成
   - 必要な権限設定（ディレクトリ 0700、ファイル 0600）
   - 既存データの検証と復旧
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 2: コンポーネント統合
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] 設定管理の統合を実装
   - ConfigLoader との統合
   - 設定変更時の各コンポーネント更新
@@ -60,10 +70,14 @@ closed_at: null # Do not modify manually
   - LogManager との統合
   - デーモン自体のログ出力
   - 統合ログの管理
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 3: IPC コマンド処理システム
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] IPC サーバーの統合を実装
   - IPCServer との統合
   - クライアント接続の管理
@@ -77,10 +91,14 @@ closed_at: null # Do not modify manually
   - プロセス操作コマンドの実装
   - 対象プロセスの解決（名前・namespace）
   - 操作結果のレスポンス生成
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 4: 情報取得コマンドの実装
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] list コマンドの実装
   - プロセス一覧の生成
   - YAML 形式での出力
@@ -92,10 +110,14 @@ closed_at: null # Do not modify manually
 - [ ] clear-log コマンドの実装
   - ログファイルのクリア
   - 実行中プロセスへの配慮
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 5: デーモンライフサイクル管理
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] デーモン起動処理の実装
   - 重複起動の防止
   - 設定の初期読み込み
@@ -110,10 +132,14 @@ closed_at: null # Do not modify manually
   - 予期しない終了の検出
   - 部分的復旧の試行
   - エラー状況の記録
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 6: エラーハンドリングと監視
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] 統合エラーハンドリングを実装
   - 各コンポーネントのエラー統合
   - エラーレベルの分類
@@ -126,10 +152,14 @@ closed_at: null # Do not modify manually
   - コンポーネント障害時の部分復旧
   - 設定リロード機能
   - 自動復旧の試行
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 7: パフォーマンスと安定性
 
+- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
 - [ ] メモリ管理の最適化
   - 各コンポーネントのメモリ使用量監視
   - ガベージコレクション負荷軽減
@@ -142,6 +172,9 @@ closed_at: null # Do not modify manually
   - ログローテーション
   - 設定ファイル監視
   - 自動メンテナンス機能
+- [ ] Write unit tests and integration tests
+- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Final Phase: Quality Assurance
@@ -157,7 +190,7 @@ closed_at: null # Do not modify manually
 
 ## Wireframes
 
-{{このチケットはデーモンプロセスの実装のため、UIワイヤーフレームは不要}}
+このチケットはデーモンプロセスの実装のため、UIワイヤーフレームは不要
 
 ## Unit and integration test cases
 
@@ -207,7 +240,9 @@ closed_at: null # Do not modify manually
 
 ## Child tickets
 
-- 次フェーズ: CLI 基本コマンドの実装
+- 250805-053320-cli-commands.md (CLI基本コマンドの実装)
+- 250805-053556-help-command.md (help/promptコマンドの実装)
+- 250805-054053-package-publishing.md (npmパッケージ公開準備)
 
 ## Review
 
