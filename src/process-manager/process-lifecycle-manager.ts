@@ -14,15 +14,15 @@ import { spawn, ChildProcess } from 'child_process';
 import {
   ProcessLifecycleManager as IProcessLifecycleManager,
   ProcessLifecycleResult,
-} from './interfaces/process-lifecycle';
-import { ManagedProcessInfo } from './managed-process-info';
+} from './interfaces/process-lifecycle.js';
+import { ManagedProcessInfo } from './managed-process-info.js';
 import {
   GRACEFUL_SHUTDOWN_TIMEOUT,
   FORCE_KILL_TIMEOUT,
   GRACEFUL_SHUTDOWN_SIGNAL,
   FORCE_KILL_SIGNAL,
-} from '../shared/constants';
-import { KeyedMutex, withKeyedLock } from './utils/mutex';
+} from '../shared/constants.js';
+import { KeyedMutex, withKeyedLock } from './utils/mutex.js';
 
 // Node.js global types
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -8,10 +8,10 @@
 import { EventEmitter } from 'events';
 import * as net from 'net';
 import { setTimeout, clearTimeout } from 'timers';
-import type { IPCConnection, IPCMessage } from '../shared/ipc';
-import { generateMessageId } from '../shared/ipc';
-import { MessageProtocol } from './message-protocol';
-import { IDisposable } from './resource-manager';
+import type { IPCConnection, IPCMessage } from '../shared/ipc.js';
+import { generateMessageId } from '../shared/ipc.js';
+import { MessageProtocol } from './message-protocol.js';
+import { IDisposable } from './resource-manager.js';
 
 /**
  * Base socket connection class implementing common functionality

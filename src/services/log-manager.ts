@@ -3,6 +3,7 @@
  *
  * アプリケーションプロセスのstdout/stderrを集約し、JSONL形式でログを管理する。
  * リアルタイムログストリーミング機能とファイル管理を提供する。
+ * ログストリーミングはEventEmitterパターンで実装し、new-log イベントを発行する。
  */
 
 /* global NodeJS */
@@ -21,6 +22,7 @@ import {
   LogPathValidator,
   SecureLogPathBuilder,
 } from './log-path-validator.js';
+import { LOG_STREAM_EVENTS } from '../shared/constants-streaming.js';
 
 // Node.js global timer functions (for ESLint)
 declare const setTimeout: (callback: () => void, ms: number) => NodeJS.Timeout;
@@ -501,6 +503,8 @@ class EventManager implements IEventManager {
    */
   public emitLogEvent(logEntry: LogEntry): void {
     this.eventEmitter.emit('log', logEntry);
+    // ストリーミング用の新しいログイベントも発行
+    this.eventEmitter.emit(LOG_STREAM_EVENTS.NEW_LOG, logEntry);
   }
 
   /**
@@ -1588,5 +1592,40 @@ export class LogManager extends EventEmitter {
     const dateStr = timestamp.toISOString().substring(2, 10); // YY-MM-DD
 
     return `[${logEntry.app}] ${dateStr} ${timeStr} > ${logEntry.message}`;
+  }
+
+  /**
+   * ログストリーミングの開始
+   * 新しいログエントリが追加されるたびにリスナーを呼び出す
+   */
+  public startLogStream(
+    appName: string | null,
+    listener: (logEntry: LogEntry) => void
+  ): () => void {
+    // フィルタリング関数の作成
+    const filterListener = (logEntry: LogEntry) => {
+      // appNameが指定されている場合はフィルタリング
+      if (appName && logEntry.app !== appName) {
+        return;
+      }
+      listener(logEntry);
+    };
+
+    // new-logイベントのリスナーを登録
+    this.on(LOG_STREAM_EVENTS.NEW_LOG, filterListener);
+
+    // クリーンアップ関数を返す
+    return () => {
+      this.off(LOG_STREAM_EVENTS.NEW_LOG, filterListener);
+    };
+  }
+
+  /**
+   * ログストリーミング状態を取得
+   */
+  public isStreamingActive(): boolean {
+    // EventEmitterのリスナー数をチェック
+    const listeners = this.listenerCount(LOG_STREAM_EVENTS.NEW_LOG);
+    return listeners > 0;
   }
 }

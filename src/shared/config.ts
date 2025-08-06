@@ -4,7 +4,7 @@
  * This module defines basic types for configuration management in the procman system.
  */
 
-import { MEMORY_MULTIPLIERS } from './constants';
+import { MEMORY_MULTIPLIERS } from './constants.js';
 
 // =============================================================================
 // Application Configuration Interface

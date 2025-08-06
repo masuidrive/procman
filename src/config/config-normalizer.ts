@@ -6,7 +6,7 @@
  */
 
 import * as path from 'path';
-import { ProcmanConfig, AppConfig } from '../shared/config';
+import { ProcmanConfig, AppConfig } from '../shared/config.js';
 
 /**
  * Normalized configuration after applying defaults and path normalization

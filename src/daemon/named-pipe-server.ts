@@ -7,9 +7,9 @@
 
 import * as net from 'net';
 import { setTimeout, clearTimeout } from 'timers';
-import { IPCServerBase } from './ipc-server-base';
-import type { IPCServerConfig } from '../shared/ipc';
-import { BaseSocketConnection } from './base-socket-connection';
+import { IPCServerBase } from './ipc-server-base.js';
+import type { IPCServerConfig } from '../shared/ipc.js';
+import { BaseSocketConnection } from './base-socket-connection.js';
 
 /**
  * Named Pipe connection implementation

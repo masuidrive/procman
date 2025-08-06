@@ -5,10 +5,10 @@
  * between the procman daemon and client processes.
  */
 
-import type { LogEntry, LogOptions } from './logs';
-import type { ProcessInfo } from './process';
-import type { ErrorCode } from './errors';
-import type { ProcmanConfig } from './config';
+import type { LogEntry, LogOptions } from './logs.js';
+import type { ProcessInfo } from './process.js';
+import type { ErrorCode } from './errors.js';
+import type { ProcmanConfig } from './config.js';
 
 // =============================================================================
 // Command Payload Types
@@ -286,6 +286,8 @@ export interface LogResponseData {
   entries: LogEntry[];
   /** Total number of entries */
   total: number;
+  /** Indicates if streaming mode is active */
+  streaming?: boolean;
 }
 
 /**
@@ -442,6 +444,10 @@ export interface IPCClientEvents {
     oldStatus?: IPCConnectionStatus
   ) => void;
   socketConnected: () => void;
+  // Raw data events for streaming
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  message: (message: any) => void;
+  data: (data: Buffer) => void;
 }
 
 /**

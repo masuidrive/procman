@@ -7,7 +7,7 @@
 
 import { EventEmitter } from 'events';
 import { setTimeout } from 'timers';
-import { SimpleDisposableBase } from './simple-resource-manager';
+import { SimpleDisposableBase } from './simple-resource-manager.js';
 import type {
   IPCMessage,
   IPCCommandMessage,
@@ -16,9 +16,9 @@ import type {
   IPCConnection,
   IPCServerEvents,
   CommandType,
-} from '../shared/ipc';
-import type { ErrorCode } from '../shared/errors';
-import { generateMessageId } from '../shared/ipc';
+} from '../shared/ipc.js';
+import type { ErrorCode } from '../shared/errors.js';
+import { generateMessageId } from '../shared/ipc.js';
 
 /**
  * Message handler function type

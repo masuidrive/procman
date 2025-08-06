@@ -8,7 +8,7 @@
 import * as winston from 'winston';
 import * as path from 'path';
 import * as os from 'os';
-import type { LogLevel } from './types';
+import type { LogLevel } from './types.js';
 
 // Log levels
 const LOG_LEVELS = {

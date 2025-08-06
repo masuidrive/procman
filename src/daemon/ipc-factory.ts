@@ -7,14 +7,14 @@
  */
 
 import * as os from 'os';
-import { IPCServerBase } from './ipc-server-base';
-import { IPCClientBase } from './ipc-client-base';
-import { UnixSocketServer } from './unix-socket-server';
-import { UnixSocketClient } from './unix-socket-client';
-import { NamedPipeServer } from './named-pipe-server';
-import { NamedPipeClient } from './named-pipe-client';
-import type { IPCServerConfig, IPCClientConfig } from '../shared/ipc';
-import { PLATFORM_CONSTANTS } from '../shared/constants';
+import { IPCServerBase } from './ipc-server-base.js';
+import { IPCClientBase } from './ipc-client-base.js';
+import { UnixSocketServer } from './unix-socket-server.js';
+import { UnixSocketClient } from './unix-socket-client.js';
+import { NamedPipeServer } from './named-pipe-server.js';
+import { NamedPipeClient } from './named-pipe-client.js';
+import type { IPCServerConfig, IPCClientConfig } from '../shared/ipc.js';
+import { PLATFORM_CONSTANTS } from '../shared/constants.js';
 
 /**
  * Platform types
@@ -90,6 +90,11 @@ export class IPCFactory {
    * Get default IPC path for the current platform
    */
   static getDefaultIPCPath(): string {
+    // Check for environment variable first
+    if (process.env.PROCMAN_SOCKET_PATH) {
+      return process.env.PROCMAN_SOCKET_PATH;
+    }
+
     const platform = this.getCurrentPlatform();
     return this.getDefaultIPCPathForPlatform(platform);
   }

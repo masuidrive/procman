@@ -5,16 +5,16 @@
  */
 
 // Lifecycle management
-export * from './process-lifecycle';
+export * from './process-lifecycle.js';
 
 // Process monitoring
-export * from './process-monitor';
+export * from './process-monitor.js';
 
 // Persistence management
-export * from './process-persistence';
+export * from './process-persistence.js';
 
 // Group management
-export * from './process-group';
+export * from './process-group.js';
 
 /**
  * Main process manager interface that coordinates all components

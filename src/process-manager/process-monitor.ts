@@ -15,12 +15,12 @@ import {
   ProcessStats,
   ProcessHealth,
   MonitoringConfig,
-} from './interfaces/process-monitor';
-import { ManagedProcessInfo } from './managed-process-info';
+} from './interfaces/process-monitor.js';
+import { ManagedProcessInfo } from './managed-process-info.js';
 import {
   DEFAULT_MONITOR_INTERVAL,
   DEFAULT_MEMORY_CHECK_INTERVAL,
-} from '../shared/constants';
+} from '../shared/constants.js';
 
 // Node.js global types
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,8 +47,15 @@ interface PidUsageFunction {
   (pid: number): Promise<PidUsageStats>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pidusage: PidUsageFunction = require('pidusage');
+// Lazy load pidusage
+let pidusage: PidUsageFunction | null = null;
+const getPidusage = async (): Promise<PidUsageFunction> => {
+  if (!pidusage) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pidusage = (await import('pidusage')).default as any as PidUsageFunction;
+  }
+  return pidusage;
+};
 
 /**
  * ProcessMonitor implementation
@@ -397,7 +404,8 @@ export class ProcessMonitorImpl
         return 0;
       }
 
-      const stats = await pidusage(pid);
+      const pidUsageFunc = await getPidusage();
+      const stats = await pidUsageFunc(pid);
       return stats.cpu; // pidusage returns CPU usage as percentage
     } catch {
       // Process might have ended or permission denied
@@ -415,7 +423,8 @@ export class ProcessMonitorImpl
         return 0;
       }
 
-      const stats = await pidusage(pid);
+      const pidUsageFunc = await getPidusage();
+      const stats = await pidUsageFunc(pid);
       return stats.memory; // pidusage returns memory in bytes
     } catch {
       // Process might have ended or permission denied
@@ -435,7 +444,8 @@ export class ProcessMonitorImpl
         return { memory: 0, cpu: 0 };
       }
 
-      const stats = await pidusage(pid);
+      const pidUsageFunc = await getPidusage();
+      const stats = await pidUsageFunc(pid);
       return {
         memory: stats.memory, // Memory in bytes
         cpu: stats.cpu, // CPU usage as percentage

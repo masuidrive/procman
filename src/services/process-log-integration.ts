@@ -6,8 +6,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { ProcessManager } from '../process-manager/process-manager';
-import { LogManager } from './log-manager';
+import { ProcessManager } from '../process-manager/process-manager.js';
+import { LogManager } from './log-manager.js';
 
 /**
  * ProcessLogIntegrator - プロセス管理とログ管理の統合クラス

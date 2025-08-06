@@ -7,7 +7,7 @@
  * - Backup and recovery
  */
 
-import { PersistedManagedProcessInfo } from '../../shared/process';
+import { PersistedManagedProcessInfo } from '../../shared/process.js';
 
 /**
  * Persistence configuration

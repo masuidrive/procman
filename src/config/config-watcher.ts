@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { EventEmitter } from 'events';
-import { createError } from '../shared/errors';
+import { createError } from '../shared/errors.js';
 
 /**
  * File change event types

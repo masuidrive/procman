@@ -6,7 +6,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hook-client.sh stop"
+            "command": "bash .claude/hook-client.sh stop"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/append_workflow.sh"
           }
         ]
       }

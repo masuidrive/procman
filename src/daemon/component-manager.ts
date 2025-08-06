@@ -14,6 +14,11 @@ import { IPCServerBase } from './ipc-server-base.js';
 import { IPCCommandHandler } from './ipc-command-handler.js';
 import { DataDirectory } from './data-directory.js';
 import { CommandType } from '../shared/ipc.js';
+import {
+  LOG_STREAM_EVENTS,
+  STREAM_CONFIG,
+  STREAM_MESSAGE_TYPES,
+} from '../shared/constants-streaming.js';
 
 /**
  * Component initialization error
@@ -116,6 +121,9 @@ export class ComponentManager extends EventEmitter {
    */
   async cleanupAll(): Promise<void> {
     const errors: ComponentCleanupError[] = [];
+
+    // Cleanup all streaming sessions first
+    this.cleanupAllStreamingSessions();
 
     // Cleanup in reverse order of initialization
     const componentsToCleanup = [...this.cleanupOrder].reverse();
@@ -390,10 +398,139 @@ export class ComponentManager extends EventEmitter {
     ];
 
     for (const commandType of commandTypes) {
-      this.ipcServer.registerHandler(commandType, async (message) => {
-        return this.commandHandler!.handleMessage(message);
-      });
+      this.ipcServer.registerHandler(
+        commandType,
+        async (message, connection) => {
+          // Pass connection info to command handler for log streaming
+          return this.commandHandler!.handleMessage(message, connection);
+        }
+      );
     }
+
+    // ログストリーミングのセットアップ
+    this.setupLogStreaming();
+  }
+
+  // ストリーミングセッション管理用のマップ
+  // Map to track active streaming sessions with connection info
+  private streamingSessions: Map<
+    string,
+    { cleanup: () => void; connectionId: string; messageId: string }
+  > = new Map();
+
+  /**
+   * Setup log streaming functionality
+   */
+  private setupLogStreaming(): void {
+    if (!this.commandHandler || !this.ipcServer || !this.logManager) {
+      return;
+    }
+
+    // コマンドハンドラーからのログストリーミング開始イベントをリッスン
+    // Note: We need connectionId to send logs to specific client only
+    // This requires passing connectionId from IPCServer through IPCCommandHandler
+
+    this.commandHandler.on(
+      LOG_STREAM_EVENTS.START_LOG_STREAM,
+      (streamConfig: any) => {
+        const { messageId, target, connectionId } = streamConfig;
+        const sessionId = `${STREAM_CONFIG.SESSION_PREFIX}-${messageId}-${Date.now()}`;
+
+        // 既存のセッションがあれば停止
+        this.stopLogStream(sessionId);
+
+        // Get specific connection instead of all connections
+        const connection = connectionId
+          ? this.ipcServer!.getConnection(connectionId)
+          : null;
+
+        if (!connection) {
+          console.error(
+            `Cannot start log streaming: connection ${connectionId} not found`
+          );
+          return;
+        }
+
+        // ログマネージャーでストリーミングを開始
+        const cleanup = this.logManager!.startLogStream(target, (logEntry) => {
+          // 新しいログエントリを受信したら特定のIPCクライアントに送信
+          const streamMessage = {
+            id: `${STREAM_CONFIG.SESSION_PREFIX}-${Date.now()}`,
+            type: STREAM_MESSAGE_TYPES.LOG_STREAM,
+            payload: {
+              entry: logEntry,
+              app: logEntry.app,
+              namespace: logEntry.namespace || 'default',
+            },
+            timestamp: Date.now(),
+            sessionId, // セッションIDを追加
+          };
+
+          // 特定の接続にのみメッセージを送信
+          try {
+            // IPCサーバーの送信メソッドを使用
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (connection as any).send(JSON.stringify(streamMessage) + '\n');
+          } catch (error) {
+            console.error('Failed to send log stream message:', error);
+            // エラーが発生した接続のストリーミングを停止
+            this.stopLogStream(sessionId);
+          }
+        });
+
+        // クリーンアップ関数とconnection情報を保存
+        this.streamingSessions.set(sessionId, {
+          cleanup,
+          connectionId: connectionId || '',
+          messageId,
+        });
+
+        // 接続が切断された時にストリーミングを停止
+        this.setupStreamCleanupOnDisconnect(sessionId);
+      }
+    );
+
+    // stop-log-streamイベントのリスナーを追加
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.commandHandler.on(LOG_STREAM_EVENTS.STOP_LOG_STREAM, (config: any) => {
+      const { sessionId } = config;
+      this.stopLogStream(sessionId);
+    });
+  }
+
+  /**
+   * Stop log streaming for a specific session
+   */
+  private stopLogStream(sessionId: string): void {
+    const sessionInfo = this.streamingSessions.get(sessionId);
+    if (sessionInfo) {
+      sessionInfo.cleanup();
+      this.streamingSessions.delete(sessionId);
+    }
+  }
+
+  /**
+   * Setup cleanup when connection disconnects
+   */
+  private setupStreamCleanupOnDisconnect(sessionId: string): void {
+    // IPCサーバーの切断イベントを監視
+    const disconnectHandler = () => {
+      // 該当するセッションのストリーミングを停止
+      this.stopLogStream(sessionId);
+    };
+
+    // 一度だけ実行されるようにする
+    this.ipcServer?.once('disconnect', disconnectHandler);
+  }
+
+  /**
+   * Cleanup all streaming sessions
+   */
+  private cleanupAllStreamingSessions(): void {
+    for (const [, sessionInfo] of this.streamingSessions) {
+      sessionInfo.cleanup();
+    }
+    this.streamingSessions.clear();
   }
 
   /**

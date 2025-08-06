@@ -9,10 +9,10 @@ import * as net from 'net';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { setTimeout, clearTimeout } from 'timers';
-import { IPCServerBase } from './ipc-server-base';
-import type { IPCServerConfig } from '../shared/ipc';
-import { BaseSocketConnection } from './base-socket-connection';
-import { SOCKET_PERMISSIONS } from '../shared/constants';
+import { IPCServerBase } from './ipc-server-base.js';
+import type { IPCServerConfig } from '../shared/ipc.js';
+import { BaseSocketConnection } from './base-socket-connection.js';
+import { SOCKET_PERMISSIONS } from '../shared/constants.js';
 
 /**
  * Unix Socket connection implementation
@@ -33,8 +33,9 @@ export class UnixSocketServer extends IPCServerBase {
   constructor(config: IPCServerConfig = { path: '' }) {
     super(config);
 
-    // Determine socket path
+    // Determine socket path - priority: env var > config.socketPath > config.path > default
     this.socketPath =
+      process.env.PROCMAN_SOCKET_PATH ||
       config.socketPath ||
       config.path ||
       this.expandPath('~/.masuidrive-procman/procman.sock');

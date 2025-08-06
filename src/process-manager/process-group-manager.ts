@@ -14,9 +14,9 @@ import {
   BatchOperationResult,
   ProcessDependency,
   DependencyResolutionResult,
-} from './interfaces/process-group';
-import { ProcessInfo } from '../shared/process';
-import { ManagedProcessInfo } from './managed-process-info';
+} from './interfaces/process-group.js';
+import { ProcessInfo } from '../shared/process.js';
+import { ManagedProcessInfo } from './managed-process-info.js';
 
 /**
  * ProcessGroupManager implementation (simplified for architecture demo)

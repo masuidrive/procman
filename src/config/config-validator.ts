@@ -6,8 +6,8 @@
  */
 
 import * as path from 'path';
-import { ProcmanConfig, parseMemorySize } from '../shared/config';
-import { ProcmanError, createError } from '../shared/errors';
+import { ProcmanConfig, parseMemorySize } from '../shared/config.js';
+import { ProcmanError, createError } from '../shared/errors.js';
 
 /**
  * Validation issue severity levels

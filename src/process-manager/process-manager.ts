@@ -16,11 +16,11 @@ import { EventEmitter } from 'events';
 import { ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
-import { ProcessLifecycleManagerImpl } from './process-lifecycle-manager';
-import { ProcessMonitorImpl } from './process-monitor';
-import { ProcessPersistenceImpl } from './process-persistence';
-import { ProcessGroupManagerImpl } from './process-group-manager';
-import { ManagedProcessInfo } from './managed-process-info';
+import { ProcessLifecycleManagerImpl } from './process-lifecycle-manager.js';
+import { ProcessMonitorImpl } from './process-monitor.js';
+import { ProcessPersistenceImpl } from './process-persistence.js';
+import { ProcessGroupManagerImpl } from './process-group-manager.js';
+import { ManagedProcessInfo } from './managed-process-info.js';
 import {
   ProcessLifecycleManager,
   ProcessMonitor,
@@ -28,9 +28,9 @@ import {
   ProcessGroupManager,
   MainProcessManager,
 } from './interfaces';
-import { AppConfig, parseMemorySize } from '../shared/config';
-import { ProcessInfo, ProcessStatus } from '../shared/process';
-import { ProcessDependency } from './interfaces/process-group';
+import { AppConfig, parseMemorySize } from '../shared/config.js';
+import { ProcessInfo, ProcessStatus } from '../shared/process.js';
+import { ProcessDependency } from './interfaces/process-group.js';
 
 /**
  * Process configuration interface

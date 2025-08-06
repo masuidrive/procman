@@ -7,7 +7,7 @@
  * - Dependency management foundation
  */
 
-import { ProcessInfo } from '../../shared/process';
+import { ProcessInfo } from '../../shared/process.js';
 
 /**
  * Namespace status summary

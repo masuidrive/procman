@@ -32,6 +32,7 @@ import {
   ExitResponseData,
 } from '../shared/ipc.js';
 import { LogOptions } from '../shared/logs.js';
+import { LOG_STREAM_EVENTS } from '../shared/constants-streaming.js';
 
 /**
  * Command type constants
@@ -74,6 +75,13 @@ export interface CommandHandlerEvents {
   'command:received': (command: CommandType, id: string) => void;
   'command:completed': (command: CommandType, id: string) => void;
   'command:error': (command: CommandType, id: string, error: Error) => void;
+  [LOG_STREAM_EVENTS.START_LOG_STREAM]: (config: {
+    messageId: string;
+    target: string;
+    options: any;
+    connectionId?: string;
+  }) => void;
+  [LOG_STREAM_EVENTS.STOP_LOG_STREAM]: (config: { sessionId: string }) => void;
 }
 
 /**
@@ -87,7 +95,11 @@ export class IPCCommandHandler extends EventEmitter {
   /**
    * Handle incoming IPC message
    */
-  async handleMessage(message: IPCMessage): Promise<IPCResponse> {
+
+  async handleMessage(
+    message: IPCMessage,
+    connection?: any
+  ): Promise<IPCResponse> {
     this.emit('command:received', message.type, message.id);
 
     try {
@@ -126,7 +138,8 @@ export class IPCCommandHandler extends EventEmitter {
 
         case COMMAND_TYPES.LOG:
           response = await this.handleLogCommand(
-            message as IPCMessage<LogCommandPayload>
+            message as IPCMessage<LogCommandPayload>,
+            connection
           );
           break;
 
@@ -403,7 +416,9 @@ export class IPCCommandHandler extends EventEmitter {
    * Handle LOG command
    */
   private async handleLogCommand(
-    message: IPCMessage<LogCommandPayload>
+    message: IPCMessage<LogCommandPayload>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    connection?: any
   ): Promise<IPCResponse<LogResponseData>> {
     const { target, options } = message.payload;
     const logManager = this.daemon.getLogManager();
@@ -412,13 +427,42 @@ export class IPCCommandHandler extends EventEmitter {
       throw new Error('Log manager not initialized');
     }
 
-    // For streaming logs, we'll need to implement a different approach
+    // Check if streaming is requested
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const follow = (options as any)?.follow;
+
     if (follow) {
-      throw new Error('Log streaming not yet implemented');
+      // ストリーミングモードの場合、接続情報を保存してストリーミングを開始
+      // 注: 実際のストリーミングはIPCサーバー側で処理する必要がある
+      // ここでは通常のレスポンスを返し、別途ストリーミングイベントを送信する
+
+      // ストリーミング開始のマーカーを含むレスポンスを返す
+      const response: LogResponseData = {
+        entries: [],
+        total: 0,
+        streaming: true, // ストリーミングモードであることを示すフラグ
+      };
+
+      // ストリーミングの設定をイベントとして発行
+      // これにより、IPCサーバーがストリーミングを開始できる
+      this.emit(LOG_STREAM_EVENTS.START_LOG_STREAM, {
+        messageId: message.id,
+        target,
+        options,
+        connectionId: connection?.id, // Pass connection ID for specific client streaming
+      });
+
+      return {
+        id: message.id,
+        requestId: message.id,
+        type: COMMAND_TYPES.LOG,
+        timestamp: Date.now(),
+        success: true,
+        data: response,
+      };
     }
 
+    // 通常モード（非ストリーミング）
     const logOptions: LogOptions = {
       lines: options?.lines || 100,
     };

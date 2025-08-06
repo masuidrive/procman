@@ -8,9 +8,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vm from 'vm';
-import { ProcmanConfig } from '../shared/config';
-import { createError } from '../shared/errors';
-import { ConfigLoader, ConfigLoaderOptions } from './config-loader';
+import { ProcmanConfig } from '../shared/config.js';
+import { createError } from '../shared/errors.js';
+import { ConfigLoader, ConfigLoaderOptions } from './config-loader.js';
 
 export enum ConfigSecurityMode {
   LEGACY = 'legacy', // Current require() approach

@@ -15,10 +15,10 @@ import {
   ProcessPersistence as IProcessPersistence,
   PersistenceConfig,
   PersistenceResult,
-} from './interfaces/process-persistence';
-import { PersistedManagedProcessInfo } from '../shared/process';
-import { ManagedProcessInfo } from './managed-process-info';
-import { DEBOUNCE_SAVE_STATE_DELAY } from '../shared/constants';
+} from './interfaces/process-persistence.js';
+import { PersistedManagedProcessInfo } from '../shared/process.js';
+import { ManagedProcessInfo } from './managed-process-info.js';
+import { DEBOUNCE_SAVE_STATE_DELAY } from '../shared/constants.js';
 
 // Node.js global types
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

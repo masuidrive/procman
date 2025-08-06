@@ -13,8 +13,8 @@ import {
   MemorySample,
   CPUSample,
   PersistedManagedProcessInfo,
-} from '../shared/process';
-import { ProcessConfig } from './process-manager';
+} from '../shared/process.js';
+import { ProcessConfig } from './process-manager.js';
 import {
   RESTART_BACKOFF_BASE_DELAY,
   RESTART_BACKOFF_MAX_DELAY,
@@ -22,7 +22,7 @@ import {
   RESTART_WINDOW_TIME,
   MAX_RESTART_COUNT,
   MAX_HISTORY_LENGTH,
-} from '../shared/constants';
+} from '../shared/constants.js';
 
 // =============================================================================
 // Process Statistics Interface

@@ -5,7 +5,7 @@
  * providing type safety and better developer experience.
  */
 
-import { MEMORY_UNITS, LOG_LEVELS, LOG_TYPES } from './constants';
+import { MEMORY_UNITS, LOG_LEVELS, LOG_TYPES } from './constants.js';
 
 // メモリ単位の型定義
 export type MemoryUnit = (typeof MEMORY_UNITS)[number];

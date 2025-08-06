@@ -5,7 +5,10 @@
  */
 
 import { EventEmitter } from 'events';
-import { SimpleDisposableBase, SimpleTimeout } from './simple-resource-manager';
+import {
+  SimpleDisposableBase,
+  SimpleTimeout,
+} from './simple-resource-manager.js';
 
 /**
  * Reconnection options

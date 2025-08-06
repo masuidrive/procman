@@ -5,25 +5,25 @@
  */
 
 // Constants
-export * from './constants';
+export * from './constants.js';
 
 // Utility types
-export * from './types';
+export * from './types.js';
 
 // Error management
-export * from './errors';
+export * from './errors.js';
 
 // Process management
-export * from './process';
+export * from './process.js';
 
 // Configuration management
-export * from './config';
+export * from './config.js';
 
 // Log management
-export * from './logs';
+export * from './logs.js';
 
 // Structured logging
-export * from './logger';
+export * from './logger.js';
 
 // IPC communication
-export * from './ipc';
+export * from './ipc.js';

@@ -6,51 +6,54 @@
  */
 
 // Re-export main ConfigLoader class
-export { ConfigLoader } from './config-loader';
-export type { ConfigLoaderOptions, LoadedConfig } from './config-loader';
+export { ConfigLoader } from './config-loader.js';
+export type { ConfigLoaderOptions, LoadedConfig } from './config-loader.js';
 
 // Re-export specialized classes for advanced usage
-export { ConfigValidator } from './config-validator';
+export { ConfigValidator } from './config-validator.js';
 export type {
   ConfigValidatorOptions,
   ValidationIssue,
   ValidationSeverity,
-} from './config-validator';
+} from './config-validator.js';
 
-export { ConfigNormalizer } from './config-normalizer';
+export { ConfigNormalizer } from './config-normalizer.js';
 export type {
   ConfigNormalizerOptions,
   NormalizedConfig,
-} from './config-normalizer';
+} from './config-normalizer.js';
 
-export { ConfigWatcher } from './config-watcher';
+export { ConfigWatcher } from './config-watcher.js';
 export type {
   ConfigWatcherOptions,
   WatchCallback,
   WatcherDisposal,
   FileChangeEvent,
-} from './config-watcher';
+} from './config-watcher.js';
 
-export { ConfigReporter } from './config-reporter';
+export { ConfigReporter } from './config-reporter.js';
 export type {
   ConfigReporterOptions,
   ValidationReport,
   EnhancedValidationError,
-} from './config-reporter';
+} from './config-reporter.js';
 
 // Re-export secure config loader for safer configuration loading
-export { SecureConfigLoader, ConfigSecurityMode } from './secure-config-loader';
-export type { SecureConfigLoaderOptions } from './secure-config-loader';
+export {
+  SecureConfigLoader,
+  ConfigSecurityMode,
+} from './secure-config-loader.js';
+export type { SecureConfigLoaderOptions } from './secure-config-loader.js';
 
 // Re-export shared types for convenience
-export type { ProcmanConfig, AppConfig } from '../shared/config';
+export type { ProcmanConfig, AppConfig } from '../shared/config.js';
 
 // Factory functions for easy instantiation
-export { createConfigValidator } from './config-validator';
-export { createConfigNormalizer } from './config-normalizer';
-export { createConfigWatcher } from './config-watcher';
-export { createConfigReporter } from './config-reporter';
-export { createSecureConfigLoader } from './secure-config-loader';
+export { createConfigValidator } from './config-validator.js';
+export { createConfigNormalizer } from './config-normalizer.js';
+export { createConfigWatcher } from './config-watcher.js';
+export { createConfigReporter } from './config-reporter.js';
+export { createSecureConfigLoader } from './secure-config-loader.js';
 
 /**
  * Create a new ConfigLoader instance with default options

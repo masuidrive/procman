@@ -11,7 +11,7 @@ import {
   SimpleDisposableBase,
   SimpleTimeout,
   SimpleInterval,
-} from './simple-resource-manager';
+} from './simple-resource-manager.js';
 import type {
   IPCMessage,
   IPCResponse,
@@ -21,13 +21,13 @@ import type {
   CommandType,
   IPCClientEvents,
   IPCCommandPayloadMap,
-} from '../shared/ipc';
+} from '../shared/ipc.js';
 import {
   generateMessageId,
   createIPCCommand,
   isIPCResponse,
   isIPCLogStreamMessage,
-} from '../shared/ipc';
+} from '../shared/ipc.js';
 
 /**
  * Pending request information

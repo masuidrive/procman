@@ -7,16 +7,16 @@
  */
 
 // Main exports
-export { ProcessManager } from './process-manager';
-export { ManagedProcessInfo } from './managed-process-info';
+export { ProcessManager } from './process-manager.js';
+export { ManagedProcessInfo } from './managed-process-info.js';
 
 // Type exports
-export type { ProcessConfig } from './process-manager';
+export type { ProcessConfig } from './process-manager.js';
 
 export type {
   ProcessStatistics,
   ManagedProcessEvents,
-} from './managed-process-info';
+} from './managed-process-info.js';
 
 // Re-export shared types for convenience
-export type { ProcessInfo, ProcessStatus } from '../shared/process';
+export type { ProcessInfo, ProcessStatus } from '../shared/process.js';

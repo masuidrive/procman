@@ -6,8 +6,8 @@
  * proper message framing and delimiter handling.
  */
 
-import type { IPCMessage } from '../shared/ipc';
-import { IDisposable } from './resource-manager';
+import type { IPCMessage } from '../shared/ipc.js';
+import { IDisposable } from './resource-manager.js';
 
 /**
  * Message delimiter used to separate messages in the stream

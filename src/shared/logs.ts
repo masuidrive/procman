@@ -40,6 +40,8 @@ export interface LogOptions {
   human?: boolean;
   /** Enable streaming mode */
   stream?: boolean;
+  /** Enable follow mode (for streaming) */
+  follow?: boolean;
   /** Filter by log level */
   level?: Array<'info' | 'warn' | 'error'>;
   /** Filter by log type */

@@ -6,8 +6,8 @@
  */
 
 import * as path from 'path';
-import { ProcmanConfig } from '../shared/config';
-import { ProcmanError } from '../shared/errors';
+import { ProcmanConfig } from '../shared/config.js';
+import { ProcmanError } from '../shared/errors.js';
 
 /**
  * Validation issue severity levels

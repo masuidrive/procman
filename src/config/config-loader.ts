@@ -8,12 +8,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { EventEmitter } from 'events';
-import { ProcmanConfig } from '../shared/config';
-import { ProcmanError, createError } from '../shared/errors';
-import { ConfigValidator } from './config-validator';
-import { ConfigNormalizer, NormalizedConfig } from './config-normalizer';
-import { ConfigWatcher } from './config-watcher';
-import { ConfigReporter, ValidationReport } from './config-reporter';
+import { createRequire } from 'module';
+import { ProcmanConfig } from '../shared/config.js';
+import { ProcmanError, createError } from '../shared/errors.js';
+import { ConfigValidator } from './config-validator.js';
+import { ConfigNormalizer, NormalizedConfig } from './config-normalizer.js';
+import { ConfigWatcher } from './config-watcher.js';
+import { ConfigReporter, ValidationReport } from './config-reporter.js';
 
 export interface LoadedConfig {
   config: ProcmanConfig;
@@ -28,9 +29,12 @@ export interface ConfigLoaderOptions {
   moduleLoader?: (path: string) => unknown;
 }
 
-export type { ValidationSeverity, ValidationIssue } from './config-validator';
-export type { ValidationReport } from './config-reporter';
-export type { NormalizedConfig } from './config-normalizer';
+export type {
+  ValidationSeverity,
+  ValidationIssue,
+} from './config-validator.js';
+export type { ValidationReport } from './config-reporter.js';
+export type { NormalizedConfig } from './config-normalizer.js';
 
 export interface ConfigLoaderEvents {
   configChanged: (filePath: string) => void;
@@ -44,6 +48,14 @@ export class ConfigLoader extends EventEmitter {
   private watcher: ConfigWatcher;
   private reporter: ConfigReporter;
 
+  /**
+   * Dynamic require replacement for ES modules
+   */
+  private dynamicRequire(modulePath: string): unknown {
+    const require = createRequire(import.meta.url);
+    return require(modulePath);
+  }
+
   constructor(options: ConfigLoaderOptions = {}) {
     super();
 
@@ -51,7 +63,7 @@ export class ConfigLoader extends EventEmitter {
       maxFileSize: options.maxFileSize ?? 10 * 1024 * 1024,
       enableCache: options.enableCache ?? true,
       enableReporting: options.enableReporting ?? false,
-      moduleLoader: options.moduleLoader ?? require,
+      moduleLoader: options.moduleLoader ?? this.dynamicRequire.bind(this),
     };
 
     this.moduleLoader = this.options.moduleLoader;
@@ -81,6 +93,8 @@ export class ConfigLoader extends EventEmitter {
       return this.loadedConfigs.get(absolutePath)!.config;
     }
     try {
+      // Clear module cache for ES modules
+      const require = createRequire(import.meta.url);
       if (require.cache[absolutePath]) delete require.cache[absolutePath];
       const config = this.moduleLoader(absolutePath);
       this.validator.validateConfig(config);

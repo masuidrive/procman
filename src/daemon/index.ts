@@ -6,14 +6,14 @@
  */
 
 // Base classes
-export { IPCServerBase, MessageHandler } from './ipc-server-base';
-export { IPCClientBase } from './ipc-client-base';
+export { IPCServerBase, MessageHandler } from './ipc-server-base.js';
+export { IPCClientBase } from './ipc-client-base.js';
 
 // Platform-specific implementations
-export { UnixSocketServer } from './unix-socket-server';
-export { UnixSocketClient } from './unix-socket-client';
-export { NamedPipeServer } from './named-pipe-server';
-export { NamedPipeClient } from './named-pipe-client';
+export { UnixSocketServer } from './unix-socket-server.js';
+export { UnixSocketClient } from './unix-socket-client.js';
+export { NamedPipeServer } from './named-pipe-server.js';
+export { NamedPipeClient } from './named-pipe-client.js';
 
 // Message protocol
 export {
@@ -26,7 +26,7 @@ export {
   estimateMessageSize,
   MESSAGE_DELIMITER,
   MAX_MESSAGE_SIZE,
-} from './message-protocol';
+} from './message-protocol.js';
 
 // Factory and utilities
 export {
@@ -37,7 +37,7 @@ export {
   isIPCSupported,
   getCurrentPlatform,
   Platform,
-} from './ipc-factory';
+} from './ipc-factory.js';
 
 // Re-export shared types for convenience
 export type {
@@ -52,10 +52,10 @@ export type {
   IPCConnectionStatus,
   IPCConnection,
   CommandType,
-} from '../shared/ipc';
+} from '../shared/ipc.js';
 
 // Main daemon classes
-export { ProcmanDaemon, DaemonState } from './procman-daemon';
-export { DataDirectory } from './data-directory';
-export { PIDManager } from './pid-manager';
-export { startDaemon, isDaemonRunning } from './daemon-main';
+export { ProcmanDaemon, DaemonState } from './procman-daemon.js';
+export { DataDirectory } from './data-directory.js';
+export { PIDManager } from './pid-manager.js';
+export { startDaemon, isDaemonRunning } from './daemon-main.js';

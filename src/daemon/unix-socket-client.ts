@@ -9,10 +9,10 @@ import * as net from 'net';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { setTimeout, clearTimeout } from 'timers';
-import { IPCClientBase } from './ipc-client-base';
-import { MessageProtocol } from './message-protocol';
-import type { IPCMessage, IPCClientConfig } from '../shared/ipc';
-import { SimpleTimeout } from './simple-resource-manager';
+import { IPCClientBase } from './ipc-client-base.js';
+import { MessageProtocol } from './message-protocol.js';
+import type { IPCMessage, IPCClientConfig } from '../shared/ipc.js';
+import { SimpleTimeout } from './simple-resource-manager.js';
 
 /**
  * Unix Domain Socket Client
@@ -31,8 +31,9 @@ export class UnixSocketClient extends IPCClientBase {
   constructor(config: IPCClientConfig = { path: '' }) {
     super(config);
 
-    // Determine socket path
+    // Determine socket path - priority: env var > config.socketPath > config.path > default
     this.socketPath =
+      process.env.PROCMAN_SOCKET_PATH ||
       config.socketPath ||
       config.path ||
       this.expandPath('~/.masuidrive-procman/procman.sock');

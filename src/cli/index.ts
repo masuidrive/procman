@@ -1,32 +1,26 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
+import { CommandParser } from './parser.js';
 
-const program = new Command();
-
-program
-  .name('procman')
-  .description('Process Manager CLI Tool')
-  .version('0.1.0');
-
-program
-  .command('status')
-  .description('Show process status')
-  .action(() => {
-    console.log('Process status feature will be implemented');
+async function main(): Promise<void> {
+  const parser = new CommandParser({
+    name: 'procman',
+    description: 'Process Manager CLI Tool',
+    version: '0.1.0',
   });
 
-program
-  .command('start <service>')
-  .description('Start a service')
-  .action((service: string) => {
-    console.log(`Starting service: ${service}`);
-  });
+  try {
+    await parser.parseAsync();
+  } catch (error) {
+    console.error(
+      'Error:',
+      error instanceof Error ? error.message : String(error)
+    );
+    process.exit(1);
+  }
+}
 
-program
-  .command('stop <service>')
-  .description('Stop a service')
-  .action((service: string) => {
-    console.log(`Stopping service: ${service}`);
-  });
-
-program.parse();
+// Always run main when this file is executed
+main().catch((error) => {
+  console.error('Unexpected error:', error);
+  process.exit(1);
+});
