@@ -327,7 +327,7 @@ module.exports = {
       // 3. Check if process exceeds memory limit
       // Make sure the process memory is set higher than the limit for test
       processInfo.memory =
-        TEST_MEMORY_SIZES.LARGE / (1024 * 1024) +
+        TEST_MEMORY_SIZES.VERY_LARGE / (1024 * 1024) +
         TEST_MEMORY_SIZES.SMALL / (1024 * 1024); // Set higher than limit
       const currentMemoryBytes = processInfo.memory * 1024 * 1024;
       const exceedsLimit = currentMemoryBytes > (memoryResult.value || 0);

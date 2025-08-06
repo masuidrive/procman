@@ -326,47 +326,51 @@ describe('IPC Communication Boundary Tests', () => {
       expect(emptyResponse.success).toBe(true);
     });
 
-    test('should handle extremely large message payloads', { timeout: 15000 }, async () => {
-      // Arrange: Set up connection
-      server = IPCFactory.createServer({ path: socketPath });
-      client = IPCFactory.createClient({ path: socketPath });
+    test(
+      'should handle extremely large message payloads',
+      { timeout: 15000 },
+      async () => {
+        // Arrange: Set up connection
+        server = IPCFactory.createServer({ path: socketPath });
+        client = IPCFactory.createClient({ path: socketPath });
 
-      server.registerHandler('large' as any, async (message) => {
-        return {
-          id: message.id,
-          requestId: message.id,
-          type: 'large',
-          timestamp: Date.now(),
-          success: true,
-          data: { size: JSON.stringify(message.payload).length },
-        } as any;
-      });
+        server.registerHandler('large' as any, async (message) => {
+          return {
+            id: message.id,
+            requestId: message.id,
+            type: 'large',
+            timestamp: Date.now(),
+            success: true,
+            data: { size: JSON.stringify(message.payload).length },
+          } as any;
+        });
 
-      await server.start();
-      await client.connect();
+        await server.start();
+        await client.connect();
 
-      // Act: Send very large payload (1MB)
-      const largeData = {
-        data: 'x'.repeat(TEST_MEMORY_SIZES.SMALL),
-        array: new Array(TEST_COUNTS.VERY_LARGE).fill('large string data'),
-      };
+        // Act: Send very large payload (1MB)
+        const largeData = {
+          data: 'x'.repeat(TEST_MEMORY_SIZES.SMALL),
+          array: new Array(TEST_COUNTS.VERY_LARGE).fill('large string data'),
+        };
 
-      try {
-        const response = await client.sendCommand(
-          'large' as any,
-          largeData,
-          TEST_TIMEOUTS.LONG
-        );
+        try {
+          const response = await client.sendCommand(
+            'large' as any,
+            largeData,
+            TEST_TIMEOUTS.LONG
+          );
 
-        // Assert: Should handle large payloads
-        expect(response.success).toBe(true);
-        const responseData = response.data as any;
-        expect(responseData.size).toBeGreaterThan(1000000);
-      } catch (error) {
-        // Acceptable to fail with extremely large payloads
-        expect(error).toBeInstanceOf(Error);
+          // Assert: Should handle large payloads
+          expect(response.success).toBe(true);
+          const responseData = response.data as any;
+          expect(responseData.size).toBeGreaterThan(1000000);
+        } catch (error) {
+          // Acceptable to fail with extremely large payloads
+          expect(error).toBeInstanceOf(Error);
+        }
       }
-    });
+    );
 
     test('should handle messages with circular references', async () => {
       // Arrange: Set up connection
@@ -442,49 +446,53 @@ describe('IPC Communication Boundary Tests', () => {
       expect(server).toBeDefined();
     });
 
-    test('should handle maximum message queue overflow', { timeout: 15000 }, async () => {
-      // Arrange: Set up connection with slow handler
-      server = IPCFactory.createServer({ path: socketPath });
-      client = IPCFactory.createClient({ path: socketPath });
+    test(
+      'should handle maximum message queue overflow',
+      { timeout: 15000 },
+      async () => {
+        // Arrange: Set up connection with slow handler
+        server = IPCFactory.createServer({ path: socketPath });
+        client = IPCFactory.createClient({ path: socketPath });
 
-      let processedCount = 0;
-      server.registerHandler('slow' as any, async (message) => {
-        // Simulate slow processing
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        processedCount++;
-        return {
-          id: message.id,
-          requestId: message.id,
-          type: 'slow',
-          timestamp: Date.now(),
-          success: true,
-          data: { processed: processedCount },
-        } as any;
-      });
+        let processedCount = 0;
+        server.registerHandler('slow' as any, async (message) => {
+          // Simulate slow processing
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          processedCount++;
+          return {
+            id: message.id,
+            requestId: message.id,
+            type: 'slow',
+            timestamp: Date.now(),
+            success: true,
+            data: { processed: processedCount },
+          } as any;
+        });
 
-      await server.start();
-      await client.connect();
+        await server.start();
+        await client.connect();
 
-      // Act: Send many messages rapidly
-      const promises = [];
-      for (let i = 0; i < 50; i++) {
-        promises.push(
-          client
-            .sendCommand('slow' as any, { index: i }, 10000)
-            .catch((error: any) => ({ error, index: i }))
-        );
+        // Act: Send many messages rapidly
+        const promises = [];
+        for (let i = 0; i < 50; i++) {
+          promises.push(
+            client
+              .sendCommand('slow' as any, { index: i }, 10000)
+              .catch((error: any) => ({ error, index: i }))
+          );
+        }
+
+        const results = await Promise.all(promises);
+
+        // Assert: Should handle queue overflow gracefully
+        const successes = results.filter((r) => !('error' in r)).length;
+        const errors = results.filter((r) => 'error' in r).length;
+
+        // At least some should succeed
+        expect(successes).toBeGreaterThan(0);
+        console.log(`Processed ${successes} messages, ${errors} failed`);
       }
-
-      const results = await Promise.all(promises);
-
-      // Assert: Should handle queue overflow gracefully
-      const successes = results.filter((r) => !('error' in r)).length;
-      const errors = results.filter((r) => 'error' in r).length;
-
-      // At least some should succeed
-      expect(successes).toBeGreaterThan(0);
-      console.log(`Processed ${successes} messages, ${errors} failed`);
-    });
+    );
 
     test.skip('should handle connection limit enforcement', async () => {
       // Arrange: Server with very low connection limit
@@ -504,9 +512,9 @@ describe('IPC Communication Boundary Tests', () => {
           await testClient.connect();
           clients.push(testClient);
           connectionResults.push({ success: true, index: i });
-          
+
           // Add small delay to ensure server processes connection
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise((resolve) => setTimeout(resolve, 50));
         } catch (error) {
           connectionResults.push({ success: false, error, index: i });
         }
@@ -893,47 +901,52 @@ describe('IPC Communication Boundary Tests', () => {
       }
     });
 
-    test.skip('should handle socket path permission issues', { timeout: 10000 }, async () => {
-      // Skip on Windows
-      if (process.platform === 'win32') {
-        return;
-      }
-
-      // Arrange: Create directory with no write permissions
-      const restrictedDir = path.join(tempDir, 'restricted');
-      fs.mkdirSync(restrictedDir);
-      fs.chmodSync(restrictedDir, 0o444); // Read-only
-
-      const restrictedSocketPath = path.join(restrictedDir, 'test.sock');
-
-      // Act: Try to create server in restricted directory
-      try {
-        server = IPCFactory.createServer({ path: restrictedSocketPath });
-        await server.start();
-        // If it succeeds, that's acceptable (might have different permissions)
-        expect(server).toBeDefined();
-      } catch (error) {
-        // Expected to fail with permission error
-        expect(error).toBeInstanceOf(Error);
-        expect(error.message).toMatch(/EACCES|permission/i);
-      } finally {
-        // Clean up permissions first before any other cleanup
-        try {
-          fs.chmodSync(restrictedDir, 0o755);
-        } catch {
-          // Ignore chmod errors
+    test.skip(
+      'should handle socket path permission issues',
+      { timeout: 10000 },
+      async () => {
+        // Skip on Windows
+        if (process.platform === 'win32') {
+          return;
         }
-        
-        // Clean up server if it was created
-        if (server) {
+
+        // Arrange: Create directory with no write permissions
+        const restrictedDir = path.join(tempDir, 'restricted');
+        fs.mkdirSync(restrictedDir);
+        fs.chmodSync(restrictedDir, 0o444); // Read-only
+
+        const restrictedSocketPath = path.join(restrictedDir, 'test.sock');
+
+        // Act: Try to create server in restricted directory
+        try {
+          server = IPCFactory.createServer({ path: restrictedSocketPath });
+          await server.start();
+          // If it succeeds, that's acceptable (might have different permissions)
+          expect(server).toBeDefined();
+        } catch (error) {
+          // Expected to fail with permission error
+          expect(error).toBeInstanceOf(Error);
+
+          expect((error as any).message).toMatch(/EACCES|permission/i);
+        } finally {
+          // Clean up permissions first before any other cleanup
           try {
-            await server.stop();
+            fs.chmodSync(restrictedDir, 0o755);
           } catch {
-            // Ignore stop errors
+            // Ignore chmod errors
+          }
+
+          // Clean up server if it was created
+          if (server) {
+            try {
+              await server.stop();
+            } catch {
+              // Ignore stop errors
+            }
           }
         }
       }
-    });
+    );
 
     test(
       'should handle memory pressure during large message processing',

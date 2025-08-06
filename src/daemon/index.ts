@@ -53,3 +53,9 @@ export type {
   IPCConnection,
   CommandType,
 } from '../shared/ipc';
+
+// Main daemon classes
+export { ProcmanDaemon, DaemonState } from './procman-daemon';
+export { DataDirectory } from './data-directory';
+export { PIDManager } from './pid-manager';
+export { startDaemon, isDaemonRunning } from './daemon-main';

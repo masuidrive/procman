@@ -1,0 +1,529 @@
+/**
+ * Main daemon class for procman
+ *
+ * Orchestrates daemon components using specialized managers.
+ * Follows Single Responsibility Principle by delegating to:
+ * - DaemonStateManager: State management and transitions
+ * - ComponentManager: Component lifecycle management
+ * - SignalHandler: Process signal handling
+ * - DataDirectory & PIDManager: File system management
+ */
+
+import { EventEmitter } from 'events';
+import { DataDirectory } from './data-directory.js';
+import { PIDManager } from './pid-manager.js';
+import { DaemonStateManager, DaemonState } from './daemon-state-manager.js';
+import { ComponentManager } from './component-manager.js';
+import { SignalHandler } from './signal-handler.js';
+import { ConfigLoader } from '../config/config-loader.js';
+import { ProcessManager } from '../process-manager/process-manager.js';
+import { LogManager } from '../services/log-manager.js';
+import { AppConfig } from '../shared/config.js';
+
+// Re-export DaemonState for backward compatibility
+export { DaemonState };
+
+/**
+ * Events emitted by ProcmanDaemon
+ */
+export interface ProcmanDaemonEvents {
+  stateChange: (state: DaemonState) => void;
+  error: (error: Error) => void;
+  componentStarted: (componentName: string) => void;
+  componentStopped: (componentName: string) => void;
+  recoveryStarted: () => void;
+  recoveryCompleted: () => void;
+  recoveryFailed: (error: Error) => void;
+}
+
+/**
+ * Main daemon class that coordinates all procman components
+ */
+export class ProcmanDaemon extends EventEmitter {
+  private dataDirectory: DataDirectory;
+  private pidManager: PIDManager;
+  private stateManager: DaemonStateManager;
+  private componentManager: ComponentManager;
+  private signalHandler: SignalHandler;
+  private currentConfig?: AppConfig[];
+  private configFilePath?: string;
+  private recoveryAttempts = 0;
+  private readonly maxRecoveryAttempts = 3;
+
+  constructor() {
+    super();
+
+    this.dataDirectory = new DataDirectory();
+    this.pidManager = new PIDManager(this.dataDirectory);
+    this.stateManager = new DaemonStateManager();
+    this.componentManager = new ComponentManager(this.dataDirectory);
+    this.signalHandler = new SignalHandler();
+
+    this.setupEventListeners();
+  }
+
+  /**
+   * Get current daemon state
+   */
+  getState(): DaemonState {
+    return this.stateManager.getCurrentState();
+  }
+
+  /**
+   * Check if daemon is currently running
+   */
+  isRunning(): boolean {
+    return this.stateManager.isRunning();
+  }
+
+  /**
+   * Start the daemon
+   */
+  async start(): Promise<void> {
+    if (!this.stateManager.canStart()) {
+      throw new Error(`Cannot start daemon: current state is ${this.getState()}`);
+    }
+
+    this.stateManager.transitionTo(DaemonState.STARTING);
+
+    try {
+      // Check for existing daemon
+      await this.pidManager.ensureNoDaemonRunning();
+
+      // Initialize data directory
+      await this.dataDirectory.ensureDataDirectory();
+
+      // Write PID file
+      await this.pidManager.writePIDFile();
+
+      // Setup signal handlers
+      this.signalHandler.setupHandlers();
+
+      // Initialize components
+      await this.componentManager.initializeAll();
+
+      this.stateManager.transitionTo(DaemonState.RUNNING);
+      this.recoveryAttempts = 0; // Reset recovery counter on successful start
+    } catch (error) {
+      this.stateManager.forceError();
+
+      // Cleanup on startup failure with better error handling
+      await this.performStartupCleanup();
+
+      throw error;
+    }
+  }
+
+  /**
+   * Stop the daemon
+   */
+  async stop(): Promise<void> {
+    if (this.state !== DaemonState.RUNNING) {
+      throw new Error(`Cannot stop daemon: current state is ${this.state}`);
+    }
+
+    this.setState(DaemonState.STOPPING);
+
+    try {
+      // Cleanup components
+      await this.cleanupComponents();
+
+      // Remove signal handlers
+      this.cleanupSignalHandlers();
+
+      // Clean up PID file
+      await this.pidManager.cleanup();
+
+      this.setState(DaemonState.STOPPED);
+    } catch (error) {
+      this.setState(DaemonState.ERROR);
+      throw error;
+    }
+  }
+
+  /**
+   * Restart the daemon
+   */
+  async restart(): Promise<void> {
+    if (this.state === DaemonState.RUNNING) {
+      await this.stop();
+    }
+
+    await this.start();
+  }
+
+  /**
+   * Set daemon state and emit state change event
+   */
+  private setState(newState: DaemonState): void {
+    const oldState = this.state;
+    this.state = newState;
+
+    if (oldState !== newState) {
+      this.emit('stateChange', newState);
+    }
+  }
+
+  /**
+   * Initialize all daemon components
+   */
+  private async initializeComponents(): Promise<void> {
+    try {
+      // Initialize ConfigLoader
+      this.configLoader = new ConfigLoader();
+      this.emit('componentStarted', 'config-loader');
+
+      // Initialize ProcessManager
+      this.processManager = new ProcessManager();
+      this.emit('componentStarted', 'process-manager');
+
+      // Initialize LogManager
+      await this.dataDirectory.getLogDirectory(); // Ensure log directory exists
+      this.logManager = new LogManager();
+      // LogManager initialization is done by constructor
+      this.emit('componentStarted', 'log-manager');
+
+      // Initialize daemon log - LogManager will handle file creation
+      // when the first log is written
+
+      // Initialize IPC Server
+      const socketPath = await this.dataDirectory.getSocketPath();
+      this.ipcServer = createIPCServer({ path: socketPath });
+
+      // Initialize command handler
+      this.commandHandler = new IPCCommandHandler(this);
+
+      // Register handlers for each command type
+      const commandTypes = [
+        'load',
+        'start',
+        'stop',
+        'restart',
+        'list',
+        'log',
+        'clear-log',
+        'exit',
+      ] as const;
+      for (const commandType of commandTypes) {
+        this.ipcServer.registerHandler(commandType, async (message) => {
+          const response = await this.commandHandler!.handleMessage(message);
+          return response;
+        });
+      }
+
+      await this.ipcServer.start();
+      this.emit('componentStarted', 'ipc-server');
+
+      // Log startup
+      await this.logDaemonMessage('info', 'Daemon started successfully');
+    } catch (error) {
+      await this.logDaemonMessage(
+        'error',
+        `Failed to initialize components: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Cleanup all daemon components
+   */
+  private async cleanupComponents(): Promise<void> {
+    const errors: Error[] = [];
+
+    // Stop IPC Server
+    if (this.ipcServer) {
+      try {
+        await this.ipcServer.stop();
+        this.emit('componentStopped', 'ipc-server');
+      } catch (error) {
+        errors.push(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+
+    // Stop all processes
+    if (this.processManager) {
+      try {
+        const allProcesses = this.processManager.getProcessNames();
+        if (allProcesses.length > 0) {
+          await this.processManager.stopProcesses(allProcesses);
+        }
+        await this.processManager.cleanup();
+        this.emit('componentStopped', 'process-manager');
+      } catch (error) {
+        errors.push(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+
+    // Cleanup LogManager
+    if (this.logManager) {
+      try {
+        await this.logDaemonMessage('info', 'Daemon shutting down');
+        // LogManager cleanup - no specific cleanup method needed
+        this.emit('componentStopped', 'log-manager');
+      } catch (error) {
+        errors.push(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+
+    // Cleanup ConfigLoader
+    if (this.configLoader) {
+      try {
+        // ConfigLoader cleanup - no explicit stopWatching method
+        this.emit('componentStopped', 'config-loader');
+      } catch (error) {
+        errors.push(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(
+        `Failed to cleanup components: ${errors
+          .map((e) => e.message)
+          .join(', ')}`
+      );
+    }
+  }
+
+  /**
+   * Setup signal handlers for graceful shutdown
+   */
+  private setupSignalHandlers(): void {
+    const gracefulShutdown = async (signal: string): Promise<void> => {
+      console.log(`Received ${signal}, shutting down gracefully...`);
+
+      try {
+        await this.stop();
+        process.exit(0);
+      } catch (error) {
+        console.error('Error during graceful shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    // Handle SIGTERM (standard termination signal)
+    const sigtermHandler = (): void => {
+      gracefulShutdown('SIGTERM');
+    };
+    process.on('SIGTERM', sigtermHandler);
+    this.signalHandlers.set('SIGTERM', sigtermHandler);
+
+    // Handle SIGINT (Ctrl+C)
+    const sigintHandler = (): void => {
+      gracefulShutdown('SIGINT');
+    };
+    process.on('SIGINT', sigintHandler);
+    this.signalHandlers.set('SIGINT', sigintHandler);
+
+    // Handle uncaught exceptions
+    const uncaughtExceptionHandler = (error: Error): void => {
+      console.error('Uncaught exception:', error);
+      this.emit('error', error);
+
+      // Try graceful shutdown, but exit after timeout
+      const shutdownTimeout = setTimeout(() => {
+        console.error('Graceful shutdown timeout, forcing exit');
+        process.exit(1);
+      }, 10000);
+
+      gracefulShutdown('uncaughtException').finally(() =>
+        clearTimeout(shutdownTimeout)
+      );
+    };
+
+    process.on('uncaughtException', uncaughtExceptionHandler);
+    this.signalHandlers.set('uncaughtException', uncaughtExceptionHandler);
+
+    // Handle unhandled promise rejections
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const unhandledRejectionHandler = (reason: any): void => {
+      console.error('Unhandled promise rejection:', reason);
+      const error =
+        reason instanceof Error ? reason : new Error(String(reason));
+      this.emit('error', error);
+    };
+
+    process.on('unhandledRejection', unhandledRejectionHandler);
+    this.signalHandlers.set('unhandledRejection', unhandledRejectionHandler);
+  }
+
+  /**
+   * Remove signal handlers
+   */
+  private cleanupSignalHandlers(): void {
+    for (const [signal, handler] of this.signalHandlers) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      process.removeListener(signal as any, handler);
+    }
+
+    this.signalHandlers.clear();
+  }
+
+  /**
+   * Load configuration from file
+   */
+  async loadConfig(configPath: string): Promise<void> {
+    if (!this.configLoader || !this.processManager || !this.logManager) {
+      throw new Error('Daemon components not initialized');
+    }
+
+    try {
+      // Load configuration
+      // Load configuration and validate
+      const config = await this.configLoader.load(configPath);
+      if (!config || !config.apps || !Array.isArray(config.apps)) {
+        throw new Error('Invalid configuration format');
+      }
+
+      this.currentConfig = config.apps;
+      this.configFilePath = configPath;
+
+      // Stop existing processes if any
+      const allProcesses = this.processManager.getProcessNames();
+      if (allProcesses.length > 0) {
+        await this.processManager.stopProcesses(allProcesses);
+      }
+
+      // LogManager will handle app logs as processes start
+
+      // Configure log files for each app
+      for (const app of this.currentConfig) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const logConfig: any = {};
+        if (app.log_file) {
+          logConfig.combined = app.log_file;
+        }
+        if (app.out_file) {
+          logConfig.out = app.out_file;
+        }
+        if (app.error_file) {
+          logConfig.error = app.error_file;
+        }
+        this.logManager.setupAppLogs(app.name, logConfig);
+      }
+
+      // Configure processes in manager
+      for (const app of this.currentConfig) {
+        // Configure process directly with AppConfig
+        this.processManager.configureProcess(app);
+      }
+
+      await this.logDaemonMessage(
+        'info',
+        `Configuration loaded from ${configPath}: ${this.currentConfig.length} apps`
+      );
+    } catch (error) {
+      await this.logDaemonMessage(
+        'error',
+        `Failed to load configuration: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get current configuration
+   */
+  getConfig(): AppConfig[] | undefined {
+    return this.currentConfig;
+  }
+
+  /**
+   * Get config loader instance
+   */
+  getConfigLoader(): ConfigLoader | undefined {
+    return this.configLoader;
+  }
+
+  /**
+   * Get process manager instance
+   */
+  getProcessManager(): ProcessManager | undefined {
+    return this.processManager;
+  }
+
+  /**
+   * Get log manager instance
+   */
+  getLogManager(): LogManager | undefined {
+    return this.logManager;
+  }
+
+  /**
+   * Get IPC server instance
+   */
+  getIPCServer(): IPCServerBase | undefined {
+    return this.ipcServer;
+  }
+
+  /**
+   * Log daemon message
+   */
+  private async logDaemonMessage(
+    level: 'info' | 'warn' | 'error',
+    message: string
+  ): Promise<void> {
+    if (this.logManager) {
+      await this.logManager.writeLog(
+        'daemon',
+        'stdout' as 'stdout' | 'stderr',
+        JSON.stringify({
+          timestamp: Date.now(),
+          level,
+          message,
+          app: 'daemon',
+          namespace: 'system',
+          type: 'daemon',
+        }) + '\n'
+      );
+    }
+  }
+
+  /**
+   * Get all process statuses
+   */
+  async getAllProcessStatuses(): Promise<ProcessInfo[]> {
+    if (!this.processManager) {
+      return [];
+    }
+
+    const statuses: ProcessInfo[] = [];
+    const processInfos = this.processManager.getAllProcessInfo();
+
+    for (const info of processInfos) {
+      statuses.push({
+        name: info.name,
+        namespace: info.namespace || DEFAULT_NAMESPACE,
+        pid: info.pid || null,
+        status: info.status,
+        uptime: info.uptime || 0,
+        memory: info.memory || 0,
+        cpu: info.cpu || 0,
+        restarts: info.restarts || 0,
+      });
+    }
+
+    return statuses;
+  }
+
+  /**
+   * Override EventEmitter methods for type safety
+   */
+  on<K extends keyof ProcmanDaemonEvents>(
+    event: K,
+    listener: ProcmanDaemonEvents[K]
+  ): this {
+    return super.on(event, listener);
+  }
+
+  emit<K extends keyof ProcmanDaemonEvents>(
+    event: K,
+    ...args: Parameters<ProcmanDaemonEvents[K]>
+  ): boolean {
+    return super.emit(event, ...args);
+  }
+}

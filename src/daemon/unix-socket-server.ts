@@ -75,13 +75,13 @@ export class UnixSocketServer extends IPCServerBase {
         this.server!.removeListener('error', errorHandler);
         reject(error);
       };
-      
+
       this.server!.on('error', errorHandler);
-      
+
       this.server!.listen(this.socketPath, () => {
         // Remove error handler after successful listen
         this.server!.removeListener('error', errorHandler);
-        
+
         this.setSocketPermissions()
           .then(() => {
             resolve();
@@ -162,7 +162,7 @@ export class UnixSocketServer extends IPCServerBase {
         socket.destroy();
         return;
       }
-      
+
       const connection = new UnixSocketConnection(socket);
       this.setupConnectionEvents(connection);
     });
