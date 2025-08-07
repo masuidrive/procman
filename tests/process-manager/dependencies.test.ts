@@ -9,7 +9,7 @@ import {
 } from '../../src/process-manager/process-manager';
 import { AppConfig } from '../../src/shared/config';
 
-describe.skip('ProcessManager - Dependency Management (Phase 5)', () => {
+describe('ProcessManager - Dependency Management (Phase 5)', () => {
   let processManager: ProcessManager;
 
   beforeEach(() => {
@@ -189,44 +189,44 @@ describe.skip('ProcessManager - Dependency Management (Phase 5)', () => {
       });
     });
 
-    it.skip('should resolve simple dependency order', () => {
+    it('should resolve simple dependency order', () => {
       // Configure dependencies: auth-service depends on postgres
       processManager.configureDependency({
         name: 'auth-service',
         dependsOn: ['postgres'],
       });
 
-      // const result = processManager.resolveDependencies([
-      //   'postgres',
-      //   'auth-service',
-      //   'redis',
-      // ]);
+      const result = processManager.resolveDependencies([
+        'postgres',
+        'auth-service',
+        'redis',
+      ]);
 
-      // expect(result.startupOrder).toHaveLength(2);
-      // expect(result.startupOrder[0]).toContain('postgres');
-      // expect(result.startupOrder[0]).toContain('redis'); // No dependencies
-      // expect(result.startupOrder[1]).toContain('auth-service'); // Has dependencies
-      // expect(result.circularDependencies).toEqual([]);
-      // expect(result.unresolvedProcesses).toEqual([]);
+      expect(result.startupOrder).toHaveLength(2);
+      expect(result.startupOrder[0]).toContain('postgres');
+      expect(result.startupOrder[0]).toContain('redis'); // No dependencies
+      expect(result.startupOrder[1]).toContain('auth-service'); // Has dependencies
+      expect(result.circularDependencies).toEqual([]);
+      expect(result.unresolvedProcesses).toEqual([]);
     });
 
-    it.skip('should handle processes without dependencies', () => {
-      // const result = processManager.resolveDependencies(['redis', 'postgres']);
-      // expect(result.startupOrder).toHaveLength(1);
-      // expect(result.startupOrder[0]).toContain('redis');
-      // expect(result.startupOrder[0]).toContain('postgres');
-      // expect(result.circularDependencies).toEqual([]);
-      // expect(result.unresolvedProcesses).toEqual([]);
+    it('should handle processes without dependencies', () => {
+      const result = processManager.resolveDependencies(['redis', 'postgres']);
+      expect(result.startupOrder).toHaveLength(1);
+      expect(result.startupOrder[0]).toContain('redis');
+      expect(result.startupOrder[0]).toContain('postgres');
+      expect(result.circularDependencies).toEqual([]);
+      expect(result.unresolvedProcesses).toEqual([]);
     });
 
-    it.skip('should handle empty process list', () => {
-      // const result = processManager.resolveDependencies([]);
-      // expect(result.startupOrder).toEqual([]);
-      // expect(result.circularDependencies).toEqual([]);
-      // expect(result.unresolvedProcesses).toEqual([]);
+    it('should handle empty process list', () => {
+      const result = processManager.resolveDependencies([]);
+      expect(result.startupOrder).toEqual([]);
+      expect(result.circularDependencies).toEqual([]);
+      expect(result.unresolvedProcesses).toEqual([]);
     });
 
-    it.skip('should handle multiple dependency levels', () => {
+    it('should handle multiple dependency levels', () => {
       // Configure multi-level dependencies
       processManager.configureDependency({
         name: 'auth-service',
@@ -243,22 +243,24 @@ describe.skip('ProcessManager - Dependency Management (Phase 5)', () => {
         dependsOn: ['user-service', 'auth-service'],
       });
 
-      // const result = processManager.resolveDependencies([
-      //   'postgres',
-      //   'redis',
-      //   'auth-service',
-      //   'user-service',
-      //   'web-app',
-      // ]);
+      const result = processManager.resolveDependencies([
+        'postgres',
+        'redis',
+        'auth-service',
+        'user-service',
+        'web-app',
+      ]);
 
-      // expect(result.startupOrder).toHaveLength(2);
-      // // First level: processes without dependencies
-      // expect(result.startupOrder[0]).toContain('postgres');
-      // expect(result.startupOrder[0]).toContain('redis');
-      // // Second level: processes with dependencies
-      // expect(result.startupOrder[1]).toContain('auth-service');
-      // expect(result.startupOrder[1]).toContain('user-service');
-      // expect(result.startupOrder[1]).toContain('web-app');
+      expect(result.startupOrder).toHaveLength(4);
+      // First level: processes without dependencies
+      expect(result.startupOrder[0]).toContain('postgres');
+      expect(result.startupOrder[0]).toContain('redis');
+      // Second level: auth-service depends on postgres and redis
+      expect(result.startupOrder[1]).toContain('auth-service');
+      // Third level: user-service depends on auth-service
+      expect(result.startupOrder[2]).toContain('user-service');
+      // Fourth level: web-app depends on user-service and auth-service
+      expect(result.startupOrder[3]).toContain('web-app');
     });
   });
 
@@ -307,10 +309,14 @@ describe.skip('ProcessManager - Dependency Management (Phase 5)', () => {
         'service-b',
       ]);
 
+      // The return type is BatchOperationResult[] (array of individual results)
+      expect(results).toBeDefined();
+      expect(Array.isArray(results)).toBe(true);
       expect(results).toHaveLength(2);
-      results.forEach((result) => {
-        expect(result.success).toBe(true);
-      });
+
+      // Check that processes started successfully
+      const successCount = results.filter((r) => r.success).length;
+      expect(successCount).toBe(2);
 
       // Verify both processes are online
       const serviceA = processManager.getProcessInfo('service-a');

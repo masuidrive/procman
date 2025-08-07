@@ -308,6 +308,7 @@ export class ProcessLifecycleManagerImpl
         const managedProcess = this.processes.get(name);
         if (managedProcess) {
           managedProcess.recordRestart();
+          this.emit('process:restart', name);
           this.emit('process:restarted', name);
         }
       }

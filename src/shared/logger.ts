@@ -34,7 +34,11 @@ const getLogLevel = (): LogLevel => {
 
 // Log directory
 const getLogDirectory = (): string => {
-  const homeDir = os.homedir();
+  // Enhanced HOME detection: process.env.HOME || os.homedir()
+  const homeDir = process.env.HOME || os.homedir();
+  if (!homeDir) {
+    throw new Error('Unable to determine home directory for log path');
+  }
   return path.join(homeDir, '.masuidrive-procman', 'logs');
 };
 

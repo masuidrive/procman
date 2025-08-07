@@ -6,7 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hook-client.sh stop"
+            "command": "bash /workspaces/procman/.claude/hooks-client.sh stop"
+          },
+          {
+            "type": "command",
+            "command": "bash /workspaces/procman/.claude/hooks-logger.sh"
           }
         ]
       }
@@ -17,14 +21,51 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/append_workflow.sh"
+            "command": "echo -e \"\\n\\n---\\nPlease work following \\`<development-workflow>\\`\""
+          },
+          {
+            "type": "command",
+            "command": "bash /workspaces/procman/.claude/hooks-logger.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /workspaces/procman/.claude/hooks-logger.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /workspaces/procman/.claude/hooks-logger.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /workspaces/procman/.claude/hooks-logger.sh"
           }
         ]
       }
     ]
   },
   "env": {
-    "BASH_DEFAULT_TIMEOUT_MS": 1200000,
-    "BASH_MAX_TIMEOUT_MS": 2400000
+    "BASH_DEFAULT_TIMEOUT_MS": 300000,
+    "BASH_MAX_TIMEOUT_MS": 600000
   }
 }

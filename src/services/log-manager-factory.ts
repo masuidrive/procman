@@ -121,7 +121,12 @@ export class DefaultLogManagerFactory implements ILogManagerFactory {
    * デフォルトのログディレクトリパスを取得
    */
   private getDefaultLogDir(): string {
-    return path.join(os.homedir(), '.masuidrive-procman', 'app-logs');
+    // Enhanced HOME detection: process.env.HOME || os.homedir()
+    const homeDir = process.env.HOME || os.homedir();
+    if (!homeDir) {
+      throw new Error('Unable to determine home directory for log path');
+    }
+    return path.join(homeDir, '.masuidrive-procman', 'app-logs');
   }
 
   /**
@@ -231,7 +236,12 @@ export class ProductionLogManagerFactory implements ILogManagerFactory {
   }
 
   private getProdLogDir(): string {
-    return path.join(os.homedir(), '.masuidrive-procman', 'app-logs');
+    // Enhanced HOME detection: process.env.HOME || os.homedir()
+    const homeDir = process.env.HOME || os.homedir();
+    if (!homeDir) {
+      throw new Error('Unable to determine home directory for log path');
+    }
+    return path.join(homeDir, '.masuidrive-procman', 'app-logs');
   }
 }
 

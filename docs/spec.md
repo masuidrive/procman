@@ -38,6 +38,37 @@
 
 Unix系OS（Linux、macOS）ではUnix Domain Socket（`~/.masuidrive-procman/procman.sock`）を使用し、WindowsではNamed Pipe（`\\.\pipe\masuidrive-procman`）を使用します。この方式により、効率的かつセキュアなプロセス間通信を実現します。
 
+### 複数デーモンの起動
+
+#### 基本動作
+デフォルトでは、1つのユーザーにつき1つのデーモンのみが起動可能です。新しいデーモンを起動しようとした際に既存のデーモンが動作している場合は、エラーメッセージ「Daemon is already running」を表示して起動を拒否します。
+
+#### 複数デーモンの分離起動
+環境変数`PROCMAN_SOCKET_PATH`を使用することで、異なるソケットパスを指定して複数のデーモンを独立して起動できます。
+
+```bash
+# デーモン1（デフォルト）
+npx -y @masuidrive/procman load config1.js
+
+# デーモン2（別のソケットパス）
+PROCMAN_SOCKET_PATH=/tmp/procman2.sock npx -y @masuidrive/procman load config2.js
+
+# デーモン3（プロジェクト固有）
+PROCMAN_SOCKET_PATH=./project/.procman.sock npx -y @masuidrive/procman load config3.js
+```
+
+#### 複数デーモン使用時の注意事項
+- 各デーモンは完全に独立して動作し、相互に干渉しません
+- 各デーモンへのコマンドは対応する`PROCMAN_SOCKET_PATH`を指定して実行する必要があります
+- ログファイルとプロセス状態ファイルは各ソケットパスに対応したディレクトリに保存されます
+- 同じソケットパスに対して複数のデーモンを起動しようとするとエラーになります
+
+#### エラー処理
+- 既存のソケットファイルが存在する場合：
+  - デーモンが実際に動作している場合：エラー「Daemon is already running」
+  - デーモンが動作していない場合（異常終了の残骸）：自動的にソケットファイルを削除して起動
+- 権限エラー：ソケットファイルの作成・削除権限がない場合はエラー
+
 ### データ保存先
 
 すべてのデータは`~/.masuidrive-procman/`ディレクトリ配下に保存されます。
@@ -256,6 +287,8 @@ npx -y @masuidrive/procman prompt  # エイリアス
 |------------|----------|------|
 | DAEMON_NOT_RUNNING | "Daemon is not running. Please run 'load' command first." | デーモンが起動していない |
 | DAEMON_CONNECTION_FAILED | "Failed to connect to daemon: {error}" | デーモンとの通信失敗 |
+| DAEMON_ALREADY_RUNNING | "Daemon is already running" | 同じソケットパスで既にデーモンが起動中 |
+| SOCKET_PERMISSION_DENIED | "Permission denied for socket file: {path}" | ソケットファイルの権限エラー |
 | PERMISSION_DENIED | "Permission denied. Check file permissions for ~/.masuidrive-procman" | 権限エラー |
 
 ### loadコマンドのエラー

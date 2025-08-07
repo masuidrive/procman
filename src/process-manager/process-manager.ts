@@ -95,10 +95,8 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
   private isInitialized = false;
 
   constructor(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    healthCheckInterval = 5000,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    memoryCheckInterval = 30000,
+    private healthCheckInterval = 5000,
+    private memoryCheckInterval = 30000,
 
     persistenceFilePath?: string
   ) {
@@ -113,9 +111,16 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     this.persistence = new ProcessPersistenceImpl(this.processes);
 
     // Initialize persistence with default config
+    // Enhanced HOME detection: process.env.HOME || os.homedir()
+    const homeDir = process.env.HOME || os.homedir();
+    if (!homeDir && !persistenceFilePath) {
+      throw new Error(
+        'Unable to determine home directory for persistence path'
+      );
+    }
     const defaultPersistencePath =
       persistenceFilePath ||
-      path.join(os.homedir(), '.masuidrive-procman', 'processes.json');
+      path.join(homeDir!, '.masuidrive-procman', 'processes.json');
     this.persistence.initialize({
       filePath: defaultPersistencePath,
       saveDelay: 1000,
@@ -169,6 +174,12 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     );
     lifecycleEmitter.on('process:error', (name: string, error: Error) => {
       this.emit('process:error', name, error);
+    });
+    lifecycleEmitter.on('process:restart', (name: string) => {
+      this.emit('process:restart', name);
+    });
+    lifecycleEmitter.on('process:restarted', (name: string) => {
+      this.emit('process:restarted', name);
     });
 
     // Forward monitor events
@@ -583,7 +594,10 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    * Start monitoring all processes
    */
   public startMonitoring(): void {
-    this.monitor.startMonitoring();
+    this.monitor.startMonitoring({
+      healthCheckInterval: this.healthCheckInterval,
+      memoryCheckInterval: this.memoryCheckInterval,
+    });
   }
 
   /**
@@ -677,6 +691,13 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    */
   public getAllDependencies(): ProcessDependency[] {
     return this.groups.getAllDependencies();
+  }
+
+  /**
+   * Resolve dependencies for a set of processes
+   */
+  public resolveDependencies(names: string[]): any {
+    return this.groups.resolveDependencies(names);
   }
 
   /**

@@ -3,7 +3,7 @@
 INPUT_JSON="$(cat)"
 
 # 追加したいテキスト（改行とバッククオートを含む）
-SUFFIX=$'\n\n---\n`<development-workflow>`に従って作業してください'
+SUFFIX=$'\n\n---\n\`<development-workflow>\`に従って作業してください'
 
 # jq で user_prompt に追記してそのまま出力
 echo "$INPUT_JSON" | jq --arg suffix "$SUFFIX" '.user_prompt += $suffix'

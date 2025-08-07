@@ -20,7 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
  */
 export async function isDaemonRunning(): Promise<boolean> {
   try {
-    const dataDirectory = new DataDirectory();
+    const dataDirectory = new DataDirectory(process.env.PROCMAN_SOCKET_PATH);
     await dataDirectory.ensureDataDirectory();
 
     const pidManager = new PIDManager(dataDirectory);
@@ -66,44 +66,111 @@ export async function startDaemon(args: string[] = []): Promise<number> {
  * This runs in the actual daemon process (detached child)
  */
 async function runDaemonProcess(args: string[]): Promise<void> {
-  console.log('Starting procman daemon...');
+  const daemonStartTime = Date.now();
+  console.log('[DEBUG-DAEMON-MAIN] Starting procman daemon...');
+  console.log(
+    '[DEBUG-DAEMON-MAIN] Daemon process info:',
+    JSON.stringify(
+      {
+        processId: process.pid,
+        parentPid: process.ppid,
+        arguments: args,
+        startTime: new Date().toISOString(),
+        workingDirectory: process.cwd(),
+        environment: {
+          HOME: process.env.HOME,
+          PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
+          USER: process.env.USER,
+          NODE_ENV: process.env.NODE_ENV,
+        },
+      },
+      null,
+      2
+    )
+  );
 
   try {
+    console.log('[DEBUG-DAEMON-MAIN] Creating ProcmanDaemon instance...');
     const daemon = new ProcmanDaemon();
 
+    console.log('[DEBUG-DAEMON-MAIN] Setting up daemon event handlers...');
     // Setup logging for daemon events
     daemon.on('stateChange', (state) => {
-      console.log(`Daemon state changed to: ${state}`);
+      console.log(`[DEBUG-DAEMON-MAIN] Daemon state changed to: ${state}`);
     });
 
     daemon.on('error', (error) => {
-      console.error('Daemon error:', error);
+      console.error('[DEBUG-DAEMON-MAIN] Daemon error:', error);
     });
 
     daemon.on('componentStarted', (componentName) => {
-      console.log(`Component started: ${componentName}`);
+      console.log(`[DEBUG-DAEMON-MAIN] Component started: ${componentName}`);
     });
 
     daemon.on('componentStopped', (componentName) => {
-      console.log(`Component stopped: ${componentName}`);
+      console.log(`[DEBUG-DAEMON-MAIN] Component stopped: ${componentName}`);
     });
 
+    console.log('[DEBUG-DAEMON-MAIN] Starting daemon core services...');
     // Start the daemon
     await daemon.start();
 
-    console.log('Procman daemon started successfully');
+    const startupTime = Date.now() - daemonStartTime;
+    console.log('[DEBUG-DAEMON-MAIN] ✓ Procman daemon started successfully');
+    console.log(
+      '[DEBUG-DAEMON-MAIN] Startup stats:',
+      JSON.stringify(
+        {
+          startupTimeMs: startupTime,
+          daemonPid: process.pid,
+          timestamp: new Date().toISOString(),
+        },
+        null,
+        2
+      )
+    );
 
     // Load configuration if provided
     const configIndex = args.indexOf('--config');
     if (configIndex !== -1 && args[configIndex + 1]) {
       const configPath = args[configIndex + 1];
-      console.log(`Loading configuration from: ${configPath}`);
-      await daemon.loadConfig(configPath);
+      console.log(
+        `[DEBUG-DAEMON-MAIN] Loading configuration from: ${configPath}`
+      );
+      try {
+        await daemon.loadConfig(configPath);
+        console.log('[DEBUG-DAEMON-MAIN] ✓ Configuration loaded successfully');
+      } catch (configError) {
+        console.error(
+          '[DEBUG-DAEMON-MAIN] ❌ Failed to load configuration:',
+          configError
+        );
+      }
+    } else {
+      console.log('[DEBUG-DAEMON-MAIN] No configuration file specified');
     }
 
+    console.log(
+      '[DEBUG-DAEMON-MAIN] Daemon is now ready to accept connections'
+    );
     // Keep process alive - the daemon will handle shutdown via signals
     // The ProcmanDaemon class sets up signal handlers that will call daemon.stop()
   } catch (error) {
+    const startupTime = Date.now() - daemonStartTime;
+    console.error('[DEBUG-DAEMON-MAIN] ❌ Failed to start daemon');
+    console.error(
+      '[DEBUG-DAEMON-MAIN] Failure stats:',
+      JSON.stringify(
+        {
+          startupTimeMs: startupTime,
+          processId: process.pid,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        null,
+        2
+      )
+    );
     console.error('Failed to start daemon:', error);
     process.exit(1);
   }

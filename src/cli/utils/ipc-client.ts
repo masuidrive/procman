@@ -34,26 +34,90 @@ export class CLIIPCClient {
    * @param timeout Connection timeout in milliseconds (default: 5000)
    */
   async connect(timeout = 5000): Promise<void> {
+    const connectStartTime = Date.now();
+    const socketPath = IPCFactory.getDefaultIPCPath();
+
+    console.log('[DEBUG-IPC-CLIENT] Starting IPC connection...');
+    console.log(
+      '[DEBUG-IPC-CLIENT] Connection parameters:',
+      JSON.stringify(
+        {
+          socketPath,
+          timeout,
+          processId: process.pid,
+          timestamp: new Date().toISOString(),
+          currentWorkingDirectory: process.cwd(),
+          environmentVariables: {
+            HOME: process.env.HOME,
+            PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
+            USER: process.env.USER,
+          },
+        },
+        null,
+        2
+      )
+    );
+
     try {
+      console.log('[DEBUG-IPC-CLIENT] Creating IPC client using factory...');
+
       // Create IPC client using factory
       this.client = IPCFactory.createClient({
-        path: IPCFactory.getDefaultIPCPath(),
+        path: socketPath,
         timeout,
         requestTimeout: timeout,
         reconnect: false, // CLI commands should not auto-reconnect
       });
 
+      console.log('[DEBUG-IPC-CLIENT] IPC client created successfully');
+
       if (isVerboseMode()) {
         displayDebugInfo('IPC Connection Attempt', {
-          path: IPCFactory.getDefaultIPCPath(),
+          path: socketPath,
           timeout,
         });
       }
 
+      console.log('[DEBUG-IPC-CLIENT] Attempting to connect to daemon...');
       // Connect to daemon
       await this.client.connect();
       this.isConnected = true;
+
+      const connectionDuration = Date.now() - connectStartTime;
+      console.log('[DEBUG-IPC-CLIENT] ✓ Connection established successfully');
+      console.log(
+        '[DEBUG-IPC-CLIENT] Connection stats:',
+        JSON.stringify(
+          {
+            durationMs: connectionDuration,
+            isConnected: this.isConnected,
+            clientType: this.client?.constructor?.name,
+          },
+          null,
+          2
+        )
+      );
     } catch (error) {
+      const connectionDuration = Date.now() - connectStartTime;
+      console.error('[DEBUG-IPC-CLIENT] ❌ Connection failed');
+      console.error(
+        '[DEBUG-IPC-CLIENT] Connection failure stats:',
+        JSON.stringify(
+          {
+            durationMs: connectionDuration,
+            socketPath,
+            timeout,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorCode: (error as any)?.code,
+            errno: (error as any)?.errno,
+            syscall: (error as any)?.syscall,
+          },
+          null,
+          2
+        )
+      );
+
       this.handleConnectionError(error);
     }
   }
@@ -77,7 +141,7 @@ export class CLIIPCClient {
 
     try {
       // Send command message
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const response = await this.client.sendCommand(
         command,
         payload || ({} as any),
@@ -220,6 +284,29 @@ export async function executeCommand<T extends CommandType>(
     await client.connect(options?.timeout);
     const response = await client.sendCommand(command, payload);
     return response;
+  } catch (error) {
+    // Transform IPC connection errors into the expected format for CLI command handlers
+    if (error instanceof Error) {
+      // Check for various connection failure patterns
+      if (
+        error.message.includes('Socket file does not exist') ||
+        error.message.includes('Failed to expand socket path') ||
+        error.message.includes('ENOENT') ||
+        error.message.includes('ECONNREFUSED') ||
+        error.message.includes('Cannot connect to daemon') ||
+        error.message.includes('DAEMON_NOT_RUNNING') ||
+        (error as any)?.code === 'ENOENT' ||
+        (error as any)?.code === 'ECONNREFUSED'
+      ) {
+        // Throw a standardized daemon connection error that command handlers expect
+        const connectionError = new Error('Cannot connect to daemon');
+        connectionError.message = 'Cannot connect to daemon';
+        throw connectionError;
+      }
+    }
+
+    // Re-throw other errors as-is
+    throw error;
   } finally {
     await client.disconnect();
   }

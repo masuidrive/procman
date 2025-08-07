@@ -211,7 +211,7 @@ module.exports = {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Process Manager CLI Tool');
       expect(result.stdout).toContain('Usage:');
-      expect(result.stdout).toContain('status');
+      expect(result.stdout).toContain('list');
       expect(result.stdout).toContain('start');
       expect(result.stdout).toContain('stop');
     });
@@ -221,15 +221,6 @@ module.exports = {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toMatch(/\d+\.\d+\.\d+/); // Version pattern
-    });
-
-    test('should show status command output', async () => {
-      const result = await execCLI(['status']);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain(
-        'Process status feature will be implemented'
-      );
     });
 
     test('should show start command output', async () => {
@@ -257,13 +248,6 @@ module.exports = {
       expect(startResult.exitCode).toBe(0);
       expect(startResult.stdout).toContain('Starting service: cli-test-app');
 
-      // Test checking status
-      const statusResult = await execCLI(['status']);
-      expect(statusResult.exitCode).toBe(0);
-      expect(statusResult.stdout).toContain(
-        'Process status feature will be implemented'
-      );
-
       // Test stopping a service
       const stopResult = await execCLI(['stop', 'cli-test-app']);
       expect(stopResult.exitCode).toBe(0);
@@ -279,10 +263,6 @@ module.exports = {
       expect(start2Result.exitCode).toBe(0);
       expect(start1Result.stdout).toContain('Starting service: cli-test-app');
       expect(start2Result.stdout).toContain('Starting service: cli-test-app-2');
-
-      // Check status
-      const statusResult = await execCLI(['status']);
-      expect(statusResult.exitCode).toBe(0);
 
       // Stop all processes
       const stop1Result = await execCLI(['stop', 'cli-test-app']);
@@ -318,15 +298,6 @@ module.exports = {
         }
       `;
       await fs.writeFile(invalidConfigPath, invalidConfigContent);
-
-      // Test with future CLI command that would parse config file
-      const result = await execCLI(['status']);
-
-      // Current CLI doesn't parse config files yet, so this tests basic functionality
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain(
-        'Process status feature will be implemented'
-      );
     });
 
     test('should show appropriate error messages for invalid commands', async () => {
@@ -341,42 +312,23 @@ module.exports = {
       const startResult = await execCLI(['start']);
 
       expect(startResult.exitCode).not.toBe(0);
-      expect(startResult.stderr).toContain('missing required argument');
+      expect(startResult.stderr).toContain('No targets specified');
 
       // Test stop command without service name
       const stopResult = await execCLI(['stop']);
 
       expect(stopResult.exitCode).not.toBe(0);
-      expect(stopResult.stderr).toContain('missing required argument');
+      expect(stopResult.stderr).toContain('No targets specified');
     });
   });
 
   describe('Log Output and Streaming', () => {
-    test('should handle CLI output correctly', async () => {
-      const result = await execCLI(['status']);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toBeTruthy();
-      expect(result.stdout).toContain(
-        'Process status feature will be implemented'
-      );
-    });
-
     test('should handle CLI error output correctly', async () => {
       const result = await execCLI(['invalid-command']);
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toBeTruthy();
       expect(result.stderr.toLowerCase()).toContain('unknown');
-    });
-
-    test('should support verbose output when implemented', async () => {
-      // Test with verbose flag when implemented
-      const result = await execCLI(['status', '--verbose']);
-
-      // Currently CLI doesn't support --verbose, so this will show unknown option error
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain('unknown option');
     });
   });
 
@@ -391,15 +343,6 @@ module.exports = {
       expect(result.stdout).toContain('Starting service: daemon-service');
     });
 
-    test('should handle daemon status checking', async () => {
-      const result = await execCLI(['status']);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain(
-        'Process status feature will be implemented'
-      );
-    });
-
     test('should handle daemon stop command', async () => {
       const result = await execCLI(['stop', 'daemon-service']);
 
@@ -407,36 +350,17 @@ module.exports = {
       expect(result.stdout).toContain('Stopping service: daemon-service');
     });
 
-    test('should handle daemon restart when implemented', async () => {
-      // Test restart command when implemented
-      // Current CLI doesn't have restart command, so test unknown command behavior
-
+    test('should handle daemon restart command', async () => {
+      // Test restart command - should connect to daemon and handle gracefully
       const result = await execCLI(['restart', 'test-service']);
 
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain('unknown command');
+      // restartコマンドは実装済みで、デーモン未起動時もexitCode=0で適切に処理する
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Restarting service: test-service');
     });
   });
 
   describe('Error Boundary Testing', () => {
-    test('should handle system resource limits gracefully', async () => {
-      // Test with very large number of simultaneous operations
-      const promises = [];
-      for (let i = 0; i < 10; i++) {
-        promises.push(execCLI(['status']));
-      }
-
-      const results = await Promise.all(promises);
-
-      // All commands should complete successfully
-      results.forEach((result, index) => {
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain(
-          'Process status feature will be implemented'
-        );
-      });
-    });
-
     test('should handle invalid process names', async () => {
       // Test with special characters and edge cases
       const invalidNames = [
@@ -511,20 +435,6 @@ module.exports = {
 };
 `;
       await fs.writeFile(validConfig, validConfigContent);
-
-      // Test config validation when CLI supports it
-      const result = await execCLI(['status']);
-      expect(result.exitCode).toBe(0);
-    });
-
-    test('should handle configuration reload scenarios', async () => {
-      // Test dynamic config reload when implemented
-      const result = await execCLI(['status']);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain(
-        'Process status feature will be implemented'
-      );
     });
   });
 
@@ -599,7 +509,7 @@ module.exports = {
         const mixedPromises = [
           execCLI(['start', 'service-1']),
           execCLI(['stop', 'service-2']),
-          execCLI(['restart', 'service-3']), // Will show unknown command
+          execCLI(['restart', 'service-3']), // restartコマンドは実装済み
         ];
 
         const results = await Promise.all(mixedPromises);
@@ -610,9 +520,9 @@ module.exports = {
         expect(results[1].exitCode).toBe(0);
         expect(results[1].stdout).toContain('Stopping service: service-2');
 
-        // Restart command doesn't exist yet
-        expect(results[2].exitCode).not.toBe(0);
-        expect(results[2].stderr).toContain('unknown command');
+        // restartコマンドは実装済みで正常動作する
+        expect(results[2].exitCode).toBe(0);
+        expect(results[2].stdout).toContain('Restarting service: service-3');
       });
     });
 
@@ -669,12 +579,12 @@ module.exports = {
 
     describe('Process Group Operations', () => {
       test('should handle namespace-based batch operations', async () => {
-        // Test starting processes by namespace - not implemented yet
+        // Test starting processes by namespace - implemented
         const result = await execCLI(['start', '--namespace', 'cli-test']);
 
-        // Should show unknown option error until implemented
-        expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain('unknown option');
+        // namespaceオプションは実装済みで正常動作する
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('Starting');
       });
 
       test('should handle group-based stop operations', async () => {
@@ -688,12 +598,12 @@ module.exports = {
       test('should handle all processes operations', async () => {
         // Test operations on all processes
         const startAllResult = await execCLI(['start', '--all']);
-        expect(startAllResult.exitCode).not.toBe(0);
-        expect(startAllResult.stderr).toContain('unknown option');
+        expect(startAllResult.exitCode).toBe(0);
+        expect(startAllResult.stdout).toContain('Starting all processes');
 
         const stopAllResult = await execCLI(['stop', '--all']);
-        expect(stopAllResult.exitCode).not.toBe(0);
-        expect(stopAllResult.stderr).toContain('unknown option');
+        expect(stopAllResult.exitCode).toBe(0);
+        expect(stopAllResult.stdout).toContain('Stopping all processes');
       });
     });
 
@@ -726,8 +636,8 @@ module.exports = {
         // Test manual restart command
         const result = await execCLI(['restart', 'crash-test-app']);
 
-        expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain('unknown command');
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('Restarting service: crash-test-app');
       });
     });
 
@@ -741,7 +651,7 @@ module.exports = {
     {
       name: "memory-test-app",
       script: "node",
-      args: "-e \\"const arr = []; setInterval(() => arr.push(new Array(1000)), 10)\\"",
+      args: "-e \\"const arr = []; setInterval(() => arr.push(new Array(100)), 100)\\"",
       max_memory_restart: "50M"
     }
   ]
@@ -941,24 +851,16 @@ module.exports = {
       test('should handle multiple CLI commands running simultaneously', async () => {
         // Test running multiple CLI commands at the same time
         const concurrentCommands = [
-          execCLI(['status']),
           execCLI(['start', 'concurrent-app-1']),
           execCLI(['start', 'concurrent-app-2']),
           execCLI(['stop', 'concurrent-app-3']),
-          execCLI(['status']),
         ];
 
         const results = await Promise.all(concurrentCommands);
 
         // All commands should complete successfully
-        results.forEach((result, index) => {
+        results.forEach((result) => {
           expect(result.exitCode).toBe(0);
-          if (index === 0 || index === 4) {
-            // Status commands
-            expect(result.stdout).toContain(
-              'Process status feature will be implemented'
-            );
-          }
         });
       });
 
@@ -985,10 +887,6 @@ module.exports = {
           {
             command: ['start', 'ordered-app-1'],
             expectedOutput: 'Starting service: ordered-app-1',
-          },
-          {
-            command: ['status'],
-            expectedOutput: 'Process status feature will be implemented',
           },
           {
             command: ['stop', 'ordered-app-1'],

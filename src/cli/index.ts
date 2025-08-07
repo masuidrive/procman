@@ -1,7 +1,17 @@
 #!/usr/bin/env node
 import { CommandParser } from './parser.js';
+import {
+  setupGlobalCLISignalHandling,
+  cleanupGlobalCLISignalHandling,
+} from './signal-handler.js';
 
 async function main(): Promise<void> {
+  // Setup global signal handling for CLI
+  setupGlobalCLISignalHandling(async () => {
+    // Global cleanup function - will be called before process exit
+    cleanupGlobalCLISignalHandling();
+  });
+
   const parser = new CommandParser({
     name: 'procman',
     description: 'Process Manager CLI Tool',

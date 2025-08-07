@@ -63,7 +63,7 @@ export class ProcmanDaemon extends EventEmitter {
   constructor() {
     super();
 
-    this.dataDirectory = new DataDirectory();
+    this.dataDirectory = new DataDirectory(process.env.PROCMAN_SOCKET_PATH);
     this.pidManager = new PIDManager(this.dataDirectory);
     this.stateManager = new DaemonStateManager();
     this.componentManager = new ComponentManager(this.dataDirectory);
@@ -87,40 +87,296 @@ export class ProcmanDaemon extends EventEmitter {
   }
 
   /**
+   * Check if daemon is ready to handle requests
+   * Performs comprehensive health checks on all components
+   */
+  async isReady(): Promise<boolean> {
+    if (!this.isRunning()) {
+      return false;
+    }
+
+    try {
+      const healthCheck = await this.componentManager.performHealthChecks();
+      return healthCheck.healthy;
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get detailed health status of all components
+   */
+  async getHealthStatus(): Promise<{
+    ready: boolean;
+    components: Record<
+      string,
+      { status: 'healthy' | 'unhealthy' | 'unknown'; message: string }
+    >;
+  }> {
+    const healthCheck = await this.componentManager.performHealthChecks();
+    return {
+      ready: healthCheck.healthy && this.isRunning(),
+      components: healthCheck.details,
+    };
+  }
+
+  /**
    * Start the daemon
    */
   async start(): Promise<void> {
+    const startTime = Date.now();
+    console.log('[DEBUG-PROCMAN-DAEMON] Starting daemon initialization...');
+    console.log(
+      '[DEBUG-PROCMAN-DAEMON] Current state check:',
+      JSON.stringify(
+        {
+          currentState: this.getState(),
+          canStart: this.stateManager.canStart(),
+          processId: process.pid,
+          timestamp: new Date().toISOString(),
+        },
+        null,
+        2
+      )
+    );
+
     if (!this.stateManager.canStart()) {
       throw new Error(
         `Cannot start daemon: current state is ${this.getState()}`
       );
     }
 
+    console.log('[DEBUG-PROCMAN-DAEMON] Transitioning to STARTING state...');
     this.stateManager.transitionTo(DaemonState.STARTING);
 
     try {
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Step 1: Performing environment checks...'
+      );
+      // Perform environment checks before any other operations
+      await this.performEnvironmentChecks();
+      console.log('[DEBUG-PROCMAN-DAEMON] ✓ Environment checks completed');
+
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Step 2: Ensuring no daemon running...'
+      );
       // Check for existing daemon
       await this.pidManager.ensureNoDaemonRunning();
+      console.log('[DEBUG-PROCMAN-DAEMON] ✓ Daemon uniqueness verified');
 
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Step 3: Initializing data directory...'
+      );
       // Initialize data directory
       await this.dataDirectory.ensureDataDirectory();
+      console.log('[DEBUG-PROCMAN-DAEMON] ✓ Data directory ready');
 
+      console.log('[DEBUG-PROCMAN-DAEMON] Step 4: Writing PID file...');
       // Write PID file
       await this.pidManager.writePIDFile();
+      console.log('[DEBUG-PROCMAN-DAEMON] ✓ PID file written');
 
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Step 5: Setting up signal handlers...'
+      );
       // Setup signal handlers
       this.signalHandler.setupHandlers();
+      console.log('[DEBUG-PROCMAN-DAEMON] ✓ Signal handlers configured');
 
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Step 6: Initializing all components...'
+      );
       // Initialize components
       await this.componentManager.initializeAll();
+      console.log('[DEBUG-PROCMAN-DAEMON] ✓ All components initialized');
 
+      // Perform final readiness check with retries
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Step 7: Performing final readiness verification...'
+      );
+      let readinessAttempts = 0;
+      const maxReadinessAttempts = 10;
+      const readinessCheckInterval = 500;
+
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Readiness check parameters:',
+        JSON.stringify(
+          {
+            maxAttempts: maxReadinessAttempts,
+            intervalMs: readinessCheckInterval,
+            totalMaxTimeMs: maxReadinessAttempts * readinessCheckInterval,
+          },
+          null,
+          2
+        )
+      );
+
+      while (readinessAttempts < maxReadinessAttempts) {
+        const checkStartTime = Date.now();
+        console.log(
+          `[DEBUG-PROCMAN-DAEMON] Readiness attempt ${readinessAttempts + 1}/${maxReadinessAttempts}...`
+        );
+
+        try {
+          const healthCheck = await this.componentManager.performHealthChecks();
+          const checkDuration = Date.now() - checkStartTime;
+
+          if (healthCheck.healthy) {
+            console.log(
+              '[DEBUG-PROCMAN-DAEMON] ✓ Readiness verification successful!'
+            );
+            console.log(
+              '[DEBUG-PROCMAN-DAEMON] Readiness success stats:',
+              JSON.stringify(
+                {
+                  attempts: readinessAttempts + 1,
+                  checkDurationMs: checkDuration,
+                  healthCheckDetails: healthCheck.details,
+                },
+                null,
+                2
+              )
+            );
+            console.log(
+              `Daemon readiness verified after ${readinessAttempts + 1} attempts`
+            );
+            break;
+          } else {
+            console.error('[DEBUG-PROCMAN-DAEMON] ❌ Readiness check failed');
+            console.error(
+              '[DEBUG-PROCMAN-DAEMON] Health check failure details:',
+              JSON.stringify(
+                {
+                  attempt: readinessAttempts + 1,
+                  maxAttempts: maxReadinessAttempts,
+                  checkDurationMs: checkDuration,
+                  healthCheckDetails: healthCheck.details,
+                },
+                null,
+                2
+              )
+            );
+            console.log(
+              `Readiness check ${readinessAttempts + 1}/${maxReadinessAttempts} failed:`,
+              healthCheck.details
+            );
+            readinessAttempts++;
+            if (readinessAttempts < maxReadinessAttempts) {
+              console.log(
+                `[DEBUG-PROCMAN-DAEMON] Waiting ${readinessCheckInterval}ms before retry...`
+              );
+              await new Promise((resolve) =>
+                setTimeout(resolve, readinessCheckInterval)
+              );
+            }
+          }
+        } catch (error) {
+          const checkDuration = Date.now() - checkStartTime;
+          console.error('[DEBUG-PROCMAN-DAEMON] ❌ Readiness check exception');
+          console.error(
+            '[DEBUG-PROCMAN-DAEMON] Exception details:',
+            JSON.stringify(
+              {
+                attempt: readinessAttempts + 1,
+                checkDurationMs: checkDuration,
+                errorMessage:
+                  error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : undefined,
+              },
+              null,
+              2
+            )
+          );
+          console.log(
+            `Readiness check ${readinessAttempts + 1}/${maxReadinessAttempts} failed with error:`,
+            error
+          );
+          readinessAttempts++;
+          if (readinessAttempts < maxReadinessAttempts) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, readinessCheckInterval)
+            );
+          }
+        }
+      }
+
+      if (readinessAttempts >= maxReadinessAttempts) {
+        console.error(
+          '[DEBUG-PROCMAN-DAEMON] ❌ Final readiness verification failed after all attempts'
+        );
+        console.error(
+          '[DEBUG-PROCMAN-DAEMON] Readiness failure summary:',
+          JSON.stringify(
+            {
+              totalAttempts: readinessAttempts,
+              maxAttempts: maxReadinessAttempts,
+              totalTimeSpentMs: readinessAttempts * readinessCheckInterval,
+              currentState: this.getState(),
+            },
+            null,
+            2
+          )
+        );
+        throw new Error(
+          'Daemon components initialized but failed final readiness verification'
+        );
+      }
+
+      // All checks passed - transition to running state
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Step 8: Transitioning to RUNNING state...'
+      );
       this.stateManager.transitionTo(DaemonState.RUNNING);
       this.recoveryAttempts = 0; // Reset recovery counter on successful start
+
+      const totalStartupTime = Date.now() - startTime;
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] ✓ DAEMON STARTUP COMPLETED SUCCESSFULLY!'
+      );
+      console.log(
+        '[DEBUG-PROCMAN-DAEMON] Final startup stats:',
+        JSON.stringify(
+          {
+            totalStartupTimeMs: totalStartupTime,
+            currentState: this.getState(),
+            processId: process.pid,
+            readinessAttempts: readinessAttempts,
+            timestamp: new Date().toISOString(),
+          },
+          null,
+          2
+        )
+      );
+
+      console.log(
+        'Daemon started successfully and is ready to handle requests'
+      );
     } catch (error) {
+      const totalStartupTime = Date.now() - startTime;
+      console.error('[DEBUG-PROCMAN-DAEMON] ❌ DAEMON STARTUP FAILED');
+      console.error(
+        '[DEBUG-PROCMAN-DAEMON] Startup failure stats:',
+        JSON.stringify(
+          {
+            totalStartupTimeMs: totalStartupTime,
+            currentState: this.getState(),
+            processId: process.pid,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          null,
+          2
+        )
+      );
+
       this.stateManager.forceError();
 
+      console.log('[DEBUG-PROCMAN-DAEMON] Performing startup cleanup...');
       // Cleanup on startup failure with better error handling
       await this.performStartupCleanup();
+      console.log('[DEBUG-PROCMAN-DAEMON] Startup cleanup completed');
 
       throw error;
     }
@@ -167,6 +423,103 @@ export class ProcmanDaemon extends EventEmitter {
       await this.stop();
     }
     await this.start();
+  }
+
+  /**
+   * Perform environment checks before daemon startup
+   */
+  private async performEnvironmentChecks(): Promise<void> {
+    // Check 1: Verify HOME environment variable is set
+    const homeDir = process.env.HOME || process.env.USERPROFILE;
+    if (!homeDir) {
+      // Try to detect home directory using os.homedir()
+      try {
+        const os = await import('os');
+        const detectedHome = os.homedir();
+        if (!detectedHome) {
+          throw new Error(
+            'HOME environment variable is not set and could not detect home directory'
+          );
+        }
+        // Set HOME for this process and child processes
+        process.env.HOME = detectedHome;
+        console.log(
+          `HOME environment variable was missing, set to: ${detectedHome}`
+        );
+      } catch (error) {
+        throw new Error(
+          `Failed to determine home directory: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
+    }
+
+    // Check 2: Verify data directory path can be resolved
+    try {
+      const resolvedPath = this.dataDirectory.resolveDataDir();
+      if (!resolvedPath || resolvedPath.includes('~')) {
+        throw new Error(
+          `Failed to expand socket path: ${resolvedPath}. HOME environment variable may not be set.`
+        );
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to resolve data directory path: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+
+    // Check 3: Verify socket path can be resolved
+    try {
+      const socketPath = await this.dataDirectory.getSocketPath();
+      if (!socketPath) {
+        throw new Error('Failed to resolve socket path');
+      }
+
+      // On Unix systems, verify the path doesn't contain unresolved ~ characters
+      if (process.platform !== 'win32' && socketPath.includes('~')) {
+        throw new Error(`Socket path contains unresolved tilde: ${socketPath}`);
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to resolve socket path: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+
+    // Check 4: Verify we can create the data directory (dry run check)
+    try {
+      await this.dataDirectory.validateDataDirectory();
+      // If validation passes, directory already exists with correct permissions
+    } catch {
+      // Directory doesn't exist or has wrong permissions - that's OK, we'll create it later
+      // But we should verify we have permission to create it
+      const path = await import('path');
+      const fs = await import('fs');
+      const parentDir = path.dirname(this.dataDirectory.getDataDir());
+      try {
+        await fs.promises.access(parentDir, fs.constants.W_OK);
+      } catch (accessError) {
+        throw new Error(
+          `Cannot write to parent directory ${parentDir}: ${accessError instanceof Error ? accessError.message : 'Permission denied'}`
+        );
+      }
+    }
+
+    // Check 5: Verify basic Node.js runtime environment
+    if (!process.pid) {
+      throw new Error('Invalid process environment: PID not available');
+    }
+
+    // Check 6: Verify required modules can be loaded
+    try {
+      await import('fs');
+      await import('path');
+      await import('os');
+    } catch (error) {
+      throw new Error(
+        `Failed to load required Node.js modules: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+
+    console.log('Environment checks passed successfully');
   }
 
   /**

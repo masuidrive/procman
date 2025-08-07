@@ -6,6 +6,18 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.{test,spec}.{js,ts}'],
     exclude: ['node_modules', 'dist'],
+    // Prevent memory issues
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+        maxForks: 2,
+      }
+    },
+    isolate: true,
+    testTimeout: 30000,
+    hookTimeout: 20000,
+    teardownTimeout: 10000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

@@ -49,6 +49,7 @@ const mockIPCServer = {
   start: vi.fn(),
   stop: vi.fn(),
   registerHandler: vi.fn(),
+  isServerListening: vi.fn(() => true), // Mock as listening after start
 };
 
 // Override module mocks
@@ -116,6 +117,7 @@ describe('ProcmanDaemon Integration Tests', () => {
     mockIPCServer.start.mockReset().mockResolvedValue(undefined);
     mockIPCServer.stop.mockReset().mockResolvedValue(undefined);
     mockIPCServer.registerHandler.mockReset();
+    mockIPCServer.isServerListening.mockReset().mockReturnValue(true);
   });
 
   describe('component integration', () => {

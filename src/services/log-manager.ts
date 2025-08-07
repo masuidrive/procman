@@ -1267,8 +1267,13 @@ export class LogManager extends EventEmitter {
     config: LogManagerConfig = DEFAULT_LOG_MANAGER_CONFIG
   ) {
     super();
+    // Enhanced HOME detection: process.env.HOME || os.homedir()
+    const homeDir = process.env.HOME || os.homedir();
+    if (!homeDir && !logDir) {
+      throw new Error('Unable to determine home directory for log path');
+    }
     this.logDir =
-      logDir || path.join(os.homedir(), '.masuidrive-procman', 'app-logs');
+      logDir || path.join(homeDir!, '.masuidrive-procman', 'app-logs');
     this.config = config;
     this.fileManager = fileManager || new FileManager(this.config);
 

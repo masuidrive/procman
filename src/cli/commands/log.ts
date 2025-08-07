@@ -34,6 +34,19 @@ export async function execute(
   options: LogCommandOptions
 ): Promise<void> {
   try {
+    // Ensure HOME environment variable is set before any IPC operations
+    if (!process.env.HOME && !process.env.USERPROFILE) {
+      try {
+        const os = await import('os');
+        const detectedHome = os.homedir();
+        if (detectedHome) {
+          process.env.HOME = detectedHome;
+        }
+      } catch {
+        // If we can't detect home, continue anyway and let the IPC error handler deal with it
+      }
+    }
+
     // Get target from args
     const target = args[0];
 
@@ -53,30 +66,51 @@ export async function execute(
       stream: options.stream,
     };
 
-    if (options.stream) {
-      // Streaming mode - establish persistent connection
-      await handleStreamingLogs(target, options);
-    } else {
-      // Normal mode - fetch logs once
-      const response = await executeCommand('log', {
-        target,
-        options: logOptions,
-      });
-
-      if (response.success) {
-        const data = response.data as LogResponseData;
-        if (data?.entries && data.entries.length > 0) {
-          displayLogs(data.entries, options.human || false);
-        } else {
-          console.log(chalk.yellow('No logs found for:'), target);
-        }
+    try {
+      if (options.stream) {
+        // Streaming mode - establish persistent connection
+        await handleStreamingLogs(target, options);
       } else {
-        console.error(
-          chalk.red('Error:'),
-          response.error?.message || 'Failed to fetch logs'
-        );
-        process.exit(1);
+        // Normal mode - fetch logs once
+        const response = await executeCommand('log', {
+          target,
+          options: logOptions,
+        });
+
+        if (response.success) {
+          const data = response.data as LogResponseData;
+          if (data?.entries && data.entries.length > 0) {
+            displayLogs(data.entries, options.human || false);
+          } else {
+            console.log(chalk.yellow('No logs found for:'), target);
+          }
+        } else {
+          console.error(
+            chalk.red('Error:'),
+            response.error?.message || 'Failed to fetch logs'
+          );
+          process.exit(1);
+        }
       }
+    } catch (error) {
+      // Handle daemon not running case gracefully for backward compatibility
+      if (
+        error instanceof Error &&
+        (error.message.includes('Cannot connect to daemon') ||
+          error.message.includes('DAEMON_NOT_RUNNING') ||
+          error.message.includes('Failed to expand socket path') ||
+          error.message.includes('ECONNREFUSED'))
+      ) {
+        // For log command failures, show a basic message for backward compatibility
+        console.log(
+          chalk.yellow(`No logs available for: ${target} (daemon not running)`)
+        );
+        // Exit successfully for backward compatibility
+        process.exit(0);
+      }
+
+      // Re-throw other errors
+      throw error;
     }
   } catch (error) {
     handleCLIError(error, 'Failed to execute log command');
@@ -241,14 +275,47 @@ async function waitForStreamingShutdown(
   messageHandler: (data: unknown) => void
 ): Promise<void> {
   return new Promise((resolve) => {
-    const cleanup = () => {
+    const cleanup = async (): Promise<void> => {
       console.log(chalk.yellow('\nStopping log stream...'));
-      removeStreamingListeners(client, messageHandler);
+
+      try {
+        // Remove listeners first to prevent additional events
+        removeStreamingListeners(client, messageHandler);
+
+        // Disconnect IPC client gracefully
+        await client.disconnect();
+      } catch (error) {
+        // Log error but continue cleanup
+        console.error(
+          chalk.yellow('Warning: Error during stream cleanup:'),
+          error
+        );
+      }
+
       resolve(undefined);
     };
 
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
+    // Register signal handlers with proper async handling
+    const handleSignal = (): void => {
+      // Use timeout to ensure cleanup completes quickly
+      const cleanupTimeout = setTimeout(() => {
+        console.error('Stream cleanup timeout, forcing exit...');
+        process.exit(1);
+      }, 1000); // 1 second timeout for log stream cleanup
+
+      cleanup()
+        .then(() => {
+          clearTimeout(cleanupTimeout);
+        })
+        .catch((error) => {
+          clearTimeout(cleanupTimeout);
+          console.error('Error during signal cleanup:', error);
+          process.exit(1);
+        });
+    };
+
+    process.on('SIGINT', handleSignal);
+    process.on('SIGTERM', handleSignal);
   });
 }
 

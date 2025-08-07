@@ -7,6 +7,7 @@
  */
 
 import * as os from 'os';
+import * as path from 'path';
 import { IPCServerBase } from './ipc-server-base.js';
 import { IPCClientBase } from './ipc-client-base.js';
 import { UnixSocketServer } from './unix-socket-server.js';
@@ -90,13 +91,38 @@ export class IPCFactory {
    * Get default IPC path for the current platform
    */
   static getDefaultIPCPath(): string {
+    console.log('[DEBUG-IPC-FACTORY] Getting default IPC path...');
+    console.log(
+      '[DEBUG-IPC-FACTORY] Environment check:',
+      JSON.stringify(
+        {
+          PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
+          HOME: process.env.HOME,
+          USERPROFILE: process.env.USERPROFILE,
+          platform: this.getCurrentPlatform(),
+          processId: process.pid,
+        },
+        null,
+        2
+      )
+    );
+
     // Check for environment variable first
     if (process.env.PROCMAN_SOCKET_PATH) {
+      console.log(
+        '[DEBUG-IPC-FACTORY] Using PROCMAN_SOCKET_PATH from environment:',
+        process.env.PROCMAN_SOCKET_PATH
+      );
       return process.env.PROCMAN_SOCKET_PATH;
     }
 
     const platform = this.getCurrentPlatform();
-    return this.getDefaultIPCPathForPlatform(platform);
+    const defaultPath = this.getDefaultIPCPathForPlatform(platform);
+    console.log(
+      '[DEBUG-IPC-FACTORY] Using default platform path:',
+      defaultPath
+    );
+    return defaultPath;
   }
 
   /**
@@ -146,6 +172,52 @@ export class IPCFactory {
   }
 
   /**
+   * Expand tilde in file paths
+   */
+  private static expandPath(filePath: string): string {
+    console.log('[DEBUG-IPC-FACTORY] Expanding path:', filePath);
+
+    if (filePath.startsWith('~/')) {
+      // Enhanced HOME detection: process.env.HOME || os.homedir()
+      const envHome = process.env.HOME;
+      const osHome = os.homedir();
+      const homeDir = envHome || osHome;
+
+      console.log(
+        '[DEBUG-IPC-FACTORY] Home directory resolution:',
+        JSON.stringify(
+          {
+            originalPath: filePath,
+            envHome: envHome,
+            osHome: osHome,
+            selectedHome: homeDir,
+            processId: process.pid,
+          },
+          null,
+          2
+        )
+      );
+
+      if (!homeDir) {
+        console.error(
+          '[DEBUG-IPC-FACTORY] ❌ Unable to resolve home directory'
+        );
+        throw new Error('Unable to resolve home directory for path expansion');
+      }
+
+      const expandedPath = path.join(homeDir, filePath.slice(2));
+      console.log(
+        '[DEBUG-IPC-FACTORY] Path expanded successfully:',
+        expandedPath
+      );
+      return expandedPath;
+    }
+
+    console.log('[DEBUG-IPC-FACTORY] Path does not need expansion:', filePath);
+    return filePath;
+  }
+
+  /**
    * Merge user config with platform defaults
    */
   private static mergeConfigWithDefaults(
@@ -155,13 +227,15 @@ export class IPCFactory {
     const defaultPath = this.getDefaultIPCPathForPlatform(platform);
 
     if (platform === 'unix') {
+      const socketPath = config.path || config.socketPath || defaultPath;
       return {
-        socketPath: config.path || config.socketPath || defaultPath,
+        socketPath: this.expandPath(socketPath),
         ...config,
       };
     } else {
+      const namedPipePath = config.path || config.namedPipePath || defaultPath;
       return {
-        namedPipePath: config.path || config.namedPipePath || defaultPath,
+        namedPipePath: namedPipePath, // Named pipes don't need path expansion
         ...config,
       };
     }

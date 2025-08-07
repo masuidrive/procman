@@ -8,6 +8,7 @@
 import * as net from 'net';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 import { setTimeout, clearTimeout } from 'timers';
 import { IPCClientBase } from './ipc-client-base.js';
 import { MessageProtocol } from './message-protocol.js';
@@ -52,25 +53,101 @@ export class UnixSocketClient extends IPCClientBase {
    * Connect to the Unix socket server
    */
   protected async connectToServer(): Promise<void> {
+    const connectStartTime = Date.now();
+    console.log(
+      '[DEBUG-UNIX-CLIENT] Starting Unix socket client connection...'
+    );
+    console.log(
+      '[DEBUG-UNIX-CLIENT] Connection parameters:',
+      JSON.stringify(
+        {
+          socketPath: this.socketPath,
+          timeout: this.config.timeout,
+          processId: process.pid,
+          timestamp: new Date().toISOString(),
+        },
+        null,
+        2
+      )
+    );
+
     // Check if socket file exists
-    if (!(await this.socketExists())) {
+    console.log('[DEBUG-UNIX-CLIENT] Checking if socket file exists...');
+    const socketFileExists = await this.socketExists();
+    console.log(
+      '[DEBUG-UNIX-CLIENT] Socket file existence check:',
+      JSON.stringify(
+        {
+          socketPath: this.socketPath,
+          exists: socketFileExists,
+          checkDurationMs: Date.now() - connectStartTime,
+        },
+        null,
+        2
+      )
+    );
+
+    if (!socketFileExists) {
+      console.error('[DEBUG-UNIX-CLIENT] ❌ Socket file does not exist');
       throw new Error(`Socket file does not exist: ${this.socketPath}`);
     }
 
     // Create socket
+    console.log('[DEBUG-UNIX-CLIENT] Creating new Socket instance...');
     this.socket = new net.Socket();
+    console.log('[DEBUG-UNIX-CLIENT] ✓ Socket instance created');
 
     // Set up socket event handlers
+    console.log('[DEBUG-UNIX-CLIENT] Setting up socket event handlers...');
     this.setupSocketHandlers();
+    console.log('[DEBUG-UNIX-CLIENT] ✓ Socket event handlers configured');
 
     // Connect to server
+    console.log('[DEBUG-UNIX-CLIENT] Starting connection attempt...');
     return new Promise<void>((resolve, reject) => {
+      console.log(
+        '[DEBUG-UNIX-CLIENT] Setting up connection timeout:',
+        this.config.timeout,
+        'ms'
+      );
       this.connectionTimeout = this.setTimeout(() => {
+        const timeoutDuration = Date.now() - connectStartTime;
+        console.error('[DEBUG-UNIX-CLIENT] ❌ Connection timeout reached');
+        console.error(
+          '[DEBUG-UNIX-CLIENT] Timeout details:',
+          JSON.stringify(
+            {
+              timeoutMs: this.config.timeout,
+              actualDurationMs: timeoutDuration,
+              socketPath: this.socketPath,
+            },
+            null,
+            2
+          )
+        );
         this.socket?.destroy();
         reject(new Error(`Connection timeout after ${this.config.timeout}ms`));
       }, this.config.timeout);
 
       const errorHandler = (error: Error): void => {
+        const errorDuration = Date.now() - connectStartTime;
+        console.error('[DEBUG-UNIX-CLIENT] ❌ Connection error occurred');
+        console.error(
+          '[DEBUG-UNIX-CLIENT] Error details:',
+          JSON.stringify(
+            {
+              errorDurationMs: errorDuration,
+              socketPath: this.socketPath,
+              errorMessage: error.message,
+              errorCode: (error as any)?.code,
+              errorErrno: (error as any)?.errno,
+              errorSyscall: (error as any)?.syscall,
+            },
+            null,
+            2
+          )
+        );
+
         if (this.connectionTimeout) {
           this.connectionTimeout.dispose();
           this.connectionTimeout = null;
@@ -79,6 +156,23 @@ export class UnixSocketClient extends IPCClientBase {
       };
 
       const connectHandler = (): void => {
+        const connectDuration = Date.now() - connectStartTime;
+        console.log(
+          '[DEBUG-UNIX-CLIENT] ✓ Socket connection established successfully'
+        );
+        console.log(
+          '[DEBUG-UNIX-CLIENT] Connection success stats:',
+          JSON.stringify(
+            {
+              connectDurationMs: connectDuration,
+              socketPath: this.socketPath,
+              socketConnected: true,
+            },
+            null,
+            2
+          )
+        );
+
         if (this.connectionTimeout) {
           this.connectionTimeout.dispose();
           this.connectionTimeout = null;
@@ -88,9 +182,20 @@ export class UnixSocketClient extends IPCClientBase {
         resolve();
       };
 
+      console.log(
+        '[DEBUG-UNIX-CLIENT] Registering connection event handlers...'
+      );
       this.socket!.once('connect', connectHandler);
       this.socket!.once('error', errorHandler);
+
+      console.log(
+        '[DEBUG-UNIX-CLIENT] Calling socket.connect() with path:',
+        this.socketPath
+      );
       this.socket!.connect(this.socketPath);
+      console.log(
+        '[DEBUG-UNIX-CLIENT] socket.connect() call completed, waiting for events...'
+      );
     });
   }
 
@@ -304,7 +409,8 @@ export class UnixSocketClient extends IPCClientBase {
    */
   private expandPath(filePath: string): string {
     if (filePath.startsWith('~/')) {
-      const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+      // Enhanced HOME detection: process.env.HOME || os.homedir()
+      const homeDir = process.env.HOME || os.homedir();
       if (!homeDir) {
         throw new Error('Unable to resolve home directory for socket path');
       }

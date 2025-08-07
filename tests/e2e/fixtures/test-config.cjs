@@ -24,7 +24,8 @@ module.exports = {
     },
     {
       name: "memory-eater",
-      script: "./tests/e2e/fixtures/memory-eater.js",
+      script: "./tests/e2e/fixtures/memory-eater",
+      args: "3 25",
       cwd: "./",
       namespace: "stress-test",
       max_memory_restart: "20M",

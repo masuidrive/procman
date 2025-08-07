@@ -16,18 +16,35 @@ import { PROCMAN_DIR } from '../shared/constants.js';
 export class DataDirectory {
   private readonly dataDir: string;
 
-  constructor() {
-    this.dataDir = this.resolveDataDir();
+  constructor(socketPath?: string) {
+    this.dataDir = this.resolveDataDir(undefined, socketPath);
   }
 
   /**
    * Resolve the data directory path, expanding ~ to home directory
+   * When socketPath is provided, create a unique directory based on the socket path
    */
-  resolveDataDir(customPath?: string): string {
+  resolveDataDir(customPath?: string, socketPath?: string): string {
+    // If custom socket path is provided, derive data directory from socket path
+    if (socketPath && socketPath !== process.env.PROCMAN_SOCKET_PATH) {
+      const socketDir = path.dirname(socketPath);
+      const socketBasename = path.basename(socketPath, '.sock');
+      return path.join(socketDir, `${socketBasename}-data`);
+    }
+
+    // Check environment variable for socket path
+    const envSocketPath = process.env.PROCMAN_SOCKET_PATH;
+    if (envSocketPath && !customPath) {
+      const socketDir = path.dirname(envSocketPath);
+      const socketBasename = path.basename(envSocketPath, '.sock');
+      return path.join(socketDir, `${socketBasename}-data`);
+    }
+
     const pathToResolve = customPath || PROCMAN_DIR;
 
     if (pathToResolve.startsWith('~')) {
-      const homeDir = os.homedir();
+      // Enhanced HOME detection: process.env.HOME || os.homedir()
+      const homeDir = process.env.HOME || os.homedir();
       if (!homeDir) {
         throw new Error('Unable to determine home directory');
       }

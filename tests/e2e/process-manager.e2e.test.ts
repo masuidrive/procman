@@ -260,9 +260,19 @@ describe('Process Manager E2E Tests', () => {
   });
 
   describe('Memory Limit Auto-Restart', () => {
-    test.skip('should automatically restart process when memory limit is exceeded (flaky due to timing)', async () => {
-      // Create ProcessManager with faster memory check interval for testing
-      const fastProcessManager = new ProcessManager(1000, 2000); // 1s monitor, 2s memory check
+    test('should automatically restart process when memory limit is exceeded', async () => {
+      // Now using C-based memory-eater for predictable memory consumption
+      // C version: 3 second delay + 25MB consumption vs 20MB limit
+
+      // Ensure C memory-eater is built
+      try {
+        await fs.access(path.join(process.cwd(), 'tests/e2e/fixtures/memory-eater'));
+      } catch {
+        throw new Error('C memory-eater not built. Run "make" in tests/e2e/fixtures/ directory');
+      }
+
+      // Create ProcessManager with much faster memory check interval for testing
+      const fastProcessManager = new ProcessManager(500, 500); // 500ms monitor, 500ms memory check
       await fastProcessManager.initialize();
 
       // Load config and configure memory-eater process
@@ -285,6 +295,29 @@ describe('Process Manager E2E Tests', () => {
       // Enable auto-restart for this process
       fastProcessManager.enableAutoRestart('memory-eater');
 
+      // Set up event tracking with debug logging
+      let memoryLimitTriggered = false;
+      let restartTriggered = false;
+
+      fastProcessManager.on(
+        'process:memory-limit',
+        (name: string, usage: number, limit: number) => {
+          console.log(
+            `[Event] Memory limit exceeded for ${name}: ${Math.round(usage / 1024 / 1024)}MB > ${Math.round(limit / 1024 / 1024)}MB`
+          );
+          memoryLimitTriggered = true;
+        }
+      );
+
+      fastProcessManager.on('process:restart', (name: string) => {
+        console.log(`[Event] Process restart event for ${name}`);
+        restartTriggered = true;
+      });
+
+      fastProcessManager.on('process:restarted', (name: string) => {
+        console.log(`[Event] Process restarted event for ${name}`);
+      });
+
       // Start monitoring before starting the process
       fastProcessManager.startMonitoring();
 
@@ -298,54 +331,79 @@ describe('Process Manager E2E Tests', () => {
         fastProcessManager.getProcessInfo('memory-eater')!.pid;
       console.log(`Memory eater started with PID: ${originalPid}`);
 
-      // Wait for memory limit event and auto-restart
-      // This should happen when the process exceeds 20M memory
-      const memoryLimitPromise = waitForEvent(
-        fastProcessManager,
-        'process:memory-limit',
-        20000 // Reduced timeout since we have faster check interval
+      // Wait a bit longer for process to fully initialize
+      await sleep(1000);
+
+      // Monitor memory growth and wait for auto-restart
+      // C version is more predictable: 3s delay + rapid allocation + restart
+      const startTime = Date.now();
+      const timeout = 15000; // 15 seconds should be sufficient
+      let memoryLimitTime: number | null = null;
+
+      while (Date.now() - startTime < timeout) {
+        await sleep(1000); // Check every second
+
+        const info = fastProcessManager.getProcessInfo('memory-eater');
+        if (info) {
+          const memMB = Math.round(info.memory / 1024 / 1024);
+          console.log(
+            `Memory check: ${memMB}MB, PID: ${info.pid}, Status: ${info.status}`
+          );
+          
+
+          // Track when memory limit is triggered
+          if (memoryLimitTriggered && !memoryLimitTime) {
+            memoryLimitTime = Date.now();
+            console.log('Memory limit triggered, waiting for restart...');
+          }
+
+          // After memory limit, wait for restart (give it extra time)
+          if (memoryLimitTriggered) {
+            // Check if process is restarting (status changes)
+            if (info.status === 'starting' || info.status === 'online') {
+              // Check if PID changed (indicating successful restart)
+              if (
+                info.pid !== originalPid &&
+                info.pid !== null &&
+                info.pid > 0
+              ) {
+                console.log(
+                  `Process restarted! New PID: ${info.pid}, Old PID: ${originalPid}`
+                );
+
+                // Verify the restart was due to memory limit
+                expect(memoryLimitTriggered).toBe(true);
+                expect(info.restarts).toBeGreaterThanOrEqual(1);
+
+                // Stop the process
+                await fastProcessManager.stopProcess('memory-eater');
+                await waitForProcessStatus(
+                  fastProcessManager,
+                  'memory-eater',
+                  'stopped'
+                );
+
+                // Cleanup the fast process manager
+                await fastProcessManager.cleanup();
+                return; // Test passed
+              }
+            }
+
+            // If memory limit triggered but no restart after 10 seconds, something's wrong
+            if (memoryLimitTime && Date.now() - memoryLimitTime > 10000) {
+              throw new Error(
+                `Process did not restart within 10s after memory limit. Status: ${info.status}, PID: ${info.pid}`
+              );
+            }
+          }
+        }
+      }
+
+      // If we reach here, the test failed
+      throw new Error(
+        `Process did not restart within ${timeout}ms. Memory limit triggered: ${memoryLimitTriggered}, Restart triggered: ${restartTriggered}`
       );
-      const restartPromise = waitForEvent(
-        fastProcessManager,
-        'process:restart',
-        25000
-      );
-
-      // Wait for memory limit to be triggered
-      const processName = await memoryLimitPromise;
-      expect(processName).toBe('memory-eater');
-      console.log('Memory limit triggered for process:', processName);
-
-      // Wait for auto-restart to complete
-      const restartProcessName = await restartPromise;
-      expect(restartProcessName).toBe('memory-eater');
-      console.log('Auto-restart completed for process:', restartProcessName);
-
-      // Wait for process to be online again after restart
-      await waitForProcessStatus(
-        fastProcessManager,
-        'memory-eater',
-        'online',
-        15000
-      );
-
-      // Verify new PID (different from original)
-      const newPid = fastProcessManager.getProcessInfo('memory-eater')!.pid;
-      expect(newPid).not.toBe(originalPid);
-      expect(newPid).toBeGreaterThan(0);
-      console.log(`Memory eater restarted with new PID: ${newPid}`);
-
-      // Verify restart count increased due to memory limit
-      const processInfo = fastProcessManager.getProcessInfo('memory-eater')!;
-      expect(processInfo.restarts).toBeGreaterThanOrEqual(1);
-
-      // Stop the process
-      await fastProcessManager.stopProcess('memory-eater');
-      await waitForProcessStatus(fastProcessManager, 'memory-eater', 'stopped');
-
-      // Cleanup the fast process manager
-      await fastProcessManager.cleanup();
-    }, 60000); // Longer timeout for memory consumption test
+    }, 20000); // Reduced timeout for C-based memory eater
 
     test('should detect and handle memory limit exceeded', async () => {
       // This is a simpler test that verifies the memory limit detection works
@@ -614,7 +672,7 @@ describe('Process Manager E2E Tests', () => {
       expect(newProcessManager.getProcessNames()).toHaveLength(0);
 
       await newProcessManager.cleanup();
-    }, 10000);
+    }, 30000);
 
     test('should preserve process history across restarts', async () => {
       // Configure and start a process

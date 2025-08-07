@@ -105,7 +105,7 @@ describe('AppLogger Unit Tests', () => {
   });
 
   describe('Log Level Determination', () => {
-    test.skip('should determine log levels correctly for stdout', () => {
+    test('should determine log levels correctly for stdout', async () => {
       logManager.setupAppLogs('level-test');
 
       logManager.writeLog('level-test', 'stdout', 'Fatal error occurred');
@@ -121,6 +121,9 @@ describe('AppLogger Unit Tests', () => {
       );
       logManager.writeLog('level-test', 'stdout', 'Warn: please update');
       logManager.writeLog('level-test', 'stdout', 'Normal info message');
+
+      // Flush buffer to ensure async writes complete
+      await logManager.flushBuffer('level-test');
 
       const logFile = path.join(tempLogDir, 'level-test.jsonl');
       const content = fs.readFileSync(logFile, 'utf8');
@@ -142,7 +145,7 @@ describe('AppLogger Unit Tests', () => {
       expect(entries[4].level).toBe('info'); // Normal message
     });
 
-    test.skip('should determine log levels correctly for stderr', () => {
+    test('should determine log levels correctly for stderr', async () => {
       logManager.setupAppLogs('stderr-level-test');
 
       logManager.writeLog(
@@ -160,6 +163,9 @@ describe('AppLogger Unit Tests', () => {
         'stderr',
         'Normal stderr message'
       );
+
+      // Flush buffer to ensure async writes complete
+      await logManager.flushBuffer('stderr-level-test');
 
       const logFile = path.join(tempLogDir, 'stderr-level-test.jsonl');
       const content = fs.readFileSync(logFile, 'utf8');
@@ -276,13 +282,16 @@ describe('AppLogger Unit Tests', () => {
   });
 
   describe('Namespace Configuration', () => {
-    test.skip('should use custom namespace', () => {
+    test('should use custom namespace', async () => {
       const config = {
         namespace: 'custom-namespace',
       };
 
       logManager.setupAppLogs('namespace-test', config);
       logManager.writeLog('namespace-test', 'stdout', 'test message');
+
+      // Flush buffer to ensure async writes complete
+      await logManager.flushBuffer('namespace-test');
 
       const logFile = path.join(tempLogDir, 'namespace-test.jsonl');
       const content = fs.readFileSync(logFile, 'utf8');
@@ -292,9 +301,12 @@ describe('AppLogger Unit Tests', () => {
       expect(entry.app).toBe('namespace-test');
     });
 
-    test.skip('should default to "default" namespace when not specified', () => {
+    test('should default to "default" namespace when not specified', async () => {
       logManager.setupAppLogs('default-namespace-test');
       logManager.writeLog('default-namespace-test', 'stdout', 'test message');
+
+      // Flush buffer to ensure async writes complete
+      await logManager.flushBuffer('default-namespace-test');
 
       const logFile = path.join(tempLogDir, 'default-namespace-test.jsonl');
       const content = fs.readFileSync(logFile, 'utf8');
@@ -305,7 +317,7 @@ describe('AppLogger Unit Tests', () => {
   });
 
   describe('Error Handling', () => {
-    test.skip('should handle concurrent access safely', () => {
+    test('should handle concurrent access safely', async () => {
       logManager.setupAppLogs('concurrent-test');
 
       // Simulate concurrent writes
@@ -322,20 +334,23 @@ describe('AppLogger Unit Tests', () => {
         );
       }
 
-      return Promise.all(promises).then(() => {
-        const logFile = path.join(tempLogDir, 'concurrent-test.jsonl');
-        const content = fs.readFileSync(logFile, 'utf8');
-        const lines = content
-          .trim()
-          .split('\n')
-          .filter((line) => line);
+      await Promise.all(promises);
 
-        expect(lines).toHaveLength(10);
+      // Flush buffer to ensure async writes complete
+      await logManager.flushBuffer('concurrent-test');
 
-        // Verify all messages are valid JSON
-        lines.forEach((line) => {
-          expect(() => JSON.parse(line)).not.toThrow();
-        });
+      const logFile = path.join(tempLogDir, 'concurrent-test.jsonl');
+      const content = fs.readFileSync(logFile, 'utf8');
+      const lines = content
+        .trim()
+        .split('\n')
+        .filter((line) => line);
+
+      expect(lines).toHaveLength(10);
+
+      // Verify all messages are valid JSON
+      lines.forEach((line) => {
+        expect(() => JSON.parse(line)).not.toThrow();
       });
     });
   });

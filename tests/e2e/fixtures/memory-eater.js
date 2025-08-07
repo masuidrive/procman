@@ -25,8 +25,8 @@ let counter = 0;
 const interval = setInterval(() => {
   counter++;
 
-  // Allocate roughly 2MB per iteration
-  const chunk = Buffer.alloc(2 * 1024 * 1024, 'x');
+  // Allocate roughly 5MB per iteration for faster memory growth
+  const chunk = Buffer.alloc(5 * 1024 * 1024, 'x');
   memoryChunks.push(chunk);
 
   const memUsage = process.memoryUsage();
@@ -34,8 +34,8 @@ const interval = setInterval(() => {
 
   console.log(`Memory eater iteration ${counter}, RSS: ${memUsageMB}MB`);
 
-  // Stop eating memory after 15 iterations (should reach ~30MB)
-  if (counter >= 15) {
+  // Stop eating memory after 10 iterations (should reach ~50MB)
+  if (counter >= 10) {
     console.log('Memory eater stopping memory allocation');
     clearInterval(interval);
 
@@ -46,7 +46,7 @@ const interval = setInterval(() => {
       );
     }, 2000);
   }
-}, 500); // Allocate every 500ms
+}, 200); // Allocate every 200ms for faster growth
 
 // Handle process termination
 process.on('exit', (code) => {

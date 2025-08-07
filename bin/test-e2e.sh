@@ -37,7 +37,7 @@ if [ -f "vitest.config.ts" ] || [ -f "vite.config.ts" ]; then
             npx vitest run --reporter=verbose tests/e2e/
         elif [ "$1" = "--grep" ] && [ $# -eq 2 ]; then
             # パターンマッチでテストを実行
-            npx vitest run --reporter=verbose tests/e2e/ --grep "$2"
+            npx vitest run --reporter=verbose tests/e2e/ -t "$2"
         else
             # 特定のテストファイルを実行
             test_file="$1"

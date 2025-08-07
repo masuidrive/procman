@@ -5,6 +5,7 @@
 .env.*
 .serena
 eslint-report*.json
+tests/e2e/fixtures/memory-eater 
 
 # Node.js
 node_modules/
@@ -123,3 +124,6 @@ coverage/
 
 # procman specific
 current-ticket.md
+
+# Log files
+/log/

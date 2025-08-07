@@ -8,6 +8,7 @@
 import * as net from 'net';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 import { setTimeout, clearTimeout } from 'timers';
 import { IPCServerBase } from './ipc-server-base.js';
 import type { IPCServerConfig } from '../shared/ipc.js';
@@ -52,39 +53,117 @@ export class UnixSocketServer extends IPCServerBase {
    * Start the Unix socket server
    */
   protected async startServer(): Promise<void> {
+    const startTime = Date.now();
+    console.log('[DEBUG-UNIX-SOCKET] Starting Unix socket server...');
+    console.log(
+      '[DEBUG-UNIX-SOCKET] Socket configuration:',
+      JSON.stringify(
+        {
+          socketPath: this.socketPath,
+          processId: process.pid,
+          timestamp: new Date().toISOString(),
+          environment: {
+            HOME: process.env.HOME,
+            PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
+          },
+        },
+        null,
+        2
+      )
+    );
+
     // Ensure directory exists
     const socketDir = path.dirname(this.socketPath);
+    console.log('[DEBUG-UNIX-SOCKET] Creating socket directory:', socketDir);
     await fs.mkdir(socketDir, { recursive: true });
+    console.log('[DEBUG-UNIX-SOCKET] ✓ Socket directory ready');
 
     // Remove existing socket file if it exists
     try {
+      console.log('[DEBUG-UNIX-SOCKET] Removing existing socket file...');
       await fs.unlink(this.socketPath);
-    } catch {
-      // File doesn't exist, which is fine
+      console.log('[DEBUG-UNIX-SOCKET] ✓ Existing socket file removed');
+    } catch (error) {
+      console.log(
+        '[DEBUG-UNIX-SOCKET] No existing socket file to remove (normal):',
+        (error as any)?.code
+      );
     }
 
     // Create server
+    console.log('[DEBUG-UNIX-SOCKET] Creating net.Server instance...');
     this.server = net.createServer();
+    console.log('[DEBUG-UNIX-SOCKET] ✓ Server instance created');
 
     // Set up server event handlers
+    console.log('[DEBUG-UNIX-SOCKET] Setting up server event handlers...');
     this.setupServerHandlers();
+    console.log('[DEBUG-UNIX-SOCKET] ✓ Event handlers configured');
 
     // Start listening
+    console.log('[DEBUG-UNIX-SOCKET] Starting to listen on socket...');
     return new Promise<void>((resolve, reject) => {
       // Add error handler before listening
       const errorHandler = (error: Error): void => {
+        const listenTime = Date.now() - startTime;
+        console.error('[DEBUG-UNIX-SOCKET] ❌ Socket listen error');
+        console.error(
+          '[DEBUG-UNIX-SOCKET] Listen error details:',
+          JSON.stringify(
+            {
+              listenTimeMs: listenTime,
+              socketPath: this.socketPath,
+              errorMessage: error.message,
+              errorCode: (error as any)?.code,
+              errorErrno: (error as any)?.errno,
+              errorSyscall: (error as any)?.syscall,
+            },
+            null,
+            2
+          )
+        );
         this.server!.removeListener('error', errorHandler);
         reject(error);
       };
 
       this.server!.on('error', errorHandler);
 
+      console.log('[DEBUG-UNIX-SOCKET] Calling listen() on socket path...');
       this.server!.listen(this.socketPath, () => {
+        const listenTime = Date.now() - startTime;
+        console.log('[DEBUG-UNIX-SOCKET] ✓ Socket listen() callback fired');
+        console.log(
+          '[DEBUG-UNIX-SOCKET] Listen success stats:',
+          JSON.stringify(
+            {
+              listenTimeMs: listenTime,
+              socketPath: this.socketPath,
+            },
+            null,
+            2
+          )
+        );
+
         // Remove error handler after successful listen
         this.server!.removeListener('error', errorHandler);
 
+        console.log('[DEBUG-UNIX-SOCKET] Setting socket permissions...');
         this.setSocketPermissions()
           .then(() => {
+            const totalTime = Date.now() - startTime;
+            console.log('[DEBUG-UNIX-SOCKET] ✓ UNIX SOCKET SERVER READY');
+            console.log(
+              '[DEBUG-UNIX-SOCKET] Final socket stats:',
+              JSON.stringify(
+                {
+                  totalStartupTimeMs: totalTime,
+                  socketPath: this.socketPath,
+                  socketExists: true, // At this point it should exist
+                },
+                null,
+                2
+              )
+            );
             resolve();
           })
           .catch(reject);
@@ -228,7 +307,8 @@ export class UnixSocketServer extends IPCServerBase {
    */
   private expandPath(filePath: string): string {
     if (filePath.startsWith('~/')) {
-      const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+      // Enhanced HOME detection: process.env.HOME || os.homedir()
+      const homeDir = process.env.HOME || os.homedir();
       if (!homeDir) {
         throw new Error('Unable to resolve home directory for socket path');
       }
