@@ -106,17 +106,19 @@ describe('LogManager Production Error Cases', () => {
       // Create a read-only directory
       const readOnlyDir = path.join(tempLogDir, 'readonly');
       fs.mkdirSync(readOnlyDir);
-      
+
       try {
         fs.chmodSync(readOnlyDir, 0o444); // Read-only
-        
+
         // Check if permission change actually worked
         const stats = fs.statSync(readOnlyDir);
         const isReadOnly = (stats.mode & 0o200) === 0;
-        
+
         if (!isReadOnly) {
           // Permission change not supported on this platform (e.g., Windows)
-          console.log('Read-only permission test skipped: platform does not support chmod');
+          console.log(
+            'Read-only permission test skipped: platform does not support chmod'
+          );
           return;
         }
 
@@ -164,14 +166,16 @@ describe('LogManager Production Error Cases', () => {
       try {
         // Change file to read-only
         fs.chmodSync(logFile, 0o444);
-        
+
         // Check if permission change actually worked
         const stats = fs.statSync(logFile);
         const isReadOnly = (stats.mode & 0o200) === 0;
-        
+
         if (!isReadOnly) {
           // Permission change not supported on this platform
-          console.log('File permission change test skipped: platform does not support chmod');
+          console.log(
+            'File permission change test skipped: platform does not support chmod'
+          );
           return;
         }
 

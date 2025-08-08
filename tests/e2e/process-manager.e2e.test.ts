@@ -266,9 +266,13 @@ describe('Process Manager E2E Tests', () => {
 
       // Ensure C memory-eater is built
       try {
-        await fs.access(path.join(process.cwd(), 'tests/e2e/fixtures/memory-eater'));
+        await fs.access(
+          path.join(process.cwd(), 'tests/e2e/fixtures/memory-eater')
+        );
       } catch {
-        throw new Error('C memory-eater not built. Run "make" in tests/e2e/fixtures/ directory');
+        throw new Error(
+          'C memory-eater not built. Run "make" in tests/e2e/fixtures/ directory'
+        );
       }
 
       // Create ProcessManager with much faster memory check interval for testing
@@ -349,7 +353,6 @@ describe('Process Manager E2E Tests', () => {
           console.log(
             `Memory check: ${memMB}MB, PID: ${info.pid}, Status: ${info.status}`
           );
-          
 
           // Track when memory limit is triggered
           if (memoryLimitTriggered && !memoryLimitTime) {

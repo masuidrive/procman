@@ -306,7 +306,7 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
 
         if (!cliProcess.killed && cliProcess.exitCode === null) {
           timer.log(`Sending ${signal} to process`);
-          cliProcess.kill(signal as NodeJS.Signals);
+          cliProcess.kill(signal as any);
         }
 
         const { code, signal: exitSignal } = await waitForExit(3000);
@@ -342,7 +342,10 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
 
     test('should handle filesystem permission errors', async () => {
       // Create unique socket path to avoid conflicts in concurrent tests
-      const uniqueSocketPath = path.join(testDir, `fs-perm-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.sock`);
+      const uniqueSocketPath = path.join(
+        testDir,
+        `fs-perm-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.sock`
+      );
       const uniqueEnv = {
         ...testEnv,
         PROCMAN_SOCKET_PATH: uniqueSocketPath,
@@ -405,18 +408,25 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
         timer.log(`Restart cycle ${i + 1}`);
 
         // Create unique socket path for each cycle to avoid resource conflicts
-        const uniqueSocketPath = createUniqueSocketPath('rapid-restart', Date.now() + i);
+        const uniqueSocketPath = createUniqueSocketPath(
+          'rapid-restart',
+          Date.now() + i
+        );
         const cycleEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
         const cycleExecCLI = createTestExecCLI(cycleEnv);
 
         try {
-          timer.log(`Using socket path for cycle ${i + 1}: ${uniqueSocketPath}`);
+          timer.log(
+            `Using socket path for cycle ${i + 1}: ${uniqueSocketPath}`
+          );
 
           // Load configuration
           const loadResult = await cycleExecCLI(['load', testConfigPath], {
             timeout: 30000,
           });
-          timer.log(`Load result cycle ${i + 1}:`, { exitCode: loadResult.exitCode });
+          timer.log(`Load result cycle ${i + 1}:`, {
+            exitCode: loadResult.exitCode,
+          });
 
           if (loadResult.exitCode === 0) {
             // Wait for daemon to be ready
@@ -426,11 +436,15 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
             // Quick operation
             const listResult = await cycleExecCLI(['list'], { timeout: 5000 });
             expect([0, 1]).toContain(listResult.exitCode);
-            timer.log(`List result cycle ${i + 1}:`, { exitCode: listResult.exitCode });
+            timer.log(`List result cycle ${i + 1}:`, {
+              exitCode: listResult.exitCode,
+            });
 
             // Exit daemon
             const exitResult = await cycleExecCLI(['exit'], { timeout: 5000 });
-            timer.log(`Exit result cycle ${i + 1}:`, { exitCode: exitResult.exitCode });
+            timer.log(`Exit result cycle ${i + 1}:`, {
+              exitCode: exitResult.exitCode,
+            });
           } else {
             timer.log(`Load failed in cycle ${i + 1}`, {
               exitCode: loadResult.exitCode,
@@ -449,7 +463,8 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
         }
 
         // Longer pause between cycles to ensure complete resource cleanup
-        if (i < 2) { // Don't wait after the last cycle
+        if (i < 2) {
+          // Don't wait after the last cycle
           timer.log(`Waiting 2 seconds before cycle ${i + 2}`);
           await sleep(2000);
         }
@@ -597,10 +612,13 @@ module.exports = {
       };`;
 
       // Use createUniqueSocketPath to ensure proper directory structure
-      const uniqueSocketPath = createUniqueSocketPath('edge-config', Date.now());
+      const uniqueSocketPath = createUniqueSocketPath(
+        'edge-config',
+        Date.now()
+      );
       // Ensure socket directory exists
       await fs.mkdir(path.dirname(uniqueSocketPath), { recursive: true });
-      
+
       const uniqueEnv = {
         ...testEnv,
         PROCMAN_SOCKET_PATH: uniqueSocketPath,
@@ -613,10 +631,10 @@ module.exports = {
       const result = await uniqueExecCLI(['load', configPath], {
         timeout: 30000, // 30 second timeout to allow for daemon startup
       });
-      
+
       // Should handle minimal config gracefully
       expect([0, 1]).toContain(result.exitCode);
-      
+
       // Clean up daemon if it started
       await cleanupDaemon(uniqueEnv);
     }, 30000);

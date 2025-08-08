@@ -24,6 +24,7 @@ import {
 } from 'vitest';
 import * as fs from 'fs/promises';
 import * as os from 'os';
+import * as path from 'path';
 import {
   createTestExecCLI,
   setupTestEnvironment,
@@ -58,9 +59,7 @@ describe('Basic CLI Commands E2E Tests', () => {
   afterAll(async () => {
     // Cleanup test socket directory
     try {
-      const testTempDir = testSocketPath
-        ? require('path').dirname(testSocketPath)
-        : '';
+      const testTempDir = testSocketPath ? path.dirname(testSocketPath) : '';
       if (testTempDir) {
         await fs.rm(testTempDir, { recursive: true, force: true });
       }

@@ -165,6 +165,15 @@ export const createUniqueSocketPath = (
 };
 
 /**
+ * Create unique HOME directory for concurrent testing to avoid PID file conflicts
+ */
+export const createUniqueHomeDir = (prefix: string, index: number): string => {
+  // Use same unique ID pattern as socket path for consistency
+  const uniqueId = `${Date.now()}-${process.pid}-${Math.random().toString(36).substr(2, 9)}-${index}`;
+  return path.join(os.tmpdir(), `procman-home-${prefix}-${uniqueId}`);
+};
+
+/**
  * Force complete cleanup - don't just log errors
  */
 export const cleanupDaemon = async (
@@ -197,7 +206,9 @@ export const cleanupDaemon = async (
       try {
         const pid = await fs.readFile(pidFile, 'utf-8');
         process.kill(parseInt(pid.trim()), 'SIGKILL');
-      } catch {}
+      } catch {
+        // Ignore errors
+      }
       await fs.unlink(pidFile).catch(() => {});
     }
 
@@ -216,7 +227,7 @@ export const cleanupDaemon = async (
 export const killOrphanedProcesses = async (): Promise<void> => {
   try {
     // Kill any remaining procman daemon processes
-    const { execSync } = require('child_process');
+    const { execSync } = await import('child_process');
     execSync('pkill -f "daemon-main.js" || true', { stdio: 'ignore' });
   } catch {
     // Ignore errors
@@ -499,19 +510,27 @@ export const createTestExecCLI = (testEnv: Record<string, string>) => {
 export const startDaemonWithCoordination = async (
   execCLI: (args: string[], options?: CLIOptions) => Promise<CLIResult>,
   configPath: string,
-  options: { timeout?: number; maxRetries?: number; env?: Record<string, string> } = {}
+  options: {
+    timeout?: number;
+    maxRetries?: number;
+    env?: Record<string, string>;
+  } = {}
 ) => {
   const { timeout = CONCURRENT_DAEMON_TIMEOUT, maxRetries = 3, env } = options;
-  
+
   let lastError: Error | null = null;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      debugLog('daemon-coordination', `Daemon startup attempt ${attempt}/${maxRetries}`, {
-        configPath,
-        timeout,
-        env: env?.PROCMAN_SOCKET_PATH
-      });
+      debugLog(
+        'daemon-coordination',
+        `Daemon startup attempt ${attempt}/${maxRetries}`,
+        {
+          configPath,
+          timeout,
+          env: env?.PROCMAN_SOCKET_PATH,
+        }
+      );
 
       // Add progressive backoff to reduce resource contention
       if (attempt > 1) {
@@ -522,33 +541,42 @@ export const startDaemonWithCoordination = async (
 
       // Start daemon with extended timeout
       await execCLI(['load', configPath], { timeout });
-      
+
       // Verify daemon is ready with additional checks
       await waitForDaemonReady(env || {}, timeout);
-      
-      debugLog('daemon-coordination', `Daemon startup successful on attempt ${attempt}`);
+
+      debugLog(
+        'daemon-coordination',
+        `Daemon startup successful on attempt ${attempt}`
+      );
       return;
-      
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      debugLog('daemon-coordination', `Daemon startup attempt ${attempt} failed`, {
-        error: lastError.message,
-        willRetry: attempt < maxRetries
-      });
-      
+      debugLog(
+        'daemon-coordination',
+        `Daemon startup attempt ${attempt} failed`,
+        {
+          error: lastError.message,
+          willRetry: attempt < maxRetries,
+        }
+      );
+
       if (attempt < maxRetries) {
         // Cleanup before retry
         try {
           await execCLI(['exit'], { timeout: 5000 });
         } catch (cleanupError) {
           debugLog('daemon-coordination', 'Cleanup error during retry', {
-            error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+            error:
+              cleanupError instanceof Error
+                ? cleanupError.message
+                : String(cleanupError),
           });
         }
       }
     }
   }
-  
+
   throw new Error(
     `Failed to start daemon after ${maxRetries} attempts. Last error: ${lastError?.message || 'Unknown error'}`
   );

@@ -31,6 +31,7 @@ import {
   cleanupTestDirectory,
   cleanupDaemon,
   createUniqueSocketPath,
+  createUniqueHomeDir,
   killOrphanedProcesses,
   cleanupOldTempDirs,
   sleep,
@@ -99,16 +100,26 @@ describe('CLI Concurrent Operations and Stress Testing E2E Tests', () => {
       const operations = await Promise.all(
         Array.from({ length: 5 }, async (_, i) => {
           const socketPath = createUniqueSocketPath('simultaneous', i);
-          const env = { ...testEnv, PROCMAN_SOCKET_PATH: socketPath };
+          const homeDir = createUniqueHomeDir('simultaneous', i);
+          const env = {
+            ...testEnv,
+            PROCMAN_SOCKET_PATH: socketPath,
+            HOME: homeDir,
+            USERPROFILE: homeDir,
+          };
           const uniqueExecCLI = createTestExecCLI(env);
 
           try {
             // まずデーモンを起動
-            await startDaemonWithCoordination(uniqueExecCLI, minimalConfigPath, {
-              timeout: CONCURRENT_DAEMON_TIMEOUT,
-              maxRetries: 2,
-              env
-            });
+            await startDaemonWithCoordination(
+              uniqueExecCLI,
+              minimalConfigPath,
+              {
+                timeout: CONCURRENT_DAEMON_TIMEOUT,
+                maxRetries: 2,
+                env,
+              }
+            );
 
             // その後listコマンドを実行
             const result = await uniqueExecCLI(['list'], { timeout: 5000 });
@@ -142,7 +153,13 @@ describe('CLI Concurrent Operations and Stress Testing E2E Tests', () => {
       const operations = await Promise.all(
         Array.from({ length: 3 }, async (_, i) => {
           const socketPath = createUniqueSocketPath('start-stop', i);
-          const env = { ...testEnv, PROCMAN_SOCKET_PATH: socketPath };
+          const homeDir = createUniqueHomeDir('start-stop', i);
+          const env = {
+            ...testEnv,
+            PROCMAN_SOCKET_PATH: socketPath,
+            HOME: homeDir,
+            USERPROFILE: homeDir,
+          };
           const uniqueExecCLI = createTestExecCLI(env);
           const uniqueAppName = `concurrent-app-${Date.now()}-${i}`;
 
@@ -168,7 +185,7 @@ module.exports = {
             await startDaemonWithCoordination(uniqueExecCLI, uniqueConfigPath, {
               timeout: CONCURRENT_DAEMON_TIMEOUT,
               maxRetries: 2,
-              env
+              env,
             });
 
             // アプリを開始
@@ -217,12 +234,18 @@ module.exports = {
       timer.log('Test started');
 
       const results = [];
-      
+
       // Run operations sequentially instead of concurrently
       for (let i = 0; i < 2; i++) {
         const operationTimer = debugTimer(`${testName}-op${i}`);
         const socketPath = createUniqueSocketPath('sequential', i);
-        const env = { ...testEnv, PROCMAN_SOCKET_PATH: socketPath };
+        const homeDir = createUniqueHomeDir('sequential', i);
+        const env = {
+          ...testEnv,
+          PROCMAN_SOCKET_PATH: socketPath,
+          HOME: homeDir,
+          USERPROFILE: homeDir,
+        };
         const uniqueExecCLI = createTestExecCLI(env);
         const appName = `sequential-app-${i + 1}`;
 
@@ -254,7 +277,7 @@ module.exports = {
           await startDaemonWithCoordination(uniqueExecCLI, uniqueConfigPath, {
             timeout: CONCURRENT_DAEMON_TIMEOUT,
             maxRetries: 2,
-            env
+            env,
           });
           operationTimer.log('Daemon load completed');
 
@@ -274,11 +297,13 @@ module.exports = {
           await cleanupDaemon(env);
           operationTimer.log('Cleanup completed');
         } catch (error) {
-          operationTimer.log(`Operation ${i} failed`, { error: error.message });
+          operationTimer.log(`Operation ${i} failed`, {
+            error: error instanceof Error ? error.message : String(error),
+          });
           results.push({
             operation: i,
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       }
@@ -304,7 +329,13 @@ module.exports = {
         Array.from({ length: 2 }, async (_, i) => {
           const operationTimer = debugTimer(`${testName}-op${i}`);
           const socketPath = createUniqueSocketPath('mixed', i);
-          const env = { ...testEnv, PROCMAN_SOCKET_PATH: socketPath };
+          const homeDir = createUniqueHomeDir('mixed', i);
+          const env = {
+            ...testEnv,
+            PROCMAN_SOCKET_PATH: socketPath,
+            HOME: homeDir,
+            USERPROFILE: homeDir,
+          };
           const uniqueExecCLI = createTestExecCLI(env);
           const appName = `stress-app-${i + 1}`;
 
@@ -339,14 +370,14 @@ module.exports = {
             operationTimer.log('Loading daemon with unique config', {
               env: {
                 PROCMAN_SOCKET_PATH: env.PROCMAN_SOCKET_PATH,
-                expectedPidFile: `${path.dirname(socketPath)}/procman-data/daemon.pid`
-              }
+                expectedPidFile: `${path.dirname(socketPath)}/procman-data/daemon.pid`,
+              },
             });
-            
+
             await startDaemonWithCoordination(uniqueExecCLI, uniqueConfigPath, {
               timeout: CONCURRENT_DAEMON_TIMEOUT, // Use extended timeout for concurrent operations
               maxRetries: 3,
-              env
+              env,
             });
             operationTimer.log('Daemon load completed');
 
@@ -451,7 +482,13 @@ module.exports = {
         Array.from({ length: CONCURRENT_OPERATIONS }, async (_, i) => {
           const opTimer = debugTimer(`${testName}-op${i}`);
           const socketPath = createUniqueSocketPath('large-list', i);
-          const env = { ...testEnv, PROCMAN_SOCKET_PATH: socketPath };
+          const homeDir = createUniqueHomeDir('large-list', i);
+          const env = {
+            ...testEnv,
+            PROCMAN_SOCKET_PATH: socketPath,
+            HOME: homeDir,
+            USERPROFILE: homeDir,
+          };
           const uniqueExecCLI = createTestExecCLI(env);
 
           opTimer.log(`Starting operation ${i}`, { socketPath });
@@ -483,7 +520,7 @@ module.exports = {
             await startDaemonWithCoordination(uniqueExecCLI, uniqueConfigPath, {
               timeout: CONCURRENT_DAEMON_TIMEOUT,
               maxRetries: 2,
-              env
+              env,
             });
             opTimer.log('Daemon load completed');
 
@@ -579,7 +616,13 @@ module.exports = {
         Array.from({ length: 3 }, async (_, i) => {
           const opTimer = debugTimer(`${testName}-op${i}`);
           const socketPath = createUniqueSocketPath('config-load', i);
-          const env = { ...testEnv, PROCMAN_SOCKET_PATH: socketPath };
+          const homeDir = createUniqueHomeDir('config-load', i);
+          const env = {
+            ...testEnv,
+            PROCMAN_SOCKET_PATH: socketPath,
+            HOME: homeDir,
+            USERPROFILE: homeDir,
+          };
           const uniqueExecCLI = createTestExecCLI(env);
 
           opTimer.log(`Starting config load operation ${i}`);
@@ -617,18 +660,23 @@ module.exports = {
             // Load configuration
             const loadResult = await (async () => {
               try {
-                await startDaemonWithCoordination(uniqueExecCLI, uniqueConfigPath, {
-                  timeout: CONCURRENT_DAEMON_TIMEOUT,
-                  maxRetries: 2,
-                  env
-                });
+                await startDaemonWithCoordination(
+                  uniqueExecCLI,
+                  uniqueConfigPath,
+                  {
+                    timeout: CONCURRENT_DAEMON_TIMEOUT,
+                    maxRetries: 2,
+                    env,
+                  }
+                );
                 return { exitCode: 0, stdout: '', stderr: '', duration: 0 };
               } catch (error) {
                 return {
                   exitCode: 1,
                   stdout: '',
-                  stderr: error instanceof Error ? error.message : String(error),
-                  duration: 0
+                  stderr:
+                    error instanceof Error ? error.message : String(error),
+                  duration: 0,
                 };
               }
             })();
@@ -687,7 +735,9 @@ module.exports = {
       const successCount = operations.filter(
         ({ loadResult }) => loadResult.exitCode === 0
       ).length;
-      expect(successCount).toBeGreaterThanOrEqual(Math.ceil(operations.length * 0.8));
+      expect(successCount).toBeGreaterThanOrEqual(
+        Math.ceil(operations.length * 0.8)
+      );
 
       timer.log(
         `Config load test completed: ${successCount}/3 operations succeeded`
@@ -730,7 +780,13 @@ module.exports = {
       const operations = await Promise.all(
         Array.from({ length: 2 }, async (_, i) => {
           const socketPath = createUniqueSocketPath('memory-test', i);
-          const env = { ...testEnv, PROCMAN_SOCKET_PATH: socketPath };
+          const homeDir = createUniqueHomeDir('memory-test', i);
+          const env = {
+            ...testEnv,
+            PROCMAN_SOCKET_PATH: socketPath,
+            HOME: homeDir,
+            USERPROFILE: homeDir,
+          };
           const uniqueExecCLI = createTestExecCLI(env);
 
           try {
@@ -738,7 +794,7 @@ module.exports = {
             await startDaemonWithCoordination(uniqueExecCLI, memoryConfigPath, {
               timeout: CONCURRENT_DAEMON_TIMEOUT,
               maxRetries: 2,
-              env
+              env,
             });
 
             // Start all memory-test apps
@@ -793,15 +849,25 @@ module.exports = {
       const operations = await Promise.all(
         Array.from({ length: 5 }, async (_, i) => {
           const socketPath = createUniqueSocketPath('fd-test', i);
-          const env = { ...testEnv, PROCMAN_SOCKET_PATH: socketPath };
+          const homeDir = createUniqueHomeDir('fd-test', i);
+          const env = {
+            ...testEnv,
+            PROCMAN_SOCKET_PATH: socketPath,
+            HOME: homeDir,
+            USERPROFILE: homeDir,
+          };
           const uniqueExecCLI = createTestExecCLI(env);
 
           try {
-            await startDaemonWithCoordination(uniqueExecCLI, minimalConfigPath, {
-              timeout: CONCURRENT_DAEMON_TIMEOUT,
-              maxRetries: 2,
-              env
-            });
+            await startDaemonWithCoordination(
+              uniqueExecCLI,
+              minimalConfigPath,
+              {
+                timeout: CONCURRENT_DAEMON_TIMEOUT,
+                maxRetries: 2,
+                env,
+              }
+            );
             const result = await uniqueExecCLI(['list'], { timeout: 5000 });
             await uniqueExecCLI(['exit'], { timeout: 5000 }).catch(() => {});
             return result;
@@ -818,7 +884,9 @@ module.exports = {
 
       // With improved coordination, expect high success rate
       const successCount = operations.filter((r) => r.exitCode === 0).length;
-      expect(successCount).toBeGreaterThanOrEqual(Math.ceil(operations.length * 0.8));
+      expect(successCount).toBeGreaterThanOrEqual(
+        Math.ceil(operations.length * 0.8)
+      );
 
       timer.log(
         `FD limits test completed: ${successCount}/5 operations succeeded`
