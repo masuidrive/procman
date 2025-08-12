@@ -3,7 +3,7 @@ priority: 10
 tags: ['npm', 'publishing', 'release']
 description: 'npmパッケージ公開準備'
 created_at: '2025-08-05T05:40:53Z'
-started_at: null # Do not modify manually
+started_at: 2025-08-12T17:47:06Z # Do not modify manually
 closed_at: null # Do not modify manually
 ---
 
@@ -46,48 +46,41 @@ After completing each phase, refine the ticket and tasks as needed based on what
 This phase ensures that the ticket's assumptions, scope, and context are still valid and aligned with the current implementation and specifications.
 The goal is to surface any gaps, outdated information, or uncertainties early, and to update the ticket accordingly so that implementation can proceed with clarity and confidence.
 
-- [ ] Carefully read the `current-ticket.md` to understand the task's objective and background.
-- [ ] Verify the assumptions described in the ticket against the current code and specifications, and add initial notes (e.g. expected flow, concerns) as comments.
-- [ ] Identify unclear or undecided items and ask questions to stakeholders to reach agreement.
-- [ ] Review related tickets, documents, and source code to uncover any duplication, inconsistencies, or improvement opportunities, and document your findings.
-- [ ] Reflect your findings and discussions in the ticket by updating the description, considerations, acceptance criteria, and subtasks as needed.
-- [ ] Explain the updates and decisions to the user and obtain their approval before proceeding.
+- [x] Carefully read the `current-ticket.md` to understand the task's objective and background.
+- [x] Verify the assumptions described in the ticket against the current code and specifications, and add initial notes (e.g. expected flow, concerns) as comments.
+- [x] Identify unclear or undecided items and ask questions to stakeholders to reach agreement.
+- [x] Review related tickets, documents, and source code to uncover any duplication, inconsistencies, or improvement opportunities, and document your findings.
+- [x] Reflect your findings and discussions in the ticket by updating the description, considerations, acceptance criteria, and subtasks as needed.
+- [x] Explain the updates and decisions to the user and obtain their approval before proceeding.
+- [x] `git commit`
+
+### Phase 1: package.json最終調整
+
+package.jsonはほぼ完成済み。不足しているスクリプトのみ追加。
+
+- [x] Carefully read the `current-ticket.md` file and understand the content of the task.
+- [x] package.jsonの現在の設定を確認済み（大部分完了済み）
+- [x] scriptsセクションにprepublishOnlyとprepackを追加
+- [x] typesフィールドが必要かどうか確認（TypeScript定義ファイル用）
+- [x] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
+- [x] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
-### Phase 1: package.json整備とメタデータ設定
+### Phase 2: 不足ドキュメントとライセンスの作成
 
-パッケージの基本情報を整備し、npmへ公開可能な状態にする。
-
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] package.jsonを確認し、現在の設定を把握
-- [ ] 必要なフィールドを追加（description、keywords、author、license、repository、homepage、bugs）
-- [ ] mainとtypesエントリーポイントの設定を確認・修正
-- [ ] filesフィールドで配布するファイルを明示的に指定
-- [ ] 依存関係を精査し、devDependenciesとdependenciesを適切に分類
-- [ ] peerDependenciesが必要な場合は設定
-- [ ] scriptsセクションにprepublishOnlyとprepackを追加
-- [ ] engineフィールドでNode.jsの最小バージョンを指定
-- [ ] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
-- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
-- [ ] `git commit`
-
-### Phase 2: ドキュメントとライセンスの作成
-
-ユーザー向けドキュメントとライセンスファイルを作成する。
+README.mdは既存のためnpm公開用に補強し、不足しているファイルを作成する。
 
 - [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] README.mdを作成
-  - [ ] プロジェクトの概要と特徴を記載
-  - [ ] インストール方法（npm install @masuidrive/procman）
-  - [ ] クイックスタートガイド
-  - [ ] 基本的な使用例
-  - [ ] APIリファレンス（主要なクラスとメソッド）
-  - [ ] 設定オプションの説明
-  - [ ] トラブルシューティング
-  - [ ] Contributing guidelines
+- [ ] README.mdをnpm公開用に補強
+  - [ ] npm install @masuidrive/procmanを明記
+  - [ ] CLIグローバルインストールの説明を追加
+  - [ ] 基本的な使用例を追加
+  - [ ] バッジ（npm version、license等）を追加
 - [ ] MITライセンスファイル（LICENSE）を作成
-- [ ] CHANGELOG.mdを作成し、初回リリースの内容を記載
-- [ ] .npmignoreファイルを作成し、テストファイル、ソースマップ、開発用設定などを除外
+- [ ] CHANGELOG.mdを作成し、v0.1.0の内容を記載
+- [ ] .npmignoreファイルを作成し、不要ファイルを除外
+  - [ ] tests/, coverage/, .github/, docs/（一部除外）
+  - [ ] src/（TypeScriptソース）、各種設定ファイル
 - [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
@@ -206,6 +199,13 @@ Additional notes or requirements.
 
 ### Prepare
 
+**現状分析結果（2025-08-12）:**
+- package.jsonはほぼ完成済み（メタデータ、依存関係、エントリーポイント等）
+- README.mdは基本形は存在、npm公開用の補強が必要
+- 不足ファイル: LICENSE, CHANGELOG.md, .npmignore, GitHub Actions
+- 不足スクリプト: prepublishOnly, prepack
+
+**残タスク:**
 - npmアカウントが必要（@masuidriveスコープの管理権限）
 - GitHub Secretsにnpm公開用トークンを設定する必要あり
 - 初回はユーザーによる手動公開も検討

@@ -4,6 +4,7 @@
   "description": "A lightweight process management daemon tool for development environments",
   "type": "module",
   "main": "dist/src/cli/index.js",
+  "types": "dist/src/cli/index.d.ts",
   "bin": {
     "procman": "dist/src/cli/index.js"
   },
@@ -19,7 +20,9 @@
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "lint:fix": "eslint src/**/*.ts tests/**/*.ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\""
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "prepublishOnly": "npm run clean && npm run build && npm run test:run && npm run lint",
+    "prepack": "npm run build"
   },
   "keywords": [
     "process-manager",
