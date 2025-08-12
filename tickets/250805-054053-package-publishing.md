@@ -64,39 +64,39 @@ package.jsonはほぼ完成済み。不足しているスクリプトのみ追�
 - [x] typesフィールドが必要かどうか確認（TypeScript定義ファイル用）
 - [x] Run `./bin/test-unit.sh` and `./bin/test-integration.sh` and fix all Failed
 - [x] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
-- [ ] `git commit`
+- [x] `git commit`
 
 ### Phase 2: 不足ドキュメントとライセンスの作成
 
 README.mdは既存のためnpm公開用に補強し、不足しているファイルを作成する。
 
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] README.mdをnpm公開用に補強
-  - [ ] npm install @masuidrive/procmanを明記
-  - [ ] CLIグローバルインストールの説明を追加
-  - [ ] 基本的な使用例を追加
-  - [ ] バッジ（npm version、license等）を追加
-- [ ] MITライセンスファイル（LICENSE）を作成
-- [ ] CHANGELOG.mdを作成し、v0.1.0の内容を記載
-- [ ] .npmignoreファイルを作成し、不要ファイルを除外
-  - [ ] tests/, coverage/, .github/, docs/（一部除外）
-  - [ ] src/（TypeScriptソース）、各種設定ファイル
-- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
-- [ ] `git commit`
+- [x] Carefully read the `current-ticket.md` file and understand the content of the task.
+- [x] README.mdをnpm公開用に補強
+  - [x] npm install @masuidrive/procmanを明記
+  - [x] CLIグローバルインストールの説明を追加
+  - [x] 基本的な使用例を追加
+  - [x] バッジ（npm version、license等）を追加
+- [x] MITライセンスファイル（LICENSE）を作成
+- [x] CHANGELOG.mdを作成し、v0.1.0の内容を記載
+- [x] .npmignoreファイルを作成し、不要ファイルを除外
+  - [x] tests/, coverage/, .github/, docs/（一部除外）
+  - [x] src/（TypeScriptソース）、各種設定ファイル
+- [x] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
+- [x] `git commit`
 
 ### Phase 3: 公開設定とCI/CD
 
 GitHub Actionsによる自動公開の設定と初回リリースの準備。
 
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] GitHub Actionsワークフローを作成（.github/workflows/npm-publish.yml）
-  - [ ] タグプッシュ時に自動的にnpmへ公開
-  - [ ] テスト実行とビルドの確認
-  - [ ] npm公開用のシークレット設定方法をドキュメント化
-- [ ] リリースプロセスのドキュメントを作成（docs/release-process.md）
-- [ ] バージョニング戦略の決定と文書化（semantic versioning）
-- [ ] npm公開前のチェックリストを作成
-- [ ] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
+- [x] Carefully read the `current-ticket.md` file and understand the content of the task.
+- [x] GitHub Actionsワークフローを作成（.github/workflows/npm-publish.yml）
+  - [x] タグプッシュ時に自動的にnpmへ公開
+  - [x] テスト実行とビルドの確認
+  - [x] npm公開用のシークレット設定方法をドキュメント化
+- [x] リリースプロセスのドキュメントを作成（docs/release-process.md）
+- [x] バージョニング戦略の決定と文書化（semantic versioning）
+- [x] npm公開前のチェックリストを作成
+- [x] Discuss the results, including review feedback, with the user, and refine the ticket and tasks as needed based on the discussion.
 - [ ] `git commit`
 
 ### Phase 4: 初回リリース実施
@@ -209,5 +209,73 @@ Additional notes or requirements.
 - npmアカウントが必要（@masuidriveスコープの管理権限）
 - GitHub Secretsにnpm公開用トークンを設定する必要あり
 - 初回はユーザーによる手動公開も検討
+
+### Phase 2 完了報告（2025-08-12）:
+
+**作成したファイル:**
+- LICENSE: MIT ライセンスファイル
+- CHANGELOG.md: v0.1.0 の初回リリース内容
+- .npmignore: 開発ファイルを除外（tests/, src/, 設定ファイル等）
+
+**README.md の補強:**
+- npm install @masuidrive/procman の明記
+- グローバル/ローカルインストールの説明
+- 基本的な使用例の追加
+- バッジ（npm、license）の追加
+
+**テスト結果:**
+- Unit Tests: 375 passed, 0 failed
+- Integration Tests: 70 passed, 0 failed
+- 全てのテストがPass（Failed = 0）
+
+**テスト修正作業:**
+- 8件のテスト失敗を修正（メモリ監視、データディレクトリ関連）
+- t_wada・Uncle Bob の教えに従い、テスト環境分離とモックの改善を実施
+
+### Phase 3 完了報告（2025-08-12）:
+
+**作成したファイル:**
+- .github/workflows/npm-publish.yml: GitHub Actions自動公開ワークフロー
+- docs/release-process.md: リリースプロセス詳細ドキュメント
+
+**GitHub Actions 設定:**
+- タグプッシュ（v*）時のnpm自動公開
+- Node.js 18.x でのテスト・ビルド・リント実行
+- npm認証とGitHubリリース作成
+- NPM_TOKEN シークレット設定手順を文書化
+
+**リリースプロセス文書化:**
+- Semantic Versioning戦略の策定
+- npm公開前チェックリストの作成
+- 手動/自動リリース手順の詳細化
+- GitHub Secrets設定方法の記載
+
+**テスト結果:**
+- Unit Tests: 778 passed, 0 failed
+- Integration Tests: 70 passed, 0 failed
+- 全てのテストがPass（Failed = 0）
+
+**Phase 2 - 不足ファイル作成完了（2025-08-12）:**
+
+**作成した不足ファイル:**
+1. **LICENSE ファイル**: MIT ライセンスファイル、copyright holder: masuidrive、年: 2025
+2. **CHANGELOG.md**: v0.1.0の初回リリース内容を記載
+   - 主要機能の説明（プロセス管理、メモリ監視、IPC通信等）
+   - プラットフォームサポート情報
+   - 必要な Node.js バージョン記載
+3. **.npmignore ファイル**: 開発ファイルを公開から除外
+   - tests/, src/, 設定ファイル、開発スクリプト除外
+   - logs/, docs/, tickets/ システムファイル除外
+   - README.md と LICENSE は公開対象として保持
+
+**README.md の補強完了:**
+- npm バッジ（version, license, Node.js version）を追加
+- npm install コマンドの明記（global/local両方）
+- CLIグローバルインストールの説明を追加  
+- 基本的な使用例を整理・改善
+- 設定ファイルの例を追加
+- 開発者向け情報を後半に整理移動
+
+すべてのファイルが正常に作成され、Phase 2 のタスクは完了。
 
 </working-notes>

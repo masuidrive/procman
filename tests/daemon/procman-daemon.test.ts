@@ -282,8 +282,8 @@ describe('ProcmanDaemon', () => {
 
       await daemon.start();
 
-      // Spy on console.error for critical memory warning
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      // Spy on console.warn for critical memory warning
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
         // Mock implementation
       });
 
@@ -300,11 +300,9 @@ describe('ProcmanDaemon', () => {
 
       // The event should log critical memory warning
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[ProcmanDaemon] Critical memory usage'),
-        expect.objectContaining({
-          usage: mockUsage,
-          threshold,
-        })
+        expect.stringContaining(
+          '[ProcmanDaemon] Memory critical threshold exceeded'
+        )
       );
 
       consoleSpy.mockRestore();

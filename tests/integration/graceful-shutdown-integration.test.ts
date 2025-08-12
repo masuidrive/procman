@@ -101,7 +101,11 @@ describe('Graceful Shutdown Integration', () => {
       await daemon.shutdown('signal');
 
       // Check if shutdown state file exists (saved in procman-data subdirectory)
-      const statePath = path.join(testDataDir, 'procman-data', 'shutdown-state.json');
+      const statePath = path.join(
+        testDataDir,
+        'procman-data',
+        'shutdown-state.json'
+      );
       const stateExists = await fs
         .access(statePath)
         .then(() => true)
@@ -168,7 +172,6 @@ describe('Graceful Shutdown Integration', () => {
     }, 15000);
   });
 
-
   describe('Shutdown State Persistence', () => {
     it('should persist comprehensive shutdown state', async () => {
       await daemon.start();
@@ -201,7 +204,11 @@ describe('Graceful Shutdown Integration', () => {
 
       await daemon.shutdown('error');
 
-      const statePath = path.join(testDataDir, 'procman-data', 'shutdown-state.json');
+      const statePath = path.join(
+        testDataDir,
+        'procman-data',
+        'shutdown-state.json'
+      );
       const stateContent = await fs.readFile(statePath, 'utf-8');
       const state = JSON.parse(stateContent);
 
