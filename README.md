@@ -13,6 +13,7 @@ procmanは、開発環境でのプロセス管理を簡単にするためのCLI�
 - 構造化されたログの集約と管理
 - メモリ使用量によるプロセス自動再起動
 - namespaceによるプロセスのグループ管理
+- メモリリーク検出と防止機能
 
 ## サポートOS
 
@@ -70,6 +71,18 @@ procman --help
 - `npm run format` - Prettierでコードフォーマット
 - `npm run format:check` - コードフォーマットをチェック
 
+### メモリ管理機能
+
+procmanはPM2互換のメモリ管理機能を提供し、長期稼働でも安定した動作を実現します：
+
+- **プロセスメモリ制限**: `max_memory_restart` オプションでプロセス毎のメモリ上限を設定
+- **自動再起動**: メモリ制限を超えたプロセスを自動的に再起動
+- **EventEmitterリーク防止**: シンプルなクリーンアップパターンで確実なリスナー解放
+- **グレースフルシャットダウン**: 状態保存とコネクションドレイニング
+- **ヘルスチェック**: `procman health` でメモリ使用状況を監視
+
+詳細は [Memory Management Documentation](docs/technical/memory-management.md) を参照してください。
+
 ### 基本的な使用方法
 
 `npm link`を実行後、CLIを使用できます：
@@ -81,14 +94,27 @@ procman --help
 # バージョンを表示
 procman --version
 
-# プロセス状態を表示（プレースホルダー）
+# プロセス状態を表示
 procman status
 
-# サービスを開始（プレースホルダー）
+# サービスを開始
 procman start <service-name>
 
-# サービスを停止（プレースホルダー）
+# サービスを停止
 procman stop <service-name>
+
+# ヘルスチェック（メモリ使用状況含む）
+procman health
+
+# 設定ファイルでメモリ制限を指定
+# procman.config.js
+module.exports = {
+  apps: [{
+    name: 'my-app',
+    script: './app.js',
+    max_memory_restart: '500M'  // 500MB超過で自動再起動
+  }]
+};
 ```
 
 ### アーキテクチャ

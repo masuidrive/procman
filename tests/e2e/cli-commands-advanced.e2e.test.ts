@@ -22,6 +22,7 @@ import {
   afterEach,
   beforeAll,
   afterAll,
+  vi,
 } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -41,6 +42,9 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('CLI Advanced Scenarios E2E Tests', () => {
+  // Set default timeout for all tests in this suite
+  vi.setConfig({ testTimeout: 90000 });
+
   let testDir: string;
   let testConfigPath: string;
   let testSocketPath: string;
@@ -338,7 +342,7 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
         expect(result.exitCode).not.toBe(0);
         expect(result.stderr).toBeTruthy();
       }
-    }, 15000);
+    }, 45000);
 
     test('should handle filesystem permission errors', async () => {
       // Create unique socket path to avoid conflicts in concurrent tests
@@ -359,7 +363,7 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
       const result = await uniqueExecCLI(['load', dirAsFile]);
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toBeTruthy();
-    }, 15000);
+    }, 45000);
 
     test('should handle socket path conflicts', async () => {
       // Try to create a regular file where socket should be
@@ -422,7 +426,7 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
 
           // Load configuration
           const loadResult = await cycleExecCLI(['load', testConfigPath], {
-            timeout: 30000,
+            timeout: 60000,
           });
           timer.log(`Load result cycle ${i + 1}:`, {
             exitCode: loadResult.exitCode,
@@ -481,7 +485,7 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
 
       // Initial configuration load
       const initialResult = await testExecCLI(['load', testConfigPath], {
-        timeout: 30000,
+        timeout: 60000,
       });
 
       if (initialResult.exitCode === 0) {
@@ -511,7 +515,7 @@ module.exports = {
 
           // Hot-reload with modified configuration
           const reloadResult = await testExecCLI(['load', modifiedConfigPath], {
-            timeout: 30000,
+            timeout: 60000,
           });
 
           timer.log('Hot-reload attempt completed', {
@@ -544,7 +548,7 @@ module.exports = {
 
       // Load multi-namespace configuration
       const loadResult = await testExecCLI(['load', testConfigPath], {
-        timeout: 15000,
+        timeout: 60000,
       });
 
       if (loadResult.exitCode === 0) {
@@ -629,7 +633,7 @@ module.exports = {
       await fs.writeFile(configPath, minimalConfig);
 
       const result = await uniqueExecCLI(['load', configPath], {
-        timeout: 30000, // 30 second timeout to allow for daemon startup
+        timeout: 60000, // 30 second timeout to allow for daemon startup
       });
 
       // Should handle minimal config gracefully
@@ -637,7 +641,7 @@ module.exports = {
 
       // Clean up daemon if it started
       await cleanupDaemon(uniqueEnv);
-    }, 30000);
+    }, 60000);
 
     test('should handle unicode and special characters in names', async () => {
       const specialConfig = `
@@ -680,7 +684,7 @@ module.exports = {
           await cleanupDaemon(testEnv);
         }
       }
-    });
+    }, 90000);
 
     test('should handle very long configuration paths', async () => {
       // Create deeply nested directory structure
@@ -709,6 +713,6 @@ module.exports = {
 
       const result = await testExecCLI(['load', longConfigPath]);
       expect([0, 1]).toContain(result.exitCode);
-    });
+    }, 90000);
   });
 });

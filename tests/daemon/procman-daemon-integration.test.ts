@@ -27,6 +27,7 @@ const mockProcessManager = {
   stopProcesses: vi.fn(),
   cleanup: vi.fn(),
   getAllProcessInfo: vi.fn(() => []),
+  startMonitoring: vi.fn(), // Add startMonitoring method for initialization
   // Add monitor mock for getAllProcessStatuses
   monitor: {
     getProcessStats: vi.fn((name: string) => {
@@ -56,9 +57,16 @@ const mockIPCServer = {
 vi.mocked(
   (await import('../../src/config/config-loader')).ConfigLoader
 ).mockImplementation(() => mockConfigLoader as any);
-vi.mocked(
-  (await import('../../src/process-manager/process-manager')).ProcessManager
-).mockImplementation(() => mockProcessManager as any);
+const ProcessManagerModule = await import(
+  '../../src/process-manager/process-manager'
+);
+vi.mocked(ProcessManagerModule.ProcessManager).mockImplementation(
+  () => mockProcessManager as any
+);
+// Mock the static create method
+vi.mocked(ProcessManagerModule.ProcessManager).create = vi.fn(
+  () => mockProcessManager as any
+);
 vi.mocked(
   (await import('../../src/services/log-manager')).LogManager
 ).mockImplementation(() => mockLogManager as any);

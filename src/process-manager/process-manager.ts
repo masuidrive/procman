@@ -69,11 +69,6 @@ export interface ProcessConfig {
 /**
  * Type definition for batch operation results
  */
-export interface BatchOperationResult {
-  name: string;
-  success: boolean;
-  error?: string;
-}
 
 /**
  * ProcessManager - Main facade class for process management
@@ -128,11 +123,8 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
     });
 
     this.groups = new ProcessGroupManagerImpl(this.processes, {
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
       startProcess: (name: string) => this.lifecycle.startProcess(name),
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
       stopProcess: (name: string) => this.lifecycle.stopProcess(name),
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
       restartProcess: (name: string) => this.lifecycle.restartProcess(name),
     });
 
@@ -279,6 +271,21 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
           }
         }
       }
+    );
+  }
+
+  /**
+   * Static factory method to create ProcessManager with default components
+   */
+  static create(
+    healthCheckInterval = 5000,
+    memoryCheckInterval = 30000,
+    persistenceFilePath?: string
+  ): ProcessManager {
+    return new ProcessManager(
+      healthCheckInterval,
+      memoryCheckInterval,
+      persistenceFilePath
     );
   }
 
@@ -535,7 +542,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    */
   public async startProcesses(
     names: string[]
-  ): Promise<BatchOperationResult[]> {
+  ): Promise<{ name: string; success: boolean; error?: string }[]> {
     const result = await this.groups.startProcesses(names);
     return result.results;
   }
@@ -543,7 +550,9 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
   /**
    * Stop multiple processes
    */
-  public async stopProcesses(names: string[]): Promise<BatchOperationResult[]> {
+  public async stopProcesses(
+    names: string[]
+  ): Promise<{ name: string; success: boolean; error?: string }[]> {
     const result = await this.groups.stopProcesses(names);
     return result.results;
   }
@@ -553,7 +562,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    */
   public async restartProcesses(
     names: string[]
-  ): Promise<BatchOperationResult[]> {
+  ): Promise<{ name: string; success: boolean; error?: string }[]> {
     const result = await this.groups.restartProcesses(names);
     return result.results;
   }
@@ -563,7 +572,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    */
   public async startNamespace(
     namespace: string
-  ): Promise<BatchOperationResult[]> {
+  ): Promise<{ name: string; success: boolean; error?: string }[]> {
     const result = await this.groups.startNamespace(namespace);
     return result.results;
   }
@@ -573,7 +582,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    */
   public async stopNamespace(
     namespace: string
-  ): Promise<BatchOperationResult[]> {
+  ): Promise<{ name: string; success: boolean; error?: string }[]> {
     const result = await this.groups.stopNamespace(namespace);
     return result.results;
   }
@@ -583,7 +592,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    */
   public async restartNamespace(
     namespace: string
-  ): Promise<BatchOperationResult[]> {
+  ): Promise<{ name: string; success: boolean; error?: string }[]> {
     const result = await this.groups.restartNamespace(namespace);
     return result.results;
   }
@@ -696,6 +705,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
   /**
    * Resolve dependencies for a set of processes
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public resolveDependencies(names: string[]): any {
     return this.groups.resolveDependencies(names);
   }
@@ -705,7 +715,7 @@ export class ProcessManager extends EventEmitter implements MainProcessManager {
    */
   public async startProcessesWithDependencies(
     processNames: string[]
-  ): Promise<BatchOperationResult[]> {
+  ): Promise<{ name: string; success: boolean; error?: string }[]> {
     // This is a placeholder for future implementation
     // For now, just start processes in order
     return this.startProcesses(processNames);

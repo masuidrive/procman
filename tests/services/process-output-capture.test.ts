@@ -270,7 +270,7 @@ describe('Process Output Capture Tests (Phase 3)', () => {
       expect(lines.length).toBe(50);
     });
 
-    test('should handle backpressure correctly', () => {
+    test('should handle backpressure correctly', async () => {
       logManager.setupAppLogs('backpressure-test');
 
       // Generate a very large amount of data to trigger backpressure
@@ -285,10 +285,16 @@ describe('Process Output Capture Tests (Phase 3)', () => {
         );
       }
 
+      // Wait a moment for buffer to process
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+
       const stats = logManager.getBufferStats('backpressure-test');
       // Buffer should either be flushed or show backpressure
       expect(stats.bufferSize).toBeGreaterThanOrEqual(0);
-    });
+
+      // Force flush to clean up any backpressure
+      await logManager.flushBuffer('backpressure-test');
+    }, 5000);
   });
 
   describe('ProcessLogIntegrator', () => {

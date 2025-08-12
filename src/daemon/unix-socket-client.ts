@@ -25,7 +25,6 @@ export class UnixSocketClient extends IPCClientBase {
   private connectionTimeout: SimpleTimeout | null = null;
   private eventListeners: Set<{
     event: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void;
   }> = new Set();
 
@@ -54,10 +53,10 @@ export class UnixSocketClient extends IPCClientBase {
    */
   protected async connectToServer(): Promise<void> {
     const connectStartTime = Date.now();
-    console.log(
+    console.error(
       '[DEBUG-UNIX-CLIENT] Starting Unix socket client connection...'
     );
-    console.log(
+    console.error(
       '[DEBUG-UNIX-CLIENT] Connection parameters:',
       JSON.stringify(
         {
@@ -72,9 +71,9 @@ export class UnixSocketClient extends IPCClientBase {
     );
 
     // Check if socket file exists
-    console.log('[DEBUG-UNIX-CLIENT] Checking if socket file exists...');
+    console.error('[DEBUG-UNIX-CLIENT] Checking if socket file exists...');
     const socketFileExists = await this.socketExists();
-    console.log(
+    console.error(
       '[DEBUG-UNIX-CLIENT] Socket file existence check:',
       JSON.stringify(
         {
@@ -93,19 +92,19 @@ export class UnixSocketClient extends IPCClientBase {
     }
 
     // Create socket
-    console.log('[DEBUG-UNIX-CLIENT] Creating new Socket instance...');
+    console.error('[DEBUG-UNIX-CLIENT] Creating new Socket instance...');
     this.socket = new net.Socket();
-    console.log('[DEBUG-UNIX-CLIENT] ✓ Socket instance created');
+    console.error('[DEBUG-UNIX-CLIENT] ✓ Socket instance created');
 
     // Set up socket event handlers
-    console.log('[DEBUG-UNIX-CLIENT] Setting up socket event handlers...');
+    console.error('[DEBUG-UNIX-CLIENT] Setting up socket event handlers...');
     this.setupSocketHandlers();
-    console.log('[DEBUG-UNIX-CLIENT] ✓ Socket event handlers configured');
+    console.error('[DEBUG-UNIX-CLIENT] ✓ Socket event handlers configured');
 
     // Connect to server
-    console.log('[DEBUG-UNIX-CLIENT] Starting connection attempt...');
+    console.error('[DEBUG-UNIX-CLIENT] Starting connection attempt...');
     return new Promise<void>((resolve, reject) => {
-      console.log(
+      console.error(
         '[DEBUG-UNIX-CLIENT] Setting up connection timeout:',
         this.config.timeout,
         'ms'
@@ -139,8 +138,11 @@ export class UnixSocketClient extends IPCClientBase {
               errorDurationMs: errorDuration,
               socketPath: this.socketPath,
               errorMessage: error.message,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               errorCode: (error as any)?.code,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               errorErrno: (error as any)?.errno,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               errorSyscall: (error as any)?.syscall,
             },
             null,
@@ -157,10 +159,10 @@ export class UnixSocketClient extends IPCClientBase {
 
       const connectHandler = (): void => {
         const connectDuration = Date.now() - connectStartTime;
-        console.log(
+        console.error(
           '[DEBUG-UNIX-CLIENT] ✓ Socket connection established successfully'
         );
-        console.log(
+        console.error(
           '[DEBUG-UNIX-CLIENT] Connection success stats:',
           JSON.stringify(
             {
@@ -182,18 +184,18 @@ export class UnixSocketClient extends IPCClientBase {
         resolve();
       };
 
-      console.log(
+      console.error(
         '[DEBUG-UNIX-CLIENT] Registering connection event handlers...'
       );
       this.socket!.once('connect', connectHandler);
       this.socket!.once('error', errorHandler);
 
-      console.log(
+      console.error(
         '[DEBUG-UNIX-CLIENT] Calling socket.connect() with path:',
         this.socketPath
       );
       this.socket!.connect(this.socketPath);
-      console.log(
+      console.error(
         '[DEBUG-UNIX-CLIENT] socket.connect() call completed, waiting for events...'
       );
     });

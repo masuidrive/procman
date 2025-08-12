@@ -146,9 +146,7 @@ export interface IPCConnection {
   /** Close method */
   close?: () => void | Promise<void>;
   /** Event handler methods */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on?: (event: string, handler: (...args: any[]) => void) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   off?: (event: string, handler: (...args: any[]) => void) => void;
 }
 
@@ -454,7 +452,6 @@ export interface IPCClientEvents {
  * Typed event emitter interface
  */
 export interface TypedEventEmitter<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   T extends Record<string, (...args: any[]) => void>,
 > {
   on<K extends keyof T>(event: K, listener: T[K]): this;

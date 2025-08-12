@@ -72,7 +72,6 @@ export function createConfigLoader(
  * Default ConfigLoader instance for convenience
  * Use this for simple use cases where you don't need custom configuration
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const defaultConfigLoader = (() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ConfigLoader } = require('./config-loader');

@@ -12,6 +12,7 @@ import type { IPCConnection, IPCMessage } from '../shared/ipc.js';
 import { generateMessageId } from '../shared/ipc.js';
 import { MessageProtocol } from './message-protocol.js';
 import { IDisposable } from './resource-manager.js';
+import { EventCleanupHelper } from '../utils/event-cleanup.js';
 
 /**
  * Base socket connection class implementing common functionality
@@ -29,11 +30,9 @@ export abstract class BaseSocketConnection
   protected readonly socket: net.Socket;
   protected readonly protocol: MessageProtocol;
   private disposed = false;
-  private eventListeners: Set<{
-    event: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    listener: (...args: any[]) => void;
-  }> = new Set();
+
+  // Use EventCleanupHelper for listener tracking
+  private readonly cleanup = new EventCleanupHelper();
 
   constructor(socket: net.Socket) {
     super();
@@ -44,7 +43,20 @@ export abstract class BaseSocketConnection
     this.lastActivity = Date.now();
     this.protocol = new MessageProtocol();
 
+    // No initialization needed for EventCleanupHelper
+
     this.setupSocketHandlers();
+  }
+
+  /**
+   * Private method to register and track listeners
+   */
+  private registerListener<T extends EventEmitter>(
+    emitter: T,
+    event: string | symbol,
+    listener: (...args: any[]) => void
+  ): void {
+    this.cleanup.track(emitter, event, listener);
   }
 
   /**
@@ -57,12 +69,8 @@ export abstract class BaseSocketConnection
 
     this.disposed = true;
 
-    // Remove all tracked event listeners
-    for (const { event, listener } of this.eventListeners) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.socket.removeListener(event, listener as any);
-    }
-    this.eventListeners.clear();
+    // Clean up all tracked listeners
+    await this.cleanup.dispose();
 
     // Remove all our own event listeners
     this.removeAllListeners();
@@ -71,10 +79,32 @@ export abstract class BaseSocketConnection
     if (!this.socket.destroyed) {
       this.socket.destroy();
     }
+
+    // Listeners cleaned up by EventCleanupHelper
   }
 
   isDisposed(): boolean {
     return this.disposed;
+  }
+
+  /**
+   * Get statistics about listener management
+   */
+  public getListenerStats(): {
+    managedListeners: number;
+    ownListeners: number;
+  } {
+    const ownEvents = this.eventNames();
+    let ownListenersCount = 0;
+
+    for (const event of ownEvents) {
+      ownListenersCount += this.listenerCount(event);
+    }
+
+    return {
+      managedListeners: this.cleanup.getListenerCount(),
+      ownListeners: ownListenersCount,
+    };
   }
 
   /**
@@ -138,6 +168,17 @@ export abstract class BaseSocketConnection
   }
 
   /**
+   * Force destroy the connection immediately (synchronous)
+   */
+  destroy(): void {
+    this.status = 'disconnected';
+    if (!this.socket.destroyed) {
+      this.socket.destroy();
+    }
+    this.dispose();
+  }
+
+  /**
    * Check if connection is alive
    */
   isAlive(): boolean {
@@ -187,15 +228,10 @@ export abstract class BaseSocketConnection
       this.emit('end');
     };
 
-    // Track event listeners for cleanup
-    this.eventListeners.add({ event: 'data', listener: dataHandler });
-    this.eventListeners.add({ event: 'error', listener: errorHandler });
-    this.eventListeners.add({ event: 'close', listener: closeHandler });
-    this.eventListeners.add({ event: 'end', listener: endHandler });
-
-    this.socket.on('data', dataHandler);
-    this.socket.on('error', errorHandler);
-    this.socket.on('close', closeHandler);
-    this.socket.on('end', endHandler);
+    // Register and track event listeners with EventCleanupHelper
+    this.registerListener(this.socket, 'data', dataHandler);
+    this.registerListener(this.socket, 'error', errorHandler);
+    this.registerListener(this.socket, 'close', closeHandler);
+    this.registerListener(this.socket, 'end', endHandler);
   }
 }

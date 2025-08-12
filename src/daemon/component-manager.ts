@@ -6,6 +6,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { EventCleanupHelper } from '../utils/event-cleanup.js';
 import { ConfigLoader } from '../config/config-loader.js';
 import { ProcessManager } from '../process-manager/process-manager.js';
 import { LogManager } from '../services/log-manager.js';
@@ -90,8 +91,24 @@ export class ComponentManager extends EventEmitter {
   private ipcServer?: IPCServerBase;
   private commandHandler?: IPCCommandHandler;
 
+  // Add EventCleanupHelper for proper listener cleanup
+  private readonly listenerCleanup = new EventCleanupHelper();
+
   constructor(private dataDirectory: DataDirectory) {
     super();
+
+    // No initialization needed for EventCleanupHelper
+  }
+
+  /**
+   * Private method to register and track listeners
+   */
+  private registerListener<T extends EventEmitter>(
+    emitter: T,
+    event: string | symbol,
+    listener: (...args: any[]) => void
+  ): void {
+    this.listenerCleanup.track(emitter, event, listener);
   }
 
   /**
@@ -175,6 +192,9 @@ export class ComponentManager extends EventEmitter {
 
     // Clear component references
     this.clearComponents();
+
+    // Clean up listener management (after streaming sessions are already cleaned up)
+    await this.cleanupListeners();
 
     this.emit('allComponentsStopped');
 
@@ -396,7 +416,7 @@ export class ComponentManager extends EventEmitter {
    */
   private async initializeProcessManager(): Promise<void> {
     try {
-      this.processManager = new ProcessManager();
+      this.processManager = ProcessManager.create();
       await this.registerComponent('processManager', this.processManager);
       this.emit('componentStarted', 'processManager');
     } catch (error) {
@@ -499,6 +519,7 @@ export class ComponentManager extends EventEmitter {
   /**
    * Create daemon interface for command handler
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   private createDaemonInterface() {
     return {
       getConfigLoader: () => this.configLoader!,
@@ -508,7 +529,10 @@ export class ComponentManager extends EventEmitter {
         // Implementation moved from ProcmanDaemon
         const processInfos = this.processManager!.getAllProcessInfo();
 
-        const statusPromises = processInfos.map(async (info) => {
+        const statusPromises = processInfos.map(async (processInfo) => {
+          const info = processInfo;
+          if (!info) return null;
+
           // Get process stats from monitor
           const stats = await this.processManager!.monitor.getProcessStats(
             info.name
@@ -526,7 +550,8 @@ export class ComponentManager extends EventEmitter {
           };
         });
 
-        return Promise.all(statusPromises);
+        const results = await Promise.all(statusPromises);
+        return results.filter((result) => result !== null);
       },
       getConfig: () => {
         // This will be set by the calling code
@@ -538,13 +563,18 @@ export class ComponentManager extends EventEmitter {
         // Stop all existing processes
         const allProcesses = this.processManager!.getAllProcessInfo();
         if (allProcesses.length > 0) {
-          const processNames = allProcesses.map((p) => p.name);
+          const processNames = allProcesses
+            .map((processInfo) => {
+              const info = processInfo;
+              return info?.name || '';
+            })
+            .filter((name) => name !== '');
           await this.processManager!.stopProcesses(processNames);
         }
 
         // Configure new processes
         for (const app of config.apps) {
-          await this.processManager!.configureProcess(app);
+          this.processManager!.configureProcess(app);
 
           // Setup log manager for this app if log files are configured
           if (
@@ -620,8 +650,10 @@ export class ComponentManager extends EventEmitter {
     // Note: We need connectionId to send logs to specific client only
     // This requires passing connectionId from IPCServer through IPCCommandHandler
 
-    this.commandHandler.on(
+    this.registerListener(
+      this.commandHandler,
       LOG_STREAM_EVENTS.START_LOG_STREAM,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (streamConfig: any) => {
         const { messageId, target, connectionId } = streamConfig;
         const sessionId = `${STREAM_CONFIG.SESSION_PREFIX}-${messageId}-${Date.now()}`;
@@ -681,11 +713,16 @@ export class ComponentManager extends EventEmitter {
     );
 
     // stop-log-streamイベントのリスナーを追加
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.commandHandler.on(LOG_STREAM_EVENTS.STOP_LOG_STREAM, (config: any) => {
-      const { sessionId } = config;
-      this.stopLogStream(sessionId);
-    });
+
+    this.registerListener(
+      this.commandHandler,
+      LOG_STREAM_EVENTS.STOP_LOG_STREAM,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (config: any) => {
+        const { sessionId } = config;
+        this.stopLogStream(sessionId);
+      }
+    );
   }
 
   /**
@@ -704,12 +741,15 @@ export class ComponentManager extends EventEmitter {
    */
   private setupStreamCleanupOnDisconnect(sessionId: string): void {
     // IPCサーバーの切断イベントを監視
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const disconnectHandler = () => {
       // 該当するセッションのストリーミングを停止
       this.stopLogStream(sessionId);
     };
 
     // 一度だけ実行されるようにする
+    // Note: IPCServerBase doesn't extend EventEmitter, so we can't use EventCleanupHelper for it
+    // This is acceptable as IPCServerBase has its own cleanup mechanisms
     this.ipcServer?.once('disconnect', disconnectHandler);
   }
 
@@ -724,8 +764,53 @@ export class ComponentManager extends EventEmitter {
   }
 
   /**
+   * Clean up all managed listeners and components
+   */
+  public async cleanup(): Promise<void> {
+    // Clean up streaming sessions first
+    this.cleanupAllStreamingSessions();
+
+    // Clean up listeners
+    await this.cleanupListeners();
+  }
+
+  /**
+   * Clean up only listeners (without streaming sessions)
+   */
+  private async cleanupListeners(): Promise<void> {
+    // Clean up all tracked listeners
+    await this.listenerCleanup.dispose();
+
+    // Clean up our own listeners
+    this.removeAllListeners();
+
+    // Listeners cleaned up by EventCleanupHelper
+  }
+
+  /**
+   * Get statistics about listener management
+   */
+  public getListenerStats(): {
+    managedListeners: number;
+    ownListeners: number;
+  } {
+    const ownEvents = this.eventNames();
+    let ownListenersCount = 0;
+
+    for (const event of ownEvents) {
+      ownListenersCount += this.listenerCount(event);
+    }
+
+    return {
+      managedListeners: this.listenerCleanup.getListenerCount(),
+      ownListeners: ownListenersCount,
+    };
+  }
+
+  /**
    * Register a component with proper interface
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async registerComponent(name: string, instance: any): Promise<void> {
     const startTime = Date.now();
     console.log(`Registering component: ${name}`);
@@ -734,7 +819,22 @@ export class ComponentManager extends EventEmitter {
       name,
       initialize: async () => {
         console.log(`Initializing component: ${name}`);
-        if (instance.start && typeof instance.start === 'function') {
+        if (instance == null) {
+          throw new Error(`Component ${name} instance is null or undefined`);
+        }
+        // Handle component-specific initialization methods
+        let startMethod = null;
+        if (
+          name === 'processManager' &&
+          instance.startMonitoring &&
+          typeof instance.startMonitoring === 'function'
+        ) {
+          startMethod = instance.startMonitoring.bind(instance);
+        } else if (instance.start && typeof instance.start === 'function') {
+          startMethod = instance.start.bind(instance);
+        }
+
+        if (startMethod) {
           const initStartTime = Date.now();
 
           // Add timeout for component initialization
@@ -749,11 +849,15 @@ export class ComponentManager extends EventEmitter {
           });
 
           try {
-            await Promise.race([instance.start(), timeoutPromise]);
+            // Handle both async and sync start methods
+            const startPromise = Promise.resolve(startMethod());
+            await Promise.race([startPromise, timeoutPromise]);
             const initTime = Date.now() - initStartTime;
-            console.log(`Component ${name} start() completed in ${initTime}ms`);
+            console.log(
+              `Component ${name} initialization completed in ${initTime}ms`
+            );
           } catch (error) {
-            console.error(`Component ${name} start() failed:`, error);
+            console.error(`Component ${name} initialization failed:`, error);
             throw error;
           }
         } else {
@@ -826,6 +930,33 @@ export class ComponentManager extends EventEmitter {
   }
 
   /**
+   * Convert AppConfig to ProcessConfig format
+   */
+  private convertAppConfigToProcessConfig(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    appConfig: any,
+    appName: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): any {
+    return {
+      name: appName,
+      script: appConfig.script || appConfig.exec || 'node',
+      namespace: appConfig.namespace || 'default',
+      args: appConfig.args || [],
+      cwd: appConfig.cwd || process.cwd(),
+      env: { ...process.env, ...appConfig.env },
+      instances: appConfig.instances || 1,
+      autorestart: appConfig.autorestart ?? true,
+      watch: appConfig.watch ?? false,
+      max_memory_restart: appConfig.max_memory_restart || undefined,
+      max_restarts: appConfig.max_restarts || 15,
+      min_uptime: appConfig.min_uptime || 1000,
+      restart_delay: appConfig.restart_delay || 0,
+      note: appConfig.note || undefined,
+    };
+  }
+
+  /**
    * Override EventEmitter methods for type safety
    */
 
@@ -838,7 +969,6 @@ export class ComponentManager extends EventEmitter {
 
   on<K extends keyof ComponentManagerEvents>(
     event: K,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void
   ): this {
     return super.on(event, listener);

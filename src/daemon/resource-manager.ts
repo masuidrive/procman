@@ -143,7 +143,6 @@ export class TrackedEventListener implements TrackedResource {
     id: string,
     private emitter: EventEmitter,
     private event: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private listener: (...args: any[]) => void,
     metadata?: Record<string, unknown>,
     manager?: ResourceManager
@@ -245,7 +244,6 @@ export class ResourceManager extends EventEmitter implements IDisposable {
   trackEventListener(
     emitter: EventEmitter,
     event: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void,
     metadata?: Record<string, unknown>
   ): TrackedEventListener {
@@ -501,7 +499,6 @@ export abstract class DisposableBase implements IDisposable {
   protected safeAddEventListener(
     emitter: EventEmitter,
     event: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void,
     metadata?: Record<string, unknown>
   ): TrackedEventListener {

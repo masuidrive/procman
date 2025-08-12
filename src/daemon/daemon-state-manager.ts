@@ -249,7 +249,6 @@ export class DaemonStateManager extends EventEmitter {
 
   on<K extends keyof DaemonStateManagerEvents>(
     event: K,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void
   ): this {
     return super.on(event, listener);

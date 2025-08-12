@@ -54,8 +54,8 @@ export class UnixSocketServer extends IPCServerBase {
    */
   protected async startServer(): Promise<void> {
     const startTime = Date.now();
-    console.log('[DEBUG-UNIX-SOCKET] Starting Unix socket server...');
-    console.log(
+    console.error('[DEBUG-UNIX-SOCKET] Starting Unix socket server...');
+    console.error(
       '[DEBUG-UNIX-SOCKET] Socket configuration:',
       JSON.stringify(
         {
@@ -74,34 +74,35 @@ export class UnixSocketServer extends IPCServerBase {
 
     // Ensure directory exists
     const socketDir = path.dirname(this.socketPath);
-    console.log('[DEBUG-UNIX-SOCKET] Creating socket directory:', socketDir);
+    console.error('[DEBUG-UNIX-SOCKET] Creating socket directory:', socketDir);
     await fs.mkdir(socketDir, { recursive: true });
-    console.log('[DEBUG-UNIX-SOCKET] ✓ Socket directory ready');
+    console.error('[DEBUG-UNIX-SOCKET] ✓ Socket directory ready');
 
     // Remove existing socket file if it exists
     try {
-      console.log('[DEBUG-UNIX-SOCKET] Removing existing socket file...');
+      console.error('[DEBUG-UNIX-SOCKET] Removing existing socket file...');
       await fs.unlink(this.socketPath);
-      console.log('[DEBUG-UNIX-SOCKET] ✓ Existing socket file removed');
+      console.error('[DEBUG-UNIX-SOCKET] ✓ Existing socket file removed');
     } catch (error) {
-      console.log(
+      console.error(
         '[DEBUG-UNIX-SOCKET] No existing socket file to remove (normal):',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (error as any)?.code
       );
     }
 
     // Create server
-    console.log('[DEBUG-UNIX-SOCKET] Creating net.Server instance...');
+    console.error('[DEBUG-UNIX-SOCKET] Creating net.Server instance...');
     this.server = net.createServer();
-    console.log('[DEBUG-UNIX-SOCKET] ✓ Server instance created');
+    console.error('[DEBUG-UNIX-SOCKET] ✓ Server instance created');
 
     // Set up server event handlers
-    console.log('[DEBUG-UNIX-SOCKET] Setting up server event handlers...');
+    console.error('[DEBUG-UNIX-SOCKET] Setting up server event handlers...');
     this.setupServerHandlers();
-    console.log('[DEBUG-UNIX-SOCKET] ✓ Event handlers configured');
+    console.error('[DEBUG-UNIX-SOCKET] ✓ Event handlers configured');
 
     // Start listening
-    console.log('[DEBUG-UNIX-SOCKET] Starting to listen on socket...');
+    console.error('[DEBUG-UNIX-SOCKET] Starting to listen on socket...');
     return new Promise<void>((resolve, reject) => {
       // Add error handler before listening
       const errorHandler = (error: Error): void => {
@@ -114,8 +115,11 @@ export class UnixSocketServer extends IPCServerBase {
               listenTimeMs: listenTime,
               socketPath: this.socketPath,
               errorMessage: error.message,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               errorCode: (error as any)?.code,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               errorErrno: (error as any)?.errno,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               errorSyscall: (error as any)?.syscall,
             },
             null,
@@ -128,11 +132,11 @@ export class UnixSocketServer extends IPCServerBase {
 
       this.server!.on('error', errorHandler);
 
-      console.log('[DEBUG-UNIX-SOCKET] Calling listen() on socket path...');
+      console.error('[DEBUG-UNIX-SOCKET] Calling listen() on socket path...');
       this.server!.listen(this.socketPath, () => {
         const listenTime = Date.now() - startTime;
-        console.log('[DEBUG-UNIX-SOCKET] ✓ Socket listen() callback fired');
-        console.log(
+        console.error('[DEBUG-UNIX-SOCKET] ✓ Socket listen() callback fired');
+        console.error(
           '[DEBUG-UNIX-SOCKET] Listen success stats:',
           JSON.stringify(
             {
@@ -147,12 +151,12 @@ export class UnixSocketServer extends IPCServerBase {
         // Remove error handler after successful listen
         this.server!.removeListener('error', errorHandler);
 
-        console.log('[DEBUG-UNIX-SOCKET] Setting socket permissions...');
+        console.error('[DEBUG-UNIX-SOCKET] Setting socket permissions...');
         this.setSocketPermissions()
           .then(() => {
             const totalTime = Date.now() - startTime;
-            console.log('[DEBUG-UNIX-SOCKET] ✓ UNIX SOCKET SERVER READY');
-            console.log(
+            console.error('[DEBUG-UNIX-SOCKET] ✓ UNIX SOCKET SERVER READY');
+            console.error(
               '[DEBUG-UNIX-SOCKET] Final socket stats:',
               JSON.stringify(
                 {
@@ -235,10 +239,11 @@ export class UnixSocketServer extends IPCServerBase {
     }
 
     this.server.on('connection', (socket: net.Socket) => {
-      // Check connection limit before accepting
+      // Check connection limit immediately at socket level
       if (this.connections.size >= this.config.maxConnections) {
-        // Immediately destroy socket when limit exceeded
-        socket.end();
+        // Log rejection for debugging if needed
+        // console.error(`[DEBUG-CONNECTION-LIMIT] Socket-level limit check: connections=${this.connections.size}, max=${this.config.maxConnections}, rejecting socket`);
+        // Immediately destroy socket at TCP level (no graceful end, immediate destroy)
         socket.destroy();
         return;
       }

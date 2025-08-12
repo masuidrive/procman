@@ -267,4 +267,110 @@ describe('ProcmanDaemon', () => {
       expect(daemon.isRunning()).toBe(false);
     });
   });
+
+  describe('memory monitoring and graceful shutdown', () => {
+    test('should handle memory critical event', async () => {
+      const mockUsage = {
+        rss: 250 * 1024 * 1024, // 250MB
+        heapTotal: 200 * 1024 * 1024,
+        heapUsed: 180 * 1024 * 1024,
+        external: 50 * 1024 * 1024,
+        arrayBuffers: 10 * 1024 * 1024,
+        timestamp: Date.now(),
+      };
+      const threshold = 200 * 1024 * 1024; // 200MB (critical threshold)
+
+      await daemon.start();
+
+      // Spy on console.error for critical memory warning
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+        // Mock implementation
+      });
+
+      // Manually trigger the memory critical event
+      // We can't easily mock the internal MemoryMonitor, so we test the event handler directly
+      (daemon as any).memoryMonitor.emit(
+        'memoryCritical',
+        mockUsage,
+        threshold
+      );
+
+      // Wait a bit for the event handler
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // The event should log critical memory warning
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[ProcmanDaemon] Critical memory usage'),
+        expect.objectContaining({
+          usage: mockUsage,
+          threshold,
+        })
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should handle memory events without restart threshold', async () => {
+      const memoryWarningSpy = vi.fn();
+      const memoryCriticalSpy = vi.fn();
+
+      daemon.on('error', () => {}); // Ignore errors for this test
+
+      await daemon.start();
+
+      daemon['memoryMonitor'].on('memoryWarning', memoryWarningSpy);
+      daemon['memoryMonitor'].on('memoryCritical', memoryCriticalSpy);
+
+      const mockUsage = {
+        rss: 150 * 1024 * 1024, // 150MB
+        heapTotal: 100 * 1024 * 1024,
+        heapUsed: 80 * 1024 * 1024,
+        external: 20 * 1024 * 1024,
+        arrayBuffers: 5 * 1024 * 1024,
+        timestamp: Date.now(),
+      };
+
+      // Simulate warning threshold exceeded
+      (daemon as any).memoryMonitor.emit(
+        'memoryWarning',
+        mockUsage,
+        100 * 1024 * 1024
+      );
+
+      expect(memoryWarningSpy).toHaveBeenCalledWith(
+        mockUsage,
+        100 * 1024 * 1024
+      );
+
+      // Simulate critical threshold exceeded
+      (daemon as any).memoryMonitor.emit(
+        'memoryCritical',
+        mockUsage,
+        200 * 1024 * 1024
+      );
+
+      expect(memoryCriticalSpy).toHaveBeenCalledWith(
+        mockUsage,
+        200 * 1024 * 1024
+      );
+    });
+
+    test('should return health status including memory info', async () => {
+      await daemon.start();
+
+      const healthStatus = await daemon.getHealthStatus();
+
+      expect(healthStatus).toBeDefined();
+      expect(healthStatus.ready).toBeDefined();
+      expect(healthStatus.components).toBeDefined();
+      expect(healthStatus.memory).toBeDefined();
+      expect(healthStatus.memory?.status).toMatch(
+        /^(healthy|warning|critical|restart-required)$/
+      );
+      expect(healthStatus.memory?.currentMemory).toBeDefined();
+      expect(healthStatus.memory?.thresholds).toBeDefined();
+      expect(healthStatus.memory?.thresholds.warning).toBeDefined();
+      expect(healthStatus.memory?.thresholds.critical).toBeDefined();
+    });
+  });
 });

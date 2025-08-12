@@ -23,6 +23,7 @@ import {
   SecureLogPathBuilder,
 } from './log-path-validator.js';
 import { LOG_STREAM_EVENTS } from '../shared/constants-streaming.js';
+import { EventCleanupHelper } from '../utils/event-cleanup.js';
 
 // Node.js global timer functions (for ESLint)
 declare const setTimeout: (callback: () => void, ms: number) => NodeJS.Timeout;
@@ -1261,6 +1262,9 @@ export class LogManager extends EventEmitter {
   private pathValidator: LogPathValidator;
   private securePathBuilder: SecureLogPathBuilder;
 
+  // Add EventCleanupHelper for proper listener cleanup
+  private readonly cleanup = new EventCleanupHelper();
+
   constructor(
     logDir?: string,
     fileManager?: IFileManager,
@@ -1277,6 +1281,8 @@ export class LogManager extends EventEmitter {
     this.config = config;
     this.fileManager = fileManager || new FileManager(this.config);
 
+    // No additional initialization needed for EventCleanupHelper
+
     // パストラバーサル対策の初期化（テスト環境では緩い検証にする）
     const pathValidationConfig =
       process.env.NODE_ENV === 'test'
@@ -1289,6 +1295,17 @@ export class LogManager extends EventEmitter {
     this.securePathBuilder = new SecureLogPathBuilder(this.pathValidator);
 
     this.ensureLogDirectory();
+  }
+
+  /**
+   * Private method to register and track listeners
+   */
+  private registerListener<T extends EventEmitter>(
+    emitter: T,
+    event: string | symbol,
+    listener: (...args: any[]) => void
+  ): void {
+    this.cleanup.track(emitter, event, listener);
   }
 
   /**
@@ -1546,11 +1563,21 @@ export class LogManager extends EventEmitter {
    * 全てのリソースのクリーンアップ
    */
   public async close(): Promise<void> {
+    // Clean up all tracked listeners
+    await this.cleanup.dispose();
+
+    // Note: Don't log here as it can cause issues during shutdown
+    // console.log(`[LogManager] Cleaned up ${cleanedUpListeners} managed listeners`);
+
+    // Clean up app loggers
     for (const appLogger of this.appLoggers.values()) {
       await appLogger.close();
     }
 
     this.appLoggers.clear();
+
+    // Clean up our own listeners (this should be empty after EventCleanupHelper cleanup)
+    this.removeAllListeners();
   }
 
   /**
@@ -1602,12 +1629,17 @@ export class LogManager extends EventEmitter {
   /**
    * ログストリーミングの開始
    * 新しいログエントリが追加されるたびにリスナーを呼び出す
+   *
+   * Note: This method now tracks listeners but doesn't use the EventCleanupHelper
+   * because it returns a cleanup function that the caller must use.
+   * The caller is responsible for calling the cleanup function.
    */
   public startLogStream(
     appName: string | null,
     listener: (logEntry: LogEntry) => void
   ): () => void {
     // フィルタリング関数の作成
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const filterListener = (logEntry: LogEntry) => {
       // appNameが指定されている場合はフィルタリング
       if (appName && logEntry.app !== appName) {
@@ -1632,5 +1664,27 @@ export class LogManager extends EventEmitter {
     // EventEmitterのリスナー数をチェック
     const listeners = this.listenerCount(LOG_STREAM_EVENTS.NEW_LOG);
     return listeners > 0;
+  }
+
+  /**
+   * Get statistics about listener management
+   */
+  public getListenerStats(): {
+    managedListeners: number;
+    ownListeners: number;
+    streamingListeners: number;
+  } {
+    const ownEvents = this.eventNames();
+    let ownListenersCount = 0;
+
+    for (const event of ownEvents) {
+      ownListenersCount += this.listenerCount(event);
+    }
+
+    return {
+      managedListeners: this.cleanup.getListenerCount(),
+      ownListeners: ownListenersCount,
+      streamingListeners: this.listenerCount(LOG_STREAM_EVENTS.NEW_LOG),
+    };
   }
 }

@@ -22,7 +22,6 @@ export class NamedPipeClient extends IPCClientBase {
   private connectionTimeout: SimpleTimeout | null = null;
   private eventListeners: Set<{
     event: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void;
   }> = new Set();
 

@@ -6,6 +6,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { EventCleanupHelper } from '../utils/event-cleanup.js';
 import { ConfigLoader } from '../config/config-loader.js';
 import { ProcessManager } from '../process-manager/process-manager.js';
 import { LogManager } from '../services/log-manager.js';
@@ -62,6 +63,7 @@ export interface DaemonInterface {
   getConfigLoader(): ConfigLoader | undefined;
   getProcessManager(): ProcessManager | undefined;
   getLogManager(): LogManager | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getAllProcessStatuses(): Promise<any>;
   getConfig(): AppConfig[] | undefined;
   loadConfig(configFilePath: string): Promise<AppConfig[]>;
@@ -78,6 +80,7 @@ export interface CommandHandlerEvents {
   [LOG_STREAM_EVENTS.START_LOG_STREAM]: (config: {
     messageId: string;
     target: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     options: any;
     connectionId?: string;
   }) => void;
@@ -88,16 +91,32 @@ export interface CommandHandlerEvents {
  * IPC command handler implementation
  */
 export class IPCCommandHandler extends EventEmitter {
+  // Add EventCleanupHelper for proper listener cleanup
+  private readonly listenerCleanup = new EventCleanupHelper();
+
   constructor(private daemon: DaemonInterface) {
     super();
+
+    // No initialization needed for EventCleanupHelper
+  }
+
+  /**
+   * Private method to register and track listeners
+   */
+  private registerListener<T extends EventEmitter>(
+    emitter: T,
+    event: string | symbol,
+    listener: (...args: any[]) => void
+  ): void {
+    this.listenerCleanup.track(emitter, event, listener);
   }
 
   /**
    * Handle incoming IPC message
    */
-
   async handleMessage(
     message: IPCMessage,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     connection?: any
   ): Promise<IPCResponse> {
     this.emit('command:received', message.type, message.id);
@@ -243,11 +262,17 @@ export class IPCCommandHandler extends EventEmitter {
     const batchResults = await processManager.startProcesses(targetProcesses);
 
     // Count successes and failures
-    const started = batchResults.filter((r) => r.success).map((r) => r.name);
+    const started = batchResults
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((r: any) => r.success)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r: any) => r.name);
     const alreadyRunning: string[] = [];
     const failed = batchResults
-      .filter((r) => !r.success)
-      .map((r) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((r: any) => !r.success)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r: any) => ({
         name: r.name,
         error: r.error || 'Unknown error',
       }));
@@ -304,11 +329,17 @@ export class IPCCommandHandler extends EventEmitter {
     const batchResults = await processManager.stopProcesses(targetProcesses);
 
     // Count successes and failures
-    const stopped = batchResults.filter((r) => r.success).map((r) => r.name);
+    const stopped = batchResults
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((r: any) => r.success)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r: any) => r.name);
     const alreadyStopped: string[] = [];
     const failed = batchResults
-      .filter((r) => !r.success)
-      .map((r) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((r: any) => !r.success)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r: any) => ({
         name: r.name,
         error: r.error || 'Unknown error',
       }));
@@ -365,10 +396,16 @@ export class IPCCommandHandler extends EventEmitter {
     const batchResults = await processManager.restartProcesses(targetProcesses);
 
     // Count successes and failures
-    const restarted = batchResults.filter((r) => r.success).map((r) => r.name);
+    const restarted = batchResults
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((r: any) => r.success)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r: any) => r.name);
     const failed = batchResults
-      .filter((r) => !r.success)
-      .map((r) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((r: any) => !r.success)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r: any) => ({
         name: r.name,
         error: r.error || 'Unknown error',
       }));
@@ -568,6 +605,40 @@ export class IPCCommandHandler extends EventEmitter {
       timestamp: Date.now(),
       success: true,
       data: response,
+    };
+  }
+
+  /**
+   * Clean up all managed listeners
+   */
+  public async cleanup(): Promise<void> {
+    // Clean up all managed listeners
+    // Clean up all tracked listeners
+    await this.listenerCleanup.dispose();
+
+    // Clean up our own listeners
+    this.removeAllListeners();
+
+    // Listeners cleaned up by EventCleanupHelper
+  }
+
+  /**
+   * Get statistics about listener management
+   */
+  public getListenerStats(): {
+    managedListeners: number;
+    ownListeners: number;
+  } {
+    const ownEvents = this.eventNames();
+    let ownListenersCount = 0;
+
+    for (const event of ownEvents) {
+      ownListenersCount += this.listenerCount(event);
+    }
+
+    return {
+      managedListeners: this.listenerCleanup.getListenerCount(),
+      ownListeners: ownListenersCount,
     };
   }
 

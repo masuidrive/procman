@@ -20,6 +20,13 @@ import { ProcessManager } from '../process-manager/process-manager.js';
 import { LogManager } from '../services/log-manager.js';
 import { IPCServerBase } from './ipc-server-base.js';
 import { AppConfig } from '../shared/config.js';
+import { MemoryMonitor } from '../utils/memory/memory-monitor.js';
+import path from 'path';
+
+/**
+ * Shutdown reason types for graceful shutdown
+ */
+export type ShutdownReason = 'signal' | 'memory' | 'manual' | 'error';
 
 // Re-export DaemonState for backward compatibility
 export { DaemonState };
@@ -35,6 +42,15 @@ export interface ProcmanDaemonEvents {
   recoveryStarted: () => void;
   recoveryCompleted: () => void;
   recoveryFailed: (error: Error) => void;
+
+  shutdownStarted: (reason: ShutdownReason) => void;
+  shutdownCompleted: (reason: ShutdownReason, totalTime: number) => void;
+  shutdownFailed: (
+    reason: ShutdownReason,
+    error: Error,
+    totalTime: number
+  ) => void;
+  newConnectionsRejected: () => void;
 }
 
 /**
@@ -54,11 +70,13 @@ export class ProcmanDaemon extends EventEmitter {
   private stateManager: DaemonStateManager;
   private componentManager: ComponentManager;
   private signalHandler: SignalHandler;
+  private memoryMonitor: MemoryMonitor;
   private currentConfig?: AppConfig[];
   private configFilePath?: string;
   private recoveryAttempts = 0;
   private readonly maxRecoveryAttempts =
     RECOVERY_CONSTANTS.MAX_RECOVERY_ATTEMPTS;
+  private isShuttingDown = false; // Add shutdown flag
 
   constructor() {
     super();
@@ -68,6 +86,13 @@ export class ProcmanDaemon extends EventEmitter {
     this.stateManager = new DaemonStateManager();
     this.componentManager = new ComponentManager(this.dataDirectory);
     this.signalHandler = new SignalHandler();
+    this.memoryMonitor = new MemoryMonitor({
+      intervalMs: 30000, // 30 seconds (PM2 standard)
+      warningThreshold: 100 * 1024 * 1024, // 100MB
+      criticalThreshold: 200 * 1024 * 1024, // 200MB
+
+      enableLogging: process.env.NODE_ENV !== 'test', // Disable logging in test environment
+    });
 
     this.setupEventListeners();
   }
@@ -113,11 +138,25 @@ export class ProcmanDaemon extends EventEmitter {
       string,
       { status: 'healthy' | 'unhealthy' | 'unknown'; message: string }
     >;
+    memory?: {
+      status: 'healthy' | 'warning' | 'critical';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      currentMemory: any;
+      thresholds: {
+        warning: number;
+        critical: number;
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      trend?: any;
+    };
   }> {
     const healthCheck = await this.componentManager.performHealthChecks();
+    const memoryHealthInfo = this.memoryMonitor.getHealthInfo();
+
     return {
       ready: healthCheck.healthy && this.isRunning(),
       components: healthCheck.details,
+      memory: memoryHealthInfo,
     };
   }
 
@@ -126,8 +165,8 @@ export class ProcmanDaemon extends EventEmitter {
    */
   async start(): Promise<void> {
     const startTime = Date.now();
-    console.log('[DEBUG-PROCMAN-DAEMON] Starting daemon initialization...');
-    console.log(
+    console.error('[DEBUG-PROCMAN-DAEMON] Starting daemon initialization...');
+    console.error(
       '[DEBUG-PROCMAN-DAEMON] Current state check:',
       JSON.stringify(
         {
@@ -147,59 +186,59 @@ export class ProcmanDaemon extends EventEmitter {
       );
     }
 
-    console.log('[DEBUG-PROCMAN-DAEMON] Transitioning to STARTING state...');
+    console.error('[DEBUG-PROCMAN-DAEMON] Transitioning to STARTING state...');
     this.stateManager.transitionTo(DaemonState.STARTING);
 
     try {
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Step 1: Performing environment checks...'
       );
       // Perform environment checks before any other operations
       await this.performEnvironmentChecks();
-      console.log('[DEBUG-PROCMAN-DAEMON] ✓ Environment checks completed');
+      console.error('[DEBUG-PROCMAN-DAEMON] ✓ Environment checks completed');
 
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Step 2: Ensuring no daemon running...'
       );
       // Check for existing daemon
       await this.pidManager.ensureNoDaemonRunning();
-      console.log('[DEBUG-PROCMAN-DAEMON] ✓ Daemon uniqueness verified');
+      console.error('[DEBUG-PROCMAN-DAEMON] ✓ Daemon uniqueness verified');
 
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Step 3: Initializing data directory...'
       );
       // Initialize data directory
       await this.dataDirectory.ensureDataDirectory();
-      console.log('[DEBUG-PROCMAN-DAEMON] ✓ Data directory ready');
+      console.error('[DEBUG-PROCMAN-DAEMON] ✓ Data directory ready');
 
-      console.log('[DEBUG-PROCMAN-DAEMON] Step 4: Writing PID file...');
+      console.error('[DEBUG-PROCMAN-DAEMON] Step 4: Writing PID file...');
       // Write PID file
       await this.pidManager.writePIDFile();
-      console.log('[DEBUG-PROCMAN-DAEMON] ✓ PID file written');
+      console.error('[DEBUG-PROCMAN-DAEMON] ✓ PID file written');
 
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Step 5: Setting up signal handlers...'
       );
       // Setup signal handlers
       this.signalHandler.setupHandlers();
-      console.log('[DEBUG-PROCMAN-DAEMON] ✓ Signal handlers configured');
+      console.error('[DEBUG-PROCMAN-DAEMON] ✓ Signal handlers configured');
 
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Step 6: Initializing all components...'
       );
       // Initialize components
       await this.componentManager.initializeAll();
-      console.log('[DEBUG-PROCMAN-DAEMON] ✓ All components initialized');
+      console.error('[DEBUG-PROCMAN-DAEMON] ✓ All components initialized');
 
       // Perform final readiness check with retries
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Step 7: Performing final readiness verification...'
       );
       let readinessAttempts = 0;
       const maxReadinessAttempts = 10;
       const readinessCheckInterval = 500;
 
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Readiness check parameters:',
         JSON.stringify(
           {
@@ -214,7 +253,7 @@ export class ProcmanDaemon extends EventEmitter {
 
       while (readinessAttempts < maxReadinessAttempts) {
         const checkStartTime = Date.now();
-        console.log(
+        console.error(
           `[DEBUG-PROCMAN-DAEMON] Readiness attempt ${readinessAttempts + 1}/${maxReadinessAttempts}...`
         );
 
@@ -223,10 +262,10 @@ export class ProcmanDaemon extends EventEmitter {
           const checkDuration = Date.now() - checkStartTime;
 
           if (healthCheck.healthy) {
-            console.log(
+            console.error(
               '[DEBUG-PROCMAN-DAEMON] ✓ Readiness verification successful!'
             );
-            console.log(
+            console.error(
               '[DEBUG-PROCMAN-DAEMON] Readiness success stats:',
               JSON.stringify(
                 {
@@ -243,7 +282,7 @@ export class ProcmanDaemon extends EventEmitter {
             );
             break;
           } else {
-            console.error('[DEBUG-PROCMAN-DAEMON] ❌ Readiness check failed');
+            console.error('[DEBUG-PROCMAN-DAEMON] ✗ Readiness check failed');
             console.error(
               '[DEBUG-PROCMAN-DAEMON] Health check failure details:',
               JSON.stringify(
@@ -263,7 +302,7 @@ export class ProcmanDaemon extends EventEmitter {
             );
             readinessAttempts++;
             if (readinessAttempts < maxReadinessAttempts) {
-              console.log(
+              console.error(
                 `[DEBUG-PROCMAN-DAEMON] Waiting ${readinessCheckInterval}ms before retry...`
               );
               await new Promise((resolve) =>
@@ -273,7 +312,7 @@ export class ProcmanDaemon extends EventEmitter {
           }
         } catch (error) {
           const checkDuration = Date.now() - checkStartTime;
-          console.error('[DEBUG-PROCMAN-DAEMON] ❌ Readiness check exception');
+          console.error('[DEBUG-PROCMAN-DAEMON] ✗ Readiness check exception');
           console.error(
             '[DEBUG-PROCMAN-DAEMON] Exception details:',
             JSON.stringify(
@@ -303,7 +342,7 @@ export class ProcmanDaemon extends EventEmitter {
 
       if (readinessAttempts >= maxReadinessAttempts) {
         console.error(
-          '[DEBUG-PROCMAN-DAEMON] ❌ Final readiness verification failed after all attempts'
+          '[DEBUG-PROCMAN-DAEMON] ✗ Final readiness verification failed after all attempts'
         );
         console.error(
           '[DEBUG-PROCMAN-DAEMON] Readiness failure summary:',
@@ -324,17 +363,24 @@ export class ProcmanDaemon extends EventEmitter {
       }
 
       // All checks passed - transition to running state
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Step 8: Transitioning to RUNNING state...'
       );
       this.stateManager.transitionTo(DaemonState.RUNNING);
       this.recoveryAttempts = 0; // Reset recovery counter on successful start
 
+      // Start memory monitoring
+      console.error(
+        '[DEBUG-PROCMAN-DAEMON] Step 9: Starting memory monitoring...'
+      );
+      this.memoryMonitor.start();
+      console.error('[DEBUG-PROCMAN-DAEMON] ✓ Memory monitoring started');
+
       const totalStartupTime = Date.now() - startTime;
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] ✓ DAEMON STARTUP COMPLETED SUCCESSFULLY!'
       );
-      console.log(
+      console.error(
         '[DEBUG-PROCMAN-DAEMON] Final startup stats:',
         JSON.stringify(
           {
@@ -354,7 +400,7 @@ export class ProcmanDaemon extends EventEmitter {
       );
     } catch (error) {
       const totalStartupTime = Date.now() - startTime;
-      console.error('[DEBUG-PROCMAN-DAEMON] ❌ DAEMON STARTUP FAILED');
+      console.error('[DEBUG-PROCMAN-DAEMON] ✗ DAEMON STARTUP FAILED');
       console.error(
         '[DEBUG-PROCMAN-DAEMON] Startup failure stats:',
         JSON.stringify(
@@ -373,10 +419,10 @@ export class ProcmanDaemon extends EventEmitter {
 
       this.stateManager.forceError();
 
-      console.log('[DEBUG-PROCMAN-DAEMON] Performing startup cleanup...');
+      console.error('[DEBUG-PROCMAN-DAEMON] Performing startup cleanup...');
       // Cleanup on startup failure with better error handling
       await this.performStartupCleanup();
-      console.log('[DEBUG-PROCMAN-DAEMON] Startup cleanup completed');
+      console.error('[DEBUG-PROCMAN-DAEMON] Startup cleanup completed');
 
       throw error;
     }
@@ -395,6 +441,11 @@ export class ProcmanDaemon extends EventEmitter {
     this.stateManager.transitionTo(DaemonState.STOPPING);
 
     try {
+      // Stop memory monitoring first
+      console.error('[DEBUG-PROCMAN-DAEMON] Stopping memory monitoring...');
+      this.memoryMonitor.stop();
+      console.error('[DEBUG-PROCMAN-DAEMON] ✓ Memory monitoring stopped');
+
       // Stop components with proper error handling
       await this.componentManager.cleanupAll();
 
@@ -423,6 +474,285 @@ export class ProcmanDaemon extends EventEmitter {
       await this.stop();
     }
     await this.start();
+  }
+
+  /**
+   * Graceful shutdown with extended capabilities and state preservation
+   *
+   * @param reason The reason for shutdown
+   * @param timeoutMs Maximum time to wait for graceful shutdown (default: 30s)
+   */
+  async shutdown(
+    reason: ShutdownReason = 'manual',
+    timeoutMs: number = 30000
+  ): Promise<void> {
+    if (this.isShuttingDown) {
+      console.log('[ProcmanDaemon] Shutdown already in progress, waiting...');
+      return;
+    }
+
+    this.isShuttingDown = true;
+    const shutdownStart = Date.now();
+
+    console.log(
+      `[ProcmanDaemon] Beginning graceful shutdown (reason: ${reason}, timeout: ${timeoutMs}ms)`
+    );
+
+    try {
+      // Phase 1: Set shutdown flag and reject new connections (5s timeout)
+      await this.executeWithTimeout(
+        async () => {
+          console.log(
+            '[ProcmanDaemon] Phase 1: Setting shutdown flag and rejecting new connections...'
+          );
+          this.emit('shutdownStarted', reason);
+
+          const ipcServer = this.getIPCServer();
+          if (ipcServer) {
+            // Reject new connections by stopping the server from accepting
+            // Note: We don't stop the server yet to allow existing connections to drain
+            this.emit('newConnectionsRejected');
+          }
+        },
+        5000,
+        'Phase 1: Shutdown initialization'
+      );
+
+      // Phase 2: Save shutdown state (5s timeout)
+      await this.executeWithTimeout(
+        async () => {
+          console.log('[ProcmanDaemon] Phase 2: Saving shutdown state...');
+          await this.saveShutdownState(reason);
+        },
+        5000,
+        'Phase 2: State preservation'
+      );
+
+      // Phase 3: Drain active connections (10s timeout)
+      await this.executeWithTimeout(
+        async () => {
+          console.log(
+            '[ProcmanDaemon] Phase 3: Draining active connections...'
+          );
+          await this.drainActiveConnections();
+        },
+        10000,
+        'Phase 3: Connection draining'
+      );
+
+      // Phase 4: Stop processes gracefully (15s timeout)
+      await this.executeWithTimeout(
+        async () => {
+          console.log('[ProcmanDaemon] Phase 4: Stopping managed processes...');
+          await this.stopManagedProcesses();
+        },
+        15000,
+        'Phase 4: Process termination'
+      );
+
+      // Phase 5: Cleanup resources (5s timeout)
+      await this.executeWithTimeout(
+        async () => {
+          console.log('[ProcmanDaemon] Phase 5: Final resource cleanup...');
+          await this.stop(); // Use existing stop method for final cleanup
+        },
+        5000,
+        'Phase 5: Resource cleanup'
+      );
+
+      const totalTime = Date.now() - shutdownStart;
+      console.log(
+        `[ProcmanDaemon] Graceful shutdown completed successfully in ${totalTime}ms`
+      );
+      this.emit('shutdownCompleted', reason, totalTime);
+    } catch (error) {
+      const totalTime = Date.now() - shutdownStart;
+      console.error(
+        `[ProcmanDaemon] Graceful shutdown failed after ${totalTime}ms:`,
+        error
+      );
+
+      // Force shutdown if graceful shutdown fails
+      console.log('[ProcmanDaemon] Attempting forced shutdown...');
+      await this.performEmergencyCleanup();
+
+      this.emit('shutdownFailed', reason, error, totalTime);
+      throw error;
+    } finally {
+      this.isShuttingDown = false;
+    }
+  }
+
+  /**
+   * Save shutdown state to disk for recovery/analysis
+   */
+  private async saveShutdownState(reason: ShutdownReason): Promise<void> {
+    try {
+      const processManager = this.getProcessManager();
+      const state = {
+        timestamp: new Date().toISOString(),
+        reason,
+        processId: process.pid,
+        memoryUsage: process.memoryUsage(),
+        processes: processManager ? await this.getAllProcessStatuses() : [],
+        activeConnections: this.getActiveConnectionCount(),
+        uptime: process.uptime(),
+        version: process.version,
+        platform: process.platform,
+        arch: process.arch,
+      };
+
+      const statePath = path.join(
+        this.dataDirectory.getDataDir(),
+        'shutdown-state.json'
+      );
+      const fs = await import('fs');
+
+      // Ensure directory exists before writing
+      const dir = path.dirname(statePath);
+      await fs.promises.mkdir(dir, { recursive: true });
+
+      await fs.promises.writeFile(
+        statePath,
+        JSON.stringify(state, null, 2),
+        'utf-8'
+      );
+
+      console.log(`[ProcmanDaemon] Shutdown state saved to: ${statePath}`);
+    } catch (error) {
+      // Non-critical error - log but don't fail shutdown
+      console.error('[ProcmanDaemon] Failed to save shutdown state:', error);
+    }
+  }
+
+  /**
+   * Get count of active IPC connections
+   */
+  private getActiveConnectionCount(): number {
+    const ipcServer = this.getIPCServer();
+    if (!ipcServer) {
+      return 0;
+    }
+    return ipcServer.getConnections().length;
+  }
+
+  /**
+   * Drain active IPC connections gracefully
+   */
+  private async drainActiveConnections(): Promise<void> {
+    const ipcServer = this.getIPCServer();
+    if (!ipcServer) {
+      console.log('[ProcmanDaemon] No IPC server to drain connections from');
+      return;
+    }
+
+    const connections = ipcServer.getConnections();
+    if (connections.length === 0) {
+      console.log('[ProcmanDaemon] No active connections to drain');
+      return;
+    }
+
+    console.log(
+      `[ProcmanDaemon] Draining ${connections.length} active connections...`
+    );
+
+    // Send shutdown notice to all connections
+    ipcServer.broadcast({
+      id: `shutdown-notice-${Date.now()}`,
+      type: 'ping', // Use existing command type for compatibility
+      payload: {
+        shutdownNotice: true,
+        reason: 'graceful-shutdown',
+        gracePeriodMs: 8000, // Give clients 8 seconds to cleanup
+      },
+      timestamp: Date.now(),
+    });
+
+    // Wait for connections to close gracefully
+    const drainStartTime = Date.now();
+    const maxDrainTime = 8000; // 8 seconds for clients to disconnect
+
+    while (
+      ipcServer.getConnections().length > 0 &&
+      Date.now() - drainStartTime < maxDrainTime
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Check every 100ms
+    }
+
+    const remainingConnections = ipcServer.getConnections().length;
+    if (remainingConnections > 0) {
+      console.warn(
+        `[ProcmanDaemon] ${remainingConnections} connections did not close gracefully, will force close`
+      );
+    } else {
+      console.log('[ProcmanDaemon] All connections drained successfully');
+    }
+  }
+
+  /**
+   * Stop all managed processes gracefully
+   */
+  private async stopManagedProcesses(): Promise<void> {
+    const processManager = this.getProcessManager();
+    if (!processManager) {
+      console.log('[ProcmanDaemon] No process manager to stop processes from');
+      return;
+    }
+
+    const allProcesses = processManager.getAllProcessInfo();
+    if (allProcesses.length === 0) {
+      console.log('[ProcmanDaemon] No managed processes to stop');
+      return;
+    }
+
+    console.log(
+      `[ProcmanDaemon] Stopping ${allProcesses.length} managed processes gracefully...`
+    );
+
+    const processNames = allProcesses.map((p) => p.name);
+    await processManager.stopProcesses(processNames);
+
+    console.log('[ProcmanDaemon] All managed processes stopped');
+  }
+
+  /**
+   * Execute a function with timeout
+   */
+  private async executeWithTimeout<T>(
+    fn: () => Promise<T>,
+    timeoutMs: number,
+    phaseName: string
+  ): Promise<T> {
+    return Promise.race([
+      fn(),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(new Error(`${phaseName} timed out after ${timeoutMs}ms`)),
+          timeoutMs
+        )
+      ),
+    ]);
+  }
+
+  /**
+   * Format bytes to human-readable string
+   */
+  private formatBytes(bytes: number): string {
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = Number(bytes);
+    let unitIndex = 0;
+
+    if (!isFinite(size) || size < 0) {
+      return '0B';
+    }
+
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+
+    return `${size.toFixed(1)}${units[unitIndex]}`;
   }
 
   /**
@@ -704,11 +1034,11 @@ export class ProcmanDaemon extends EventEmitter {
       }
     });
 
-    // Setup signal handler events
+    // Setup signal handler events with enhanced shutdown
     this.signalHandler.on('gracefulShutdown', async (signal) => {
       console.log(`Received ${signal}, shutting down gracefully...`);
       try {
-        await this.stop();
+        await this.shutdown('signal');
         process.exit(0);
       } catch (error) {
         console.error('Error during graceful shutdown:', error);
@@ -724,6 +1054,25 @@ export class ProcmanDaemon extends EventEmitter {
       if (!this.stateManager.isInError()) {
         this.stateManager.forceError();
       }
+    });
+
+    // Setup memory monitor event handlers
+
+    this.memoryMonitor.on('memoryCritical', (usage, threshold) => {
+      console.warn(
+        `[ProcmanDaemon] Memory critical threshold exceeded: ${this.formatBytes(usage.rss)} > ${this.formatBytes(threshold)}`
+      );
+    });
+
+    this.memoryMonitor.on('memoryWarning', (usage, threshold) => {
+      console.warn(
+        `[ProcmanDaemon] Memory warning threshold exceeded: ${this.formatBytes(usage.rss)} > ${this.formatBytes(threshold)}`
+      );
+    });
+
+    this.memoryMonitor.on('error', (error) => {
+      console.error('[ProcmanDaemon] Memory monitor error:', error);
+      this.emit('error', error);
     });
   }
 
@@ -818,14 +1167,12 @@ export class ProcmanDaemon extends EventEmitter {
   /**
    * Override EventEmitter methods for type safety
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emit<K extends keyof ProcmanDaemonEvents>(event: K, ...args: any[]): boolean {
     return super.emit(event, ...args);
   }
 
   on<K extends keyof ProcmanDaemonEvents>(
     event: K,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void
   ): this {
     return super.on(event, listener);

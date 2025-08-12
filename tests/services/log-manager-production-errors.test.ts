@@ -36,7 +36,7 @@ describe('LogManager Production Error Cases', () => {
   });
 
   describe('Disk Space Exhaustion Scenarios', () => {
-    test.skip('should handle disk space shortage gracefully', async () => {
+    test('should handle disk space shortage gracefully', async () => {
       logManager.setupAppLogs('disk-test');
 
       const errorEvents: string[] = [];
@@ -57,7 +57,12 @@ describe('LogManager Production Error Cases', () => {
       try {
         // Write a log that should trigger disk space error
         logManager.writeLog('disk-test', 'stdout', 'Test message');
-        await new Promise((resolve) => setTimeout(resolve, 100)); // Wait for async write
+
+        // Force buffer flush to trigger the actual file write
+        await logManager.flushBuffer('disk-test');
+
+        // Wait for async operations to complete
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Should emit diskSpaceError event
         expect(errorEvents.length).toBeGreaterThan(0);

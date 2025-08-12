@@ -763,22 +763,25 @@ module.exports = {
         // Start a CLI process with help command and send SIGINT (Ctrl+C)
         const { process: cliProcess } = startCLIProcess(['--help']);
 
-        await sleep(200);
+        // The help command exits quickly, so check if it already exited
+        await sleep(100);
 
-        // Only send signal if process is still running
-        if (!cliProcess.killed && cliProcess.exitCode === null) {
-          const killResult = cliProcess.kill('SIGINT');
-          expect(killResult).toBe(true);
+        if (cliProcess.exitCode !== null || cliProcess.killed) {
+          // Process already exited (expected for --help)
+          expect(
+            cliProcess.exitCode !== null || cliProcess.signalCode !== null
+          ).toBe(true);
+          return;
         }
 
-        await new Promise((resolve) => {
-          if (cliProcess.exitCode !== null || cliProcess.killed) {
-            resolve(undefined);
-          } else {
+        // Only send signal if process is still running
+        const killResult = cliProcess.kill('SIGINT');
+        if (killResult) {
+          await new Promise((resolve) => {
             cliProcess.on('close', resolve);
             globalThis.setTimeout(resolve, 2000);
-          }
-        });
+          });
+        }
 
         expect(
           cliProcess.exitCode !== null || cliProcess.signalCode !== null
@@ -789,22 +792,25 @@ module.exports = {
         // Start a CLI process with help command and send SIGKILL (force kill)
         const { process: cliProcess } = startCLIProcess(['--help']);
 
-        await sleep(200);
+        // The help command exits quickly, so check if it already exited
+        await sleep(100);
 
-        // Only send signal if process is still running
-        if (!cliProcess.killed && cliProcess.exitCode === null) {
-          const killResult = cliProcess.kill('SIGKILL');
-          expect(killResult).toBe(true);
+        if (cliProcess.exitCode !== null || cliProcess.killed) {
+          // Process already exited (expected for --help)
+          expect(
+            cliProcess.exitCode !== null || cliProcess.signalCode !== null
+          ).toBe(true);
+          return;
         }
 
-        await new Promise((resolve) => {
-          if (cliProcess.exitCode !== null || cliProcess.killed) {
-            resolve(undefined);
-          } else {
+        // Only send signal if process is still running
+        const killResult = cliProcess.kill('SIGKILL');
+        if (killResult) {
+          await new Promise((resolve) => {
             cliProcess.on('close', resolve);
             globalThis.setTimeout(resolve, 2000);
-          }
-        });
+          });
+        }
 
         expect(
           cliProcess.exitCode !== null || cliProcess.signalCode !== null

@@ -67,8 +67,8 @@ export async function startDaemon(args: string[] = []): Promise<number> {
  */
 async function runDaemonProcess(args: string[]): Promise<void> {
   const daemonStartTime = Date.now();
-  console.log('[DEBUG-DAEMON-MAIN] Starting procman daemon...');
-  console.log(
+  console.error('[DEBUG-DAEMON-MAIN] Starting procman daemon...');
+  console.error(
     '[DEBUG-DAEMON-MAIN] Daemon process info:',
     JSON.stringify(
       {
@@ -90,13 +90,13 @@ async function runDaemonProcess(args: string[]): Promise<void> {
   );
 
   try {
-    console.log('[DEBUG-DAEMON-MAIN] Creating ProcmanDaemon instance...');
+    console.error('[DEBUG-DAEMON-MAIN] Creating ProcmanDaemon instance...');
     const daemon = new ProcmanDaemon();
 
-    console.log('[DEBUG-DAEMON-MAIN] Setting up daemon event handlers...');
+    console.error('[DEBUG-DAEMON-MAIN] Setting up daemon event handlers...');
     // Setup logging for daemon events
     daemon.on('stateChange', (state) => {
-      console.log(`[DEBUG-DAEMON-MAIN] Daemon state changed to: ${state}`);
+      console.error(`[DEBUG-DAEMON-MAIN] Daemon state changed to: ${state}`);
     });
 
     daemon.on('error', (error) => {
@@ -104,20 +104,20 @@ async function runDaemonProcess(args: string[]): Promise<void> {
     });
 
     daemon.on('componentStarted', (componentName) => {
-      console.log(`[DEBUG-DAEMON-MAIN] Component started: ${componentName}`);
+      console.error(`[DEBUG-DAEMON-MAIN] Component started: ${componentName}`);
     });
 
     daemon.on('componentStopped', (componentName) => {
-      console.log(`[DEBUG-DAEMON-MAIN] Component stopped: ${componentName}`);
+      console.error(`[DEBUG-DAEMON-MAIN] Component stopped: ${componentName}`);
     });
 
-    console.log('[DEBUG-DAEMON-MAIN] Starting daemon core services...');
+    console.error('[DEBUG-DAEMON-MAIN] Starting daemon core services...');
     // Start the daemon
     await daemon.start();
 
     const startupTime = Date.now() - daemonStartTime;
-    console.log('[DEBUG-DAEMON-MAIN] ✓ Procman daemon started successfully');
-    console.log(
+    console.error('[DEBUG-DAEMON-MAIN] ✓ Procman daemon started successfully');
+    console.error(
       '[DEBUG-DAEMON-MAIN] Startup stats:',
       JSON.stringify(
         {
@@ -134,12 +134,14 @@ async function runDaemonProcess(args: string[]): Promise<void> {
     const configIndex = args.indexOf('--config');
     if (configIndex !== -1 && args[configIndex + 1]) {
       const configPath = args[configIndex + 1];
-      console.log(
+      console.error(
         `[DEBUG-DAEMON-MAIN] Loading configuration from: ${configPath}`
       );
       try {
         await daemon.loadConfig(configPath);
-        console.log('[DEBUG-DAEMON-MAIN] ✓ Configuration loaded successfully');
+        console.error(
+          '[DEBUG-DAEMON-MAIN] ✓ Configuration loaded successfully'
+        );
       } catch (configError) {
         console.error(
           '[DEBUG-DAEMON-MAIN] ❌ Failed to load configuration:',
@@ -147,10 +149,10 @@ async function runDaemonProcess(args: string[]): Promise<void> {
         );
       }
     } else {
-      console.log('[DEBUG-DAEMON-MAIN] No configuration file specified');
+      console.error('[DEBUG-DAEMON-MAIN] No configuration file specified');
     }
 
-    console.log(
+    console.error(
       '[DEBUG-DAEMON-MAIN] Daemon is now ready to accept connections'
     );
     // Keep process alive - the daemon will handle shutdown via signals

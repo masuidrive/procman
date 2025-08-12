@@ -91,8 +91,8 @@ export class IPCFactory {
    * Get default IPC path for the current platform
    */
   static getDefaultIPCPath(): string {
-    console.log('[DEBUG-IPC-FACTORY] Getting default IPC path...');
-    console.log(
+    console.error('[DEBUG-IPC-FACTORY] Getting default IPC path...');
+    console.error(
       '[DEBUG-IPC-FACTORY] Environment check:',
       JSON.stringify(
         {
@@ -109,7 +109,7 @@ export class IPCFactory {
 
     // Check for environment variable first
     if (process.env.PROCMAN_SOCKET_PATH) {
-      console.log(
+      console.error(
         '[DEBUG-IPC-FACTORY] Using PROCMAN_SOCKET_PATH from environment:',
         process.env.PROCMAN_SOCKET_PATH
       );
@@ -118,7 +118,7 @@ export class IPCFactory {
 
     const platform = this.getCurrentPlatform();
     const defaultPath = this.getDefaultIPCPathForPlatform(platform);
-    console.log(
+    console.error(
       '[DEBUG-IPC-FACTORY] Using default platform path:',
       defaultPath
     );
@@ -175,7 +175,7 @@ export class IPCFactory {
    * Expand tilde in file paths
    */
   private static expandPath(filePath: string): string {
-    console.log('[DEBUG-IPC-FACTORY] Expanding path:', filePath);
+    console.error('[DEBUG-IPC-FACTORY] Expanding path:', filePath);
 
     if (filePath.startsWith('~/')) {
       // Enhanced HOME detection: process.env.HOME || os.homedir()
@@ -183,7 +183,7 @@ export class IPCFactory {
       const osHome = os.homedir();
       const homeDir = envHome || osHome;
 
-      console.log(
+      console.error(
         '[DEBUG-IPC-FACTORY] Home directory resolution:',
         JSON.stringify(
           {
@@ -206,14 +206,17 @@ export class IPCFactory {
       }
 
       const expandedPath = path.join(homeDir, filePath.slice(2));
-      console.log(
+      console.error(
         '[DEBUG-IPC-FACTORY] Path expanded successfully:',
         expandedPath
       );
       return expandedPath;
     }
 
-    console.log('[DEBUG-IPC-FACTORY] Path does not need expansion:', filePath);
+    console.error(
+      '[DEBUG-IPC-FACTORY] Path does not need expansion:',
+      filePath
+    );
     return filePath;
   }
 

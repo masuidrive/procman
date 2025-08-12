@@ -184,6 +184,7 @@ export class ZombieReaper extends EventEmitter implements IZombieReaper {
       }
 
       return zombies;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       // grep returns exit code 1 if no matches found
       if (

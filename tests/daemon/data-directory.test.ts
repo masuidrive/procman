@@ -50,7 +50,7 @@ describe('DataDirectory', () => {
 
   describe('resolveDataDir', () => {
     test('should resolve ~ to home directory', () => {
-      const resolved = dataDirectory.resolveDataDir();
+      const resolved = dataDirectory.getDataDir();
       const expected = path.join(tempTestDir, '.masuidrive-procman');
       expect(resolved).toBe(expected);
     });
@@ -65,7 +65,7 @@ describe('DataDirectory', () => {
 
   describe('ensureDataDirectory', () => {
     test('should create data directory if it does not exist', async () => {
-      const dataDir = dataDirectory.resolveDataDir();
+      const dataDir = dataDirectory.getDataDir();
 
       // Ensure directory doesn't exist
       const existsBefore = await fs
@@ -86,7 +86,7 @@ describe('DataDirectory', () => {
     });
 
     test('should not fail if directory already exists with correct permissions', async () => {
-      const dataDir = dataDirectory.resolveDataDir();
+      const dataDir = dataDirectory.getDataDir();
 
       // Create directory manually first
       await fs.mkdir(dataDir, { mode: 0o700, recursive: true });
@@ -98,7 +98,7 @@ describe('DataDirectory', () => {
     });
 
     test('should fix permissions if directory exists with wrong permissions', async () => {
-      const dataDir = dataDirectory.resolveDataDir();
+      const dataDir = dataDirectory.getDataDir();
 
       // Create directory with wrong permissions
       await fs.mkdir(dataDir, { mode: 0o755, recursive: true });
@@ -114,7 +114,7 @@ describe('DataDirectory', () => {
 
   describe('validateDataDirectory', () => {
     test('should validate existing directory with correct permissions', async () => {
-      const dataDir = dataDirectory.resolveDataDir();
+      const dataDir = dataDirectory.getDataDir();
       await fs.mkdir(dataDir, { mode: 0o700, recursive: true });
 
       const isValid = await dataDirectory.validateDataDirectory();
@@ -127,7 +127,7 @@ describe('DataDirectory', () => {
     });
 
     test('should return false if directory has wrong permissions', async () => {
-      const dataDir = dataDirectory.resolveDataDir();
+      const dataDir = dataDirectory.getDataDir();
       await fs.mkdir(dataDir, { mode: 0o755, recursive: true });
 
       const isValid = await dataDirectory.validateDataDirectory();
@@ -135,7 +135,7 @@ describe('DataDirectory', () => {
     });
 
     test('should return false if path is not a directory', async () => {
-      const dataDir = dataDirectory.resolveDataDir();
+      const dataDir = dataDirectory.getDataDir();
 
       // Create parent directory
       await fs.mkdir(path.dirname(dataDir), { recursive: true });
@@ -222,7 +222,7 @@ describe('DataDirectory', () => {
         return;
       }
 
-      const dataDir = dataDirectory.resolveDataDir();
+      const dataDir = dataDirectory.getDataDir();
 
       // Create directory with no permissions
       await fs.mkdir(dataDir, { mode: 0o000, recursive: true });

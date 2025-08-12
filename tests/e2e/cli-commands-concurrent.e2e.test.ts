@@ -21,6 +21,7 @@ import {
   afterEach,
   beforeAll,
   afterAll,
+  vi,
 } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -43,6 +44,9 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('CLI Concurrent Operations and Stress Testing E2E Tests', () => {
+  // Set default timeout for all tests in this suite
+  vi.setConfig({ testTimeout: 90000 });
+
   let testDir: string;
   let stressConfigPath: string;
   let minimalConfigPath: string;

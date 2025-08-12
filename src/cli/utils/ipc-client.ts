@@ -37,8 +37,8 @@ export class CLIIPCClient {
     const connectStartTime = Date.now();
     const socketPath = IPCFactory.getDefaultIPCPath();
 
-    console.log('[DEBUG-IPC-CLIENT] Starting IPC connection...');
-    console.log(
+    console.error('[DEBUG-IPC-CLIENT] Starting IPC connection...');
+    console.error(
       '[DEBUG-IPC-CLIENT] Connection parameters:',
       JSON.stringify(
         {
@@ -59,7 +59,7 @@ export class CLIIPCClient {
     );
 
     try {
-      console.log('[DEBUG-IPC-CLIENT] Creating IPC client using factory...');
+      console.error('[DEBUG-IPC-CLIENT] Creating IPC client using factory...');
 
       // Create IPC client using factory
       this.client = IPCFactory.createClient({
@@ -69,7 +69,7 @@ export class CLIIPCClient {
         reconnect: false, // CLI commands should not auto-reconnect
       });
 
-      console.log('[DEBUG-IPC-CLIENT] IPC client created successfully');
+      console.error('[DEBUG-IPC-CLIENT] IPC client created successfully');
 
       if (isVerboseMode()) {
         displayDebugInfo('IPC Connection Attempt', {
@@ -78,14 +78,14 @@ export class CLIIPCClient {
         });
       }
 
-      console.log('[DEBUG-IPC-CLIENT] Attempting to connect to daemon...');
+      console.error('[DEBUG-IPC-CLIENT] Attempting to connect to daemon...');
       // Connect to daemon
       await this.client.connect();
       this.isConnected = true;
 
       const connectionDuration = Date.now() - connectStartTime;
-      console.log('[DEBUG-IPC-CLIENT] ✓ Connection established successfully');
-      console.log(
+      console.error('[DEBUG-IPC-CLIENT] ✓ Connection established successfully');
+      console.error(
         '[DEBUG-IPC-CLIENT] Connection stats:',
         JSON.stringify(
           {
@@ -109,8 +109,11 @@ export class CLIIPCClient {
             timeout,
             errorMessage:
               error instanceof Error ? error.message : String(error),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             errorCode: (error as any)?.code,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             errno: (error as any)?.errno,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             syscall: (error as any)?.syscall,
           },
           null,
@@ -144,6 +147,7 @@ export class CLIIPCClient {
 
       const response = await this.client.sendCommand(
         command,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         payload || ({} as any),
         5000
       );
@@ -295,7 +299,9 @@ export async function executeCommand<T extends CommandType>(
         error.message.includes('ECONNREFUSED') ||
         error.message.includes('Cannot connect to daemon') ||
         error.message.includes('DAEMON_NOT_RUNNING') ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (error as any)?.code === 'ENOENT' ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (error as any)?.code === 'ECONNREFUSED'
       ) {
         // Throw a standardized daemon connection error that command handlers expect

@@ -301,6 +301,10 @@ describe('ProcessGroupManagerImpl', () => {
         waitTimeout: 1000,
       };
 
+      // Add required processes to the map
+      processes.set('api-server', createTestProcess('api-server'));
+      processes.set('database', createTestProcess('database'));
+      processes.set('cache', createTestProcess('cache'));
       const configuredPromise = new Promise((resolve) => {
         groupManager.on('dependency:configured', (data) => {
           resolve(data);
@@ -313,6 +317,9 @@ describe('ProcessGroupManagerImpl', () => {
     });
 
     it('should remove process dependency', () => {
+      // Add required processes to the map
+      processes.set('api-server', createTestProcess('api-server'));
+      processes.set('database', createTestProcess('database'));
       const dependency: ProcessDependency = {
         name: 'api-server',
         dependsOn: ['database'],
@@ -334,6 +341,10 @@ describe('ProcessGroupManagerImpl', () => {
     });
 
     it('should get all dependencies', () => {
+      // Add required processes to the map
+      processes.set('api', createTestProcess('api'));
+      processes.set('db', createTestProcess('db'));
+      processes.set('web', createTestProcess('web'));
       const dep1: ProcessDependency = {
         name: 'api',
         dependsOn: ['db'],

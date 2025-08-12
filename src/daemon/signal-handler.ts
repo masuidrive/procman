@@ -35,7 +35,6 @@ export class SignalHandler extends EventEmitter {
   private isShuttingDown = false;
   private shutdownTimeout?: ReturnType<typeof setTimeout>;
   private forceTimeout?: ReturnType<typeof setTimeout>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private registeredHandlers: Map<string, (...args: any[]) => void> = new Map();
 
   /**
@@ -85,6 +84,7 @@ export class SignalHandler extends EventEmitter {
    * Set up graceful shutdown signal handlers
    */
   private setupGracefulShutdownHandlers(): void {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const gracefulShutdown = (signal: string) => {
       if (this.isShuttingDown) {
         console.log(`Received ${signal} during shutdown, ignoring...`);
@@ -106,11 +106,13 @@ export class SignalHandler extends EventEmitter {
     };
 
     // Handle SIGTERM (typical daemon termination)
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const sigtermHandler = () => gracefulShutdown('SIGTERM');
     process.on('SIGTERM', sigtermHandler);
     this.registeredHandlers.set('SIGTERM', sigtermHandler);
 
     // Handle SIGINT (Ctrl+C in development)
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const sigintHandler = () => gracefulShutdown('SIGINT');
     process.on('SIGINT', sigintHandler);
     this.registeredHandlers.set('SIGINT', sigintHandler);
@@ -121,6 +123,7 @@ export class SignalHandler extends EventEmitter {
    */
   private setupErrorHandlers(): void {
     // Handle uncaught exceptions
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const uncaughtExceptionHandler = (error: Error) => {
       console.error('Uncaught exception:', error);
       this.emit('uncaughtException', error);
@@ -143,6 +146,7 @@ export class SignalHandler extends EventEmitter {
     this.registeredHandlers.set('uncaughtException', uncaughtExceptionHandler);
 
     // Handle unhandled promise rejections
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const unhandledRejectionHandler = (reason: unknown) => {
       console.error('Unhandled promise rejection:', reason);
       this.emit('unhandledRejection', reason);
@@ -166,14 +170,12 @@ export class SignalHandler extends EventEmitter {
   /**
    * Override EventEmitter methods for type safety
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emit<K extends keyof SignalHandlerEvents>(event: K, ...args: any[]): boolean {
     return super.emit(event, ...args);
   }
 
   on<K extends keyof SignalHandlerEvents>(
     event: K,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void
   ): this {
     return super.on(event, listener);

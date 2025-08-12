@@ -30,7 +30,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
       const configs: AppConfig[] = [
         {
           name: 'database',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'backend',
           cwd: process.cwd(),
@@ -38,7 +38,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'api-server',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'backend',
           cwd: process.cwd(),
@@ -46,7 +46,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'web-server',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'frontend',
           cwd: process.cwd(),
@@ -143,7 +143,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
       const configs: AppConfig[] = [
         {
           name: 'redis',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'storage',
           cwd: process.cwd(),
@@ -151,7 +151,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'postgres',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'storage',
           cwd: process.cwd(),
@@ -159,7 +159,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'auth-service',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'backend',
           cwd: process.cwd(),
@@ -167,7 +167,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'user-service',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'backend',
           cwd: process.cwd(),
@@ -175,7 +175,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'web-app',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'frontend',
           cwd: process.cwd(),
@@ -274,7 +274,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
       const configs: AppConfig[] = [
         {
           name: 'service-a',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'test',
           cwd: process.cwd(),
@@ -282,7 +282,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'service-b',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'test',
           cwd: process.cwd(),
@@ -347,7 +347,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
       const configs: AppConfig[] = [
         {
           name: 'service-1',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'test',
           cwd: process.cwd(),
@@ -355,7 +355,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'service-2',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'test',
           cwd: process.cwd(),
@@ -363,7 +363,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'service-3',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'test',
           cwd: process.cwd(),
@@ -431,7 +431,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
       const configs: AppConfig[] = [
         {
           name: 'test-a',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'test',
           cwd: process.cwd(),
@@ -439,7 +439,7 @@ describe('ProcessManager - Dependency Management (Phase 5)', () => {
         },
         {
           name: 'test-b',
-          script: 'node',
+          script: process.execPath,
           args: 'tests/fixtures/test-process.js',
           namespace: 'test',
           cwd: process.cwd(),

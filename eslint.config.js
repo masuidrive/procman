@@ -41,8 +41,18 @@ export default [
       ...tsPlugin.configs.recommended.rules,
       'prettier/prettier': 'error',
       '@typescript-eslint/no-unused-vars': 'error',
-      '@typescript-eslint/explicit-function-return-type': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn'
+      '@typescript-eslint/explicit-function-return-type': ['warn', {
+        allowExpressions: true,
+        allowTypedFunctionExpressions: true,
+        allowHigherOrderFunctions: true,
+        allowDirectConstAssertionInArrowFunctions: true,
+        allowConciseArrowFunctionExpressionsStartingWithVoid: true,
+        allowFunctionsWithoutTypeParameters: false,
+        allowedNames: ['getAllProcessStatuses']
+      }],
+      '@typescript-eslint/no-explicit-any': ['warn', {
+        ignoreRestArgs: true
+      }]
     }
   },
   prettierConfig,

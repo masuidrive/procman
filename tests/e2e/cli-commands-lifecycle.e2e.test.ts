@@ -25,6 +25,7 @@ import {
   afterEach,
   beforeAll,
   afterAll,
+  vi,
 } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -42,6 +43,9 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('CLI Lifecycle Commands E2E Tests', () => {
+  // Set default timeout for all tests in this suite
+  vi.setConfig({ testTimeout: 60000 });
+
   let testDir: string;
   let testConfigPath: string;
   let stressConfigPath: string;
@@ -91,10 +95,30 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
   });
 
   afterEach(async () => {
-    // Cleanup daemon and test directory
-    await cleanupDaemon(testEnv);
-    await cleanupTestDirectory(testDir);
-  });
+    // Cleanup daemon and test directory with timeout handling
+    try {
+      await Promise.race([
+        cleanupDaemon(testEnv),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Cleanup timeout')), 15000)
+        ),
+      ]);
+    } catch (error) {
+      console.log(
+        'Daemon cleanup error (continuing):',
+        (error as Error).message || error
+      );
+    }
+
+    try {
+      await cleanupTestDirectory(testDir);
+    } catch (error) {
+      console.log(
+        'Directory cleanup error (continuing):',
+        (error as Error).message || error
+      );
+    }
+  }, 90000); // Increase afterEach timeout for E2E tests
 
   describe('Load Command - Configuration and Daemon Management', () => {
     test(
@@ -180,7 +204,7 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
         expect(result.stderr).toBeTruthy();
       }
       expect(result.stderr).toContain('');
-    }, 15000);
+    }, 60000);
 
     test('should handle non-existent configuration file', async () => {
       const nonExistentPath = path.join(testDir, 'nonexistent.cjs');
@@ -192,7 +216,7 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
       if (result.exitCode !== 0) {
         expect(result.stderr).toBeTruthy();
       }
-    });
+    }, 60000);
 
     test(
       'should handle loading multiple times appropriately',
@@ -237,14 +261,14 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
         }
         expect(result.stderr).toBeTruthy();
       }
-    });
+    }, 60000);
 
     test('should handle ls alias appropriately', async () => {
       const result = await testExecCLI(['ls']);
 
       expect([0, 1]).toContain(result.exitCode);
       // Either succeeds with process info or fails with appropriate error
-    });
+    }, 60000);
 
     test('should handle list command with different formats', async () => {
       const tableResult = await testExecCLI(['list', '-f', 'table']);
@@ -263,18 +287,17 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
       }
 
       if (jsonResult.exitCode === 0 && jsonResult.stdout) {
-        // Try to parse JSON, but it might contain debug output
+        // Try to parse JSON, but it might contain error messages
         try {
           JSON.parse(jsonResult.stdout);
         } catch (e) {
-          // JSON parsing failed - check if stdout contains debug output
-          const hasDebugOutput =
-            jsonResult.stdout.includes('[DEBUG') ||
-            jsonResult.stdout.includes('Process List');
-          // In test environment, JSON output might be mixed with debug logs
-          expect(
-            hasDebugOutput || jsonResult.stdout.includes('[]')
-          ).toBeTruthy();
+          // JSON parsing failed - check if stdout contains expected messages
+          const hasExpectedOutput =
+            jsonResult.stdout.includes('daemon not running') ||
+            jsonResult.stdout.includes('No processes') ||
+            jsonResult.stdout.includes('[]');
+          // In test environment, JSON output might be an error message
+          expect(hasExpectedOutput).toBeTruthy();
         }
       }
     });

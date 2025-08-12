@@ -264,6 +264,7 @@ export class CrashRecovery extends EventEmitter implements ICrashRecovery {
   /**
    * Load saved process metadata
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async loadProcessMetadata(pid: number): Promise<any> {
     try {
       const metadataFile = path.join(this.dataDir, 'processes', `${pid}.json`);
@@ -329,6 +330,7 @@ export class CrashRecovery extends EventEmitter implements ICrashRecovery {
   /**
    * Save current process state for recovery
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async saveProcessState(state: any): Promise<void> {
     try {
       const stateFile = path.join(this.dataDir, 'daemon-state.json');

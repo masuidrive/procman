@@ -448,53 +448,8 @@ export abstract class IPCServerBase extends SimpleDisposableBase {
    * Handle new connection
    */
   public handleConnection(connection: IPCConnection): void {
-    // Check connection limit
-    if (this.connections.size >= this.config.maxConnections) {
-      // Send connection limit error before closing
-      if (connection.send) {
-        const errorResponse: IPCResponse = {
-          id: generateMessageId(),
-          type: 'error',
-          requestId: 'connection-limit',
-          timestamp: Date.now(),
-          success: false,
-          error: {
-            code: 'CONNECTION_LIMIT_EXCEEDED' as ErrorCode,
-            message: `Connection limit exceeded (max: ${this.config.maxConnections})`,
-            details: { maxConnections: this.config.maxConnections },
-          },
-        };
-
-        try {
-          connection.send(errorResponse);
-        } catch {
-          // Ignore send errors
-        }
-      }
-
-      // Close connection immediately
-      if (connection.close) {
-        const closePromise = connection.close();
-        if (closePromise && typeof closePromise.catch === 'function') {
-          closePromise.catch(() => {});
-        }
-      }
-
-      // Force destroy the underlying socket if available
-      if ('destroy' in connection && typeof connection.destroy === 'function') {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (connection as any).destroy();
-        } catch {
-          // Ignore destroy errors
-        }
-      }
-
-      // Ensure we don't add this connection to the map
-      return;
-    }
-
-    // Add to connections map
+    // Add to connections map (connection limit is checked at server level)
+    // console.error(`[DEBUG-CONNECTION-LIMIT] Adding connection ${connection.id} to map, new size will be: ${this.connections.size + 1}`);
     this.connections.set(connection.id, connection);
     this.emit('connection', connection);
 
@@ -695,10 +650,8 @@ export abstract class IPCServerBase extends SimpleDisposableBase {
 
   listeners<K extends keyof IPCServerEvents>(
     event: K
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): ((...args: any[]) => void)[] {
     return this.eventEmitter.listeners(event as string) as ((
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...args: any[]
     ) => void)[];
   }

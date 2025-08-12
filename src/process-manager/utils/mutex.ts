@@ -145,7 +145,6 @@ export function withMutex(
     descriptor.value = async function (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this: any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...args: any[]
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ): Promise<any> {

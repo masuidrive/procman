@@ -18,9 +18,7 @@ export class CLISignalHandler {
   private forceExitTimeout?: ReturnType<typeof setTimeout>;
   private asyncCleanupFn?: AsyncCleanupFunction;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private sigintHandler?: (...args: any[]) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private sigtermHandler?: (...args: any[]) => void;
 
   /**

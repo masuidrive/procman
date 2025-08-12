@@ -194,20 +194,20 @@ export class SecureConfigLoader extends ConfigLoader {
 
       // Limited console (no access to real console)
       console: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-        log: (...args: any[]) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        log: (..._args: any[]) => {
           /* silent */
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-        error: (...args: any[]) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        error: (..._args: any[]) => {
           /* silent */
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-        warn: (...args: any[]) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        warn: (..._args: any[]) => {
           /* silent */
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-        info: (...args: any[]) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        info: (..._args: any[]) => {
           /* silent */
         },
       },

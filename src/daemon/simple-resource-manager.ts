@@ -73,7 +73,6 @@ export class SimpleResourceManager {
   private listeners: Array<{
     emitter: EventEmitter;
     event: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void;
   }> = [];
   private disposed = false;
@@ -117,7 +116,6 @@ export class SimpleResourceManager {
   addEventListener(
     emitter: EventEmitter,
     event: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void
   ): void {
     if (this.disposed) {
@@ -223,7 +221,6 @@ export abstract class SimpleDisposableBase implements SimpleDisposable {
   protected addEventListener(
     emitter: EventEmitter,
     event: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void
   ): void {
     this.resources.addEventListener(emitter, event, listener);

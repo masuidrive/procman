@@ -614,10 +614,8 @@ export abstract class IPCClientBase extends SimpleDisposableBase {
 
   listeners<K extends keyof IPCClientEvents>(
     event: K
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): ((...args: any[]) => void)[] {
     return this.eventEmitter.listeners(event as string) as ((
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...args: any[]
     ) => void)[];
   }

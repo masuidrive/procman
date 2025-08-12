@@ -256,26 +256,22 @@ export class ReconnectionSystem extends SimpleDisposableBase {
   /**
    * EventEmitter implementation methods
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: string | symbol, listener: (...args: any[]) => void): this {
     this.eventEmitter.on(event, listener);
     return this;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   once(event: string | symbol, listener: (...args: any[]) => void): this {
     this.eventEmitter.once(event, listener);
     return this;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emit(event: string | symbol, ...args: any[]): boolean {
     return this.eventEmitter.emit(event, ...args);
   }
 
   removeListener(
     event: string | symbol,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     listener: (...args: any[]) => void
   ): this {
     this.eventEmitter.removeListener(event, listener);
@@ -296,9 +292,7 @@ export class ReconnectionSystem extends SimpleDisposableBase {
     return this.eventEmitter.getMaxListeners();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   listeners(event: string | symbol): ((...args: any[]) => void)[] {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.eventEmitter.listeners(event) as ((...args: any[]) => void)[];
   }
 

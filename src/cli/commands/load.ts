@@ -136,8 +136,8 @@ export async function execute(
  * Start daemon as detached process
  */
 async function startDaemonDetached(configPath: string): Promise<void> {
-  console.log('[DEBUG-DAEMON-START] Starting daemon spawn process...');
-  console.log(
+  console.error('[DEBUG-DAEMON-START] Starting daemon spawn process...');
+  console.error(
     '[DEBUG-DAEMON-START] Variables:',
     JSON.stringify(
       {
@@ -178,8 +178,8 @@ async function startDaemonDetached(configPath: string): Promise<void> {
       }
     );
 
-    console.log('[DEBUG-DAEMON-START] Daemon process spawned successfully');
-    console.log(
+    console.error('[DEBUG-DAEMON-START] Daemon process spawned successfully');
+    console.error(
       '[DEBUG-DAEMON-START] Daemon process info:',
       JSON.stringify(
         {
@@ -201,7 +201,7 @@ async function startDaemonDetached(configPath: string): Promise<void> {
     });
 
     daemonProcess.on('exit', (code, signal) => {
-      console.log('[DEBUG-DAEMON-START] Daemon process exited:', {
+      console.error('[DEBUG-DAEMON-START] Daemon process exited:', {
         code,
         signal,
       });
@@ -209,12 +209,12 @@ async function startDaemonDetached(configPath: string): Promise<void> {
 
     daemonProcess.unref();
 
-    console.log(
+    console.error(
       '[DEBUG-DAEMON-START] Process unref() called, waiting 500ms for daemon to initialize...'
     );
     // Give daemon a moment to start
     await new Promise((resolve) => setTimeout(resolve, 500));
-    console.log('[DEBUG-DAEMON-START] Daemon startup delay completed');
+    console.error('[DEBUG-DAEMON-START] Daemon startup delay completed');
   } catch (error) {
     console.error(
       '[DEBUG-DAEMON-START] Failed to spawn daemon process:',
@@ -231,8 +231,8 @@ async function waitForDaemonReady(
   maxAttempts = 60, // Increased from 20 to 60 (30s timeout at 500ms intervals)
   intervalMs = 500
 ): Promise<void> {
-  console.log('[DEBUG-DAEMON-READY] Starting daemon readiness check...');
-  console.log(
+  console.error('[DEBUG-DAEMON-READY] Starting daemon readiness check...');
+  console.error(
     '[DEBUG-DAEMON-READY] Parameters:',
     JSON.stringify(
       {
@@ -252,34 +252,34 @@ async function waitForDaemonReady(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const attemptStartTime = Date.now();
-    console.log(
+    console.error(
       `[DEBUG-DAEMON-READY] Attempt ${attempt}/${maxAttempts} starting...`
     );
 
     try {
-      console.log('[DEBUG-DAEMON-READY] Creating CLI client...');
+      console.error('[DEBUG-DAEMON-READY] Creating CLI client...');
       const client = createCLIClient();
 
-      console.log(
+      console.error(
         '[DEBUG-DAEMON-READY] Attempting to connect with 2000ms timeout...'
       );
       await client.connect(2000); // Increased timeout for connection check
 
-      console.log(
+      console.error(
         '[DEBUG-DAEMON-READY] Connection successful! Performing health check...'
       );
 
       // Additional health check: try to send a simple command
       try {
-        console.log(
+        console.error(
           '[DEBUG-DAEMON-READY] Sending list command for health check...'
         );
         await client.sendCommand('list', {});
         await client.disconnect();
 
         const totalTime = Date.now() - startTime;
-        console.log('[DEBUG-DAEMON-READY] ✓ SUCCESS! Daemon is fully ready');
-        console.log(
+        console.error('[DEBUG-DAEMON-READY] ✓ SUCCESS! Daemon is fully ready');
+        console.error(
           '[DEBUG-DAEMON-READY] Success stats:',
           JSON.stringify(
             {
@@ -308,6 +308,7 @@ async function waitForDaemonReady(
         `[DEBUG-DAEMON-READY] Attempt ${attempt} failed after ${attemptDuration}ms:`,
         {
           errorMessage: lastError.message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           errorCode: (lastError as any)?.code,
           errorStack: lastError.stack?.split('\n')[0], // First line of stack trace only
         }
@@ -327,6 +328,7 @@ async function waitForDaemonReady(
               actualTimeMs: actualTime,
               attemptsMade: attempt,
               lastErrorMessage: lastError.message,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               lastErrorCode: (lastError as any)?.code,
             },
             null,
@@ -342,7 +344,7 @@ async function waitForDaemonReady(
       // Log progress every 5 seconds for debugging
       const elapsed = Date.now() - startTime;
       if (elapsed % 5000 < intervalMs) {
-        console.log(
+        console.error(
           '[DEBUG-DAEMON-READY] Progress update:',
           JSON.stringify(
             {
@@ -360,7 +362,7 @@ async function waitForDaemonReady(
         );
       }
 
-      console.log(
+      console.error(
         `[DEBUG-DAEMON-READY] Waiting ${intervalMs}ms before next attempt...`
       );
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
