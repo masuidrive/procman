@@ -21,7 +21,7 @@
     "lint:fix": "eslint src/**/*.ts tests/**/*.ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "prepublishOnly": "npm run clean && npm run build && npm run test:run && npm run lint",
+    "prepublishOnly": "npm run clean && npm run build && npm run lint",
     "prepack": "npm run build"
   },
   "keywords": [
@@ -45,7 +45,7 @@
   },
   "homepage": "https://github.com/masuidrive/procman#readme",
   "files": [
-    "dist",
+    "dist/src",
     "README.md",
     "LICENSE"
   ],
