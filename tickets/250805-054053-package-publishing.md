@@ -125,7 +125,22 @@ GitHub Actionsによる自動公開の設定と初回リリースの準備。
 - [x] Call code-review agent and append to `# Review` section
 - [x] Review and address all reviewer feedback
 - [x] Update documentation and this ticket
-- [ ] Inform the user of the work, the results of the test, and the results of the review, and obtain permission to complete the work.
+- [x] Inform the user of the work, the results of the test, and the results of the review, and obtain permission to complete the work.
+
+### Phase 6: CI Performance Enhancement
+
+GitHub ActionsでCI環境の最小限テスト（131テスト、283ms）を完全テストスイート（627テスト）に改善する。
+
+- [ ] GitHub Actions CI性能問題の分析と根本原因の特定
+- [ ] CI環境に適したテスト実行戦略の設計
+- [ ] Heavy Load/Boundary テストのCI対応実装
+- [ ] Mutex並行処理テストのCI環境最適化
+- [ ] IPC通信Boundaryテストのタイムアウト対策
+- [ ] GitHub Actions workflow分離戦略の設計と実装
+- [ ] 段階的テスト実行（ライトウェイト→フル）の導入
+- [ ] CI環境別テスト設定の最適化
+- [ ] 完全テストスイート（627テスト）のCI実行検証
+- [ ] パフォーマンス改善とテスト品質保証の両立確認
 
 ## Wireframes
 

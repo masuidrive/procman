@@ -1,0 +1,61 @@
+name: Debug Mutex Tests Only
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ feature/250805-054053-package-publishing ]
+
+jobs:
+  debug-mutex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Run mutex tests with verbose debug output
+        run: |
+          echo "========== Running Mutex Tests Only =========="
+          echo "Test start time: $(date)"
+          echo "Node.js version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "Available memory: $(free -h)"
+          echo "CPU info:"
+          cat /proc/cpuinfo | head -20
+          echo "================================================"
+          
+          # Run only mutex tests with maximum verbosity
+          npx vitest run tests/process-manager/utils/mutex.test.ts \
+            --reporter=verbose \
+            --no-coverage \
+            --run
+            
+          echo "================================================"
+          echo "Test end time: $(date)"
+        timeout-minutes: 10
+
+      - name: Show system resources after test
+        if: always()
+        run: |
+          echo "Memory usage after test:"
+          free -h
+          echo "Disk usage:"
+          df -h
