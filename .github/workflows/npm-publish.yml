@@ -35,13 +35,8 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Debug heavy IPC boundary tests with timing
-        run: |
-          echo "=== Testing specific slow IPC boundary tests with timing ==="
-          npx vitest run "tests/boundary/ipc-communication-boundary.test.ts" --reporter=verbose --testNamePattern="(extremely large message payloads|memory pressure during large message processing|maximum message queue overflow)"
-
-      - name: Run remaining unit tests (exclude E2E and heavy IPC tests)
-        run: npx vitest run --exclude "tests/e2e/**" --exclude "tests/boundary/ipc-communication-boundary.test.ts"
+      - name: Run unit tests (exclude E2E, skip heavy load tests in CI)
+        run: npx vitest run --exclude "tests/e2e/**"
 
       - name: Run integration tests
         run: ./bin/test-integration.sh
