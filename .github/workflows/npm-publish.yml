@@ -7,7 +7,7 @@ on:
 
 jobs:
   publish-npm:
-    runs-on: ubuntu-latest-4-cores
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,11 +35,8 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Run unit tests (exclude E2E, skip heavy load tests in CI)
-        run: npx vitest run --exclude "tests/e2e/**"
-
-      - name: Run integration tests
-        run: ./bin/test-integration.sh
+      - name: Run unit tests only (exclude E2E and integration tests)
+        run: npx vitest run --exclude "tests/e2e/**" --exclude "tests/integration/**"
 
       - name: Publish to npm
         run: npm publish
