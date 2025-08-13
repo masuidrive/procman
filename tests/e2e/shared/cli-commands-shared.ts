@@ -98,7 +98,9 @@ export const execCLI = async (
   };
 
   return new Promise((resolve, reject) => {
-    const child = spawn('./bin/procman', args, {
+    // Use absolute path to procman binary to avoid CWD dependencies  
+    const procmanBinary = path.join(cwd, 'bin', 'procman');
+    const child = spawn(procmanBinary, args, {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: testEnv,
@@ -290,7 +292,9 @@ export const startCLIProcess = (
     ...env,
   };
 
-  const child = spawn('./bin/procman', args, {
+  // Use absolute path to procman binary to avoid CWD dependencies
+  const procmanBinary = path.join(cwd, 'bin', 'procman');
+  const child = spawn(procmanBinary, args, {
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: testEnv,

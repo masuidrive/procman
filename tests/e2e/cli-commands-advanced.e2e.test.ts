@@ -54,7 +54,7 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
   beforeAll(async () => {
     // Ensure CLI is built
     try {
-      await fs.access('./bin/procman');
+      await fs.access(path.join(process.cwd(), 'bin', 'procman'));
     } catch {
       throw new Error(
         'CLI is not built. Run "npm run build" before running E2E tests.'
