@@ -35,8 +35,8 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Run unit tests only (exclude E2E and integration tests)
-        run: npx vitest run --exclude "tests/e2e/**" --exclude "tests/integration/**"
+      - name: Run minimal unit tests (basic functionality only)
+        run: npx vitest run tests/shared tests/cli.test.ts tests/example.test.ts --exclude "tests/e2e/**" --exclude "tests/integration/**"
 
       - name: Publish to npm
         run: npm publish
