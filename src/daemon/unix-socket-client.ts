@@ -53,102 +53,79 @@ export class UnixSocketClient extends IPCClientBase {
    */
   protected async connectToServer(): Promise<void> {
     const connectStartTime = Date.now();
-    console.error(
-      '[DEBUG-UNIX-CLIENT] Starting Unix socket client connection...'
-    );
-    console.error(
-      '[DEBUG-UNIX-CLIENT] Connection parameters:',
-      JSON.stringify(
-        {
-          socketPath: this.socketPath,
-          timeout: this.config.timeout,
-          processId: process.pid,
-          timestamp: new Date().toISOString(),
-        },
-        null,
-        2
-      )
-    );
+
+    // Debug logging only when DEBUG_IPC environment variable is set
+    const debug = (message: string, data?: any): void => {
+      if (process.env.DEBUG_IPC) {
+        console.error(
+          `[DEBUG-UNIX-CLIENT] ${message}`,
+          data ? JSON.stringify(data, null, 2) : ''
+        );
+      }
+    };
+
+    debug('Starting Unix socket client connection...');
+    debug('Connection parameters:', {
+      socketPath: this.socketPath,
+      timeout: this.config.timeout,
+      processId: process.pid,
+      timestamp: new Date().toISOString(),
+    });
 
     // Check if socket file exists
-    console.error('[DEBUG-UNIX-CLIENT] Checking if socket file exists...');
+    debug('Checking if socket file exists...');
     const socketFileExists = await this.socketExists();
-    console.error(
-      '[DEBUG-UNIX-CLIENT] Socket file existence check:',
-      JSON.stringify(
-        {
-          socketPath: this.socketPath,
-          exists: socketFileExists,
-          checkDurationMs: Date.now() - connectStartTime,
-        },
-        null,
-        2
-      )
-    );
+    debug('Socket file existence check:', {
+      socketPath: this.socketPath,
+      exists: socketFileExists,
+      checkDurationMs: Date.now() - connectStartTime,
+    });
 
     if (!socketFileExists) {
-      console.error('[DEBUG-UNIX-CLIENT] ❌ Socket file does not exist');
+      debug('❌ Socket file does not exist');
       throw new Error(`Socket file does not exist: ${this.socketPath}`);
     }
 
     // Create socket
-    console.error('[DEBUG-UNIX-CLIENT] Creating new Socket instance...');
+    debug('Creating new Socket instance...');
     this.socket = new net.Socket();
-    console.error('[DEBUG-UNIX-CLIENT] ✓ Socket instance created');
+    debug('✓ Socket instance created');
 
     // Set up socket event handlers
-    console.error('[DEBUG-UNIX-CLIENT] Setting up socket event handlers...');
+    debug('Setting up socket event handlers...');
     this.setupSocketHandlers();
-    console.error('[DEBUG-UNIX-CLIENT] ✓ Socket event handlers configured');
+    debug('✓ Socket event handlers configured');
 
     // Connect to server
-    console.error('[DEBUG-UNIX-CLIENT] Starting connection attempt...');
+    debug('Starting connection attempt...');
     return new Promise<void>((resolve, reject) => {
-      console.error(
-        '[DEBUG-UNIX-CLIENT] Setting up connection timeout:',
-        this.config.timeout,
-        'ms'
-      );
+      debug('Setting up connection timeout:', this.config.timeout + 'ms');
       this.connectionTimeout = this.setTimeout(() => {
         const timeoutDuration = Date.now() - connectStartTime;
-        console.error('[DEBUG-UNIX-CLIENT] ❌ Connection timeout reached');
-        console.error(
-          '[DEBUG-UNIX-CLIENT] Timeout details:',
-          JSON.stringify(
-            {
-              timeoutMs: this.config.timeout,
-              actualDurationMs: timeoutDuration,
-              socketPath: this.socketPath,
-            },
-            null,
-            2
-          )
-        );
+        debug('❌ Connection timeout reached');
+        debug('Timeout details:', {
+          timeoutMs: this.config.timeout,
+          actualDurationMs: timeoutDuration,
+          socketPath: this.socketPath,
+        });
         this.socket?.destroy();
         reject(new Error(`Connection timeout after ${this.config.timeout}ms`));
       }, this.config.timeout);
 
       const errorHandler = (error: Error): void => {
         const errorDuration = Date.now() - connectStartTime;
-        console.error('[DEBUG-UNIX-CLIENT] ❌ Connection error occurred');
-        console.error(
-          '[DEBUG-UNIX-CLIENT] Error details:',
-          JSON.stringify(
-            {
-              errorDurationMs: errorDuration,
-              socketPath: this.socketPath,
-              errorMessage: error.message,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              errorCode: (error as any)?.code,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              errorErrno: (error as any)?.errno,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              errorSyscall: (error as any)?.syscall,
-            },
-            null,
-            2
-          )
-        );
+        debug('❌ Connection error occurred');
+        debug('Error details:', {
+          errorDurationMs: errorDuration,
+          socketPath: this.socketPath,
+          errorMessage: error.message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          errorCode: (error as any)?.code,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          errorErrno: (error as any)?.errno,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          errorSyscall: (error as any)?.syscall,
+        });
 
         if (this.connectionTimeout) {
           this.connectionTimeout.dispose();
@@ -159,21 +136,12 @@ export class UnixSocketClient extends IPCClientBase {
 
       const connectHandler = (): void => {
         const connectDuration = Date.now() - connectStartTime;
-        console.error(
-          '[DEBUG-UNIX-CLIENT] ✓ Socket connection established successfully'
-        );
-        console.error(
-          '[DEBUG-UNIX-CLIENT] Connection success stats:',
-          JSON.stringify(
-            {
-              connectDurationMs: connectDuration,
-              socketPath: this.socketPath,
-              socketConnected: true,
-            },
-            null,
-            2
-          )
-        );
+        debug('✓ Socket connection established successfully');
+        debug('Connection success stats:', {
+          connectDurationMs: connectDuration,
+          socketPath: this.socketPath,
+          socketConnected: true,
+        });
 
         if (this.connectionTimeout) {
           this.connectionTimeout.dispose();
@@ -184,20 +152,13 @@ export class UnixSocketClient extends IPCClientBase {
         resolve();
       };
 
-      console.error(
-        '[DEBUG-UNIX-CLIENT] Registering connection event handlers...'
-      );
+      debug('Registering connection event handlers...');
       this.socket!.once('connect', connectHandler);
       this.socket!.once('error', errorHandler);
 
-      console.error(
-        '[DEBUG-UNIX-CLIENT] Calling socket.connect() with path:',
-        this.socketPath
-      );
+      debug('Calling socket.connect() with path:', this.socketPath);
       this.socket!.connect(this.socketPath);
-      console.error(
-        '[DEBUG-UNIX-CLIENT] socket.connect() call completed, waiting for events...'
-      );
+      debug('socket.connect() call completed, waiting for events...');
     });
   }
 
@@ -250,20 +211,72 @@ export class UnixSocketClient extends IPCClientBase {
    * Write message to the socket
    */
   protected async writeMessage(message: IPCMessage): Promise<void> {
-    if (!this.socket || this.socket.destroyed) {
+    // Check socket state more strictly
+    if (!this.socket || this.socket.destroyed || !this.socket.writable) {
       throw new Error('Socket is not connected');
     }
 
     const buffer = this.protocol.encode(message);
 
     return new Promise<void>((resolve, reject) => {
-      this.socket!.write(buffer, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve();
+      // Double-check socket state before attempting to write
+      if (!this.socket || this.socket.destroyed || !this.socket.writable) {
+        reject(new Error('Socket is not connected'));
+        return;
+      }
+
+      // Set up error handler with proper cleanup
+      const errorHandler = (error: Error): void => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((error as any)?.code === 'EPIPE') {
+          // Connection was closed by the other end, update our state
+          this.setConnectionStatus('disconnected');
         }
-      });
+        // Don't call reject here - let the write callback handle it
+      };
+
+      try {
+        this.socket.once('error', errorHandler);
+
+        this.socket.write(buffer, (error) => {
+          // Always clean up the error handler
+          this.socket?.removeListener('error', errorHandler);
+
+          if (error) {
+            // Handle EPIPE errors gracefully (broken pipe - connection closed)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((error as any)?.code === 'EPIPE') {
+              // Connection was closed by the other end, update our state
+              this.setConnectionStatus('disconnected');
+              // Convert EPIPE to a more descriptive error for better handling
+              reject(
+                new Error(
+                  'Connection was closed by server (connection limit or server shutdown)'
+                )
+              );
+              return;
+            }
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      } catch (syncError) {
+        // Clean up error handler if write() throws synchronously
+        this.socket?.removeListener('error', errorHandler);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((syncError as any)?.code === 'EPIPE') {
+          this.setConnectionStatus('disconnected');
+          // Convert EPIPE to a more descriptive error for better handling
+          reject(
+            new Error(
+              'Connection was closed by server (connection limit or server shutdown)'
+            )
+          );
+          return;
+        }
+        reject(syncError);
+      }
     });
   }
 
@@ -317,6 +330,13 @@ export class UnixSocketClient extends IPCClientBase {
     };
 
     const errorHandler = (error: Error): void => {
+      // Handle EPIPE errors gracefully to prevent uncaught exceptions
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((error as any)?.code === 'EPIPE') {
+        // Connection was closed by server, update state but don't emit error
+        this.setConnectionStatus('disconnected');
+        return;
+      }
       this.handleConnectionError(error);
     };
 

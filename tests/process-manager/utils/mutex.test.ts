@@ -74,34 +74,46 @@ describe('Mutex', () => {
     console.log(`DEBUG: Starting withLock test at ${new Date().toISOString()}`);
     console.log(`DEBUG: CI environment: ${process.env.CI || 'false'}`);
     console.log(`DEBUG: Node.js version: ${process.version}`);
-    
+
     let sharedValue = 0;
     const operations: Promise<number>[] = [];
 
     // Simulate concurrent operations
     for (let i = 0; i < 5; i++) {
       const operationStart = Date.now();
-      console.log(`DEBUG: Creating operation ${i} at ${Date.now() - startTime}ms`);
+      console.log(
+        `DEBUG: Creating operation ${i} at ${Date.now() - startTime}ms`
+      );
       operations.push(
         withLock(mutex, async () => {
           const lockStart = Date.now();
-          console.log(`DEBUG: Operation ${i} acquired lock at ${lockStart - startTime}ms, sharedValue=${sharedValue}`);
+          console.log(
+            `DEBUG: Operation ${i} acquired lock at ${lockStart - startTime}ms, sharedValue=${sharedValue}`
+          );
           const current = sharedValue;
           // Simulate async work
           await new Promise((resolve) => setTimeout(resolve, 10));
           sharedValue = current + 1;
           const lockEnd = Date.now();
-          console.log(`DEBUG: Operation ${i} completed at ${lockEnd - startTime}ms, sharedValue=${sharedValue}, duration=${lockEnd - lockStart}ms`);
+          console.log(
+            `DEBUG: Operation ${i} completed at ${lockEnd - startTime}ms, sharedValue=${sharedValue}, duration=${lockEnd - lockStart}ms`
+          );
           return sharedValue;
         })
       );
-      console.log(`DEBUG: Operation ${i} promise created in ${Date.now() - operationStart}ms`);
+      console.log(
+        `DEBUG: Operation ${i} promise created in ${Date.now() - operationStart}ms`
+      );
     }
 
-    console.log(`DEBUG: All operations created at ${Date.now() - startTime}ms, waiting for completion...`);
+    console.log(
+      `DEBUG: All operations created at ${Date.now() - startTime}ms, waiting for completion...`
+    );
     const results = await Promise.all(operations);
     const endTime = Date.now();
-    console.log(`DEBUG: All operations completed at ${endTime - startTime}ms (total duration: ${endTime - startTime}ms)`);
+    console.log(
+      `DEBUG: All operations completed at ${endTime - startTime}ms (total duration: ${endTime - startTime}ms)`
+    );
 
     // Without mutex, this could be less than 5 due to race conditions
     expect(sharedValue).toBe(5);
@@ -183,29 +195,41 @@ describe('KeyedMutex', () => {
 
   it('should handle withKeyedLock helper', async () => {
     const startTime = Date.now();
-    console.log(`DEBUG: Starting withKeyedLock test at ${new Date().toISOString()}`);
+    console.log(
+      `DEBUG: Starting withKeyedLock test at ${new Date().toISOString()}`
+    );
     const results: number[] = [];
 
     // Concurrent operations on same key
     const promises = [1, 2, 3].map(async (n) => {
       const operationStart = Date.now();
-      console.log(`DEBUG: Creating operation ${n} at ${operationStart - startTime}ms`);
+      console.log(
+        `DEBUG: Creating operation ${n} at ${operationStart - startTime}ms`
+      );
       return withKeyedLock(keyedMutex, 'shared', async () => {
         const lockStart = Date.now();
-        console.log(`DEBUG: Operation ${n} started at ${lockStart - startTime}ms`);
+        console.log(
+          `DEBUG: Operation ${n} started at ${lockStart - startTime}ms`
+        );
         // Simulate async work
         await new Promise((resolve) => setTimeout(resolve, 10));
         results.push(n);
         const lockEnd = Date.now();
-        console.log(`DEBUG: Operation ${n} completed at ${lockEnd - startTime}ms, duration=${lockEnd - lockStart}ms`);
+        console.log(
+          `DEBUG: Operation ${n} completed at ${lockEnd - startTime}ms, duration=${lockEnd - lockStart}ms`
+        );
         return n;
       });
     });
 
-    console.log(`DEBUG: All withKeyedLock operations created at ${Date.now() - startTime}ms, waiting for completion...`);
+    console.log(
+      `DEBUG: All withKeyedLock operations created at ${Date.now() - startTime}ms, waiting for completion...`
+    );
     const values = await Promise.all(promises);
     const endTime = Date.now();
-    console.log(`DEBUG: All withKeyedLock operations completed at ${endTime - startTime}ms (total duration: ${endTime - startTime}ms)`);
+    console.log(
+      `DEBUG: All withKeyedLock operations completed at ${endTime - startTime}ms (total duration: ${endTime - startTime}ms)`
+    );
 
     // Results should be in order due to mutex
     expect(results).toEqual([1, 2, 3]);
@@ -229,7 +253,9 @@ describe('KeyedMutex', () => {
 describe('Mutex integration with ProcessLifecycleManager', () => {
   it('should prevent concurrent operations on same process', async () => {
     const testStartTime = Date.now();
-    console.log(`DEBUG: Starting prevent concurrent operations test at ${new Date().toISOString()}`);
+    console.log(
+      `DEBUG: Starting prevent concurrent operations test at ${new Date().toISOString()}`
+    );
     const keyedMutex = new KeyedMutex<string>();
     const operationLog: string[] = [];
 
@@ -241,7 +267,9 @@ describe('Mutex integration with ProcessLifecycleManager', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       const lockEndTime = Date.now();
       operationLog.push('start-end');
-      console.log(`DEBUG: start-end at ${lockEndTime - testStartTime}ms, duration=${lockEndTime - lockStartTime}ms`);
+      console.log(
+        `DEBUG: start-end at ${lockEndTime - testStartTime}ms, duration=${lockEndTime - lockStartTime}ms`
+      );
     });
 
     const stopOperation = withKeyedLock(keyedMutex, 'process1', async () => {
@@ -251,7 +279,9 @@ describe('Mutex integration with ProcessLifecycleManager', () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
       const lockEndTime = Date.now();
       operationLog.push('stop-end');
-      console.log(`DEBUG: stop-end at ${lockEndTime - testStartTime}ms, duration=${lockEndTime - lockStartTime}ms`);
+      console.log(
+        `DEBUG: stop-end at ${lockEndTime - testStartTime}ms, duration=${lockEndTime - lockStartTime}ms`
+      );
     });
 
     const restartOperation = withKeyedLock(keyedMutex, 'process1', async () => {
@@ -261,13 +291,19 @@ describe('Mutex integration with ProcessLifecycleManager', () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       const lockEndTime = Date.now();
       operationLog.push('restart-end');
-      console.log(`DEBUG: restart-end at ${lockEndTime - testStartTime}ms, duration=${lockEndTime - lockStartTime}ms`);
+      console.log(
+        `DEBUG: restart-end at ${lockEndTime - testStartTime}ms, duration=${lockEndTime - lockStartTime}ms`
+      );
     });
 
-    console.log(`DEBUG: All operations created at ${Date.now() - testStartTime}ms, waiting for completion...`);
+    console.log(
+      `DEBUG: All operations created at ${Date.now() - testStartTime}ms, waiting for completion...`
+    );
     await Promise.all([startOperation, stopOperation, restartOperation]);
     const testEndTime = Date.now();
-    console.log(`DEBUG: All concurrent operations completed at ${testEndTime - testStartTime}ms (total duration: ${testEndTime - testStartTime}ms)`);
+    console.log(
+      `DEBUG: All concurrent operations completed at ${testEndTime - testStartTime}ms (total duration: ${testEndTime - testStartTime}ms)`
+    );
 
     // Operations should not interleave
     expect(operationLog).toEqual([
@@ -282,7 +318,9 @@ describe('Mutex integration with ProcessLifecycleManager', () => {
 
   it('should allow concurrent operations on different processes', async () => {
     const testStartTime = Date.now();
-    console.log(`DEBUG: Starting concurrent different processes test at ${new Date().toISOString()}`);
+    console.log(
+      `DEBUG: Starting concurrent different processes test at ${new Date().toISOString()}`
+    );
     const keyedMutex = new KeyedMutex<string>();
     const startTimes: Record<string, number> = {};
     const endTimes: Record<string, number> = {};
@@ -290,30 +328,44 @@ describe('Mutex integration with ProcessLifecycleManager', () => {
     const operations = ['process1', 'process2', 'process3'].map(
       async (processName) => {
         const operationCreateTime = Date.now();
-        console.log(`DEBUG: Creating operation for ${processName} at ${operationCreateTime - testStartTime}ms`);
+        console.log(
+          `DEBUG: Creating operation for ${processName} at ${operationCreateTime - testStartTime}ms`
+        );
         return withKeyedLock(keyedMutex, processName, async () => {
           const lockStartTime = Date.now();
-          console.log(`DEBUG: ${processName} started at ${lockStartTime - testStartTime}ms`);
+          console.log(
+            `DEBUG: ${processName} started at ${lockStartTime - testStartTime}ms`
+          );
           startTimes[processName] = lockStartTime;
           await new Promise((resolve) => setTimeout(resolve, 50));
           const lockEndTime = Date.now();
           endTimes[processName] = lockEndTime;
-          console.log(`DEBUG: ${processName} ended at ${lockEndTime - testStartTime}ms, duration=${lockEndTime - lockStartTime}ms`);
+          console.log(
+            `DEBUG: ${processName} ended at ${lockEndTime - testStartTime}ms, duration=${lockEndTime - lockStartTime}ms`
+          );
         });
       }
     );
 
-    console.log(`DEBUG: All operations created at ${Date.now() - testStartTime}ms, waiting for completion...`);
+    console.log(
+      `DEBUG: All operations created at ${Date.now() - testStartTime}ms, waiting for completion...`
+    );
     await Promise.all(operations);
     const testEndTime = Date.now();
-    console.log(`DEBUG: All different process operations completed at ${testEndTime - testStartTime}ms (total duration: ${testEndTime - testStartTime}ms)`);
+    console.log(
+      `DEBUG: All different process operations completed at ${testEndTime - testStartTime}ms (total duration: ${testEndTime - testStartTime}ms)`
+    );
 
     // All operations should have overlapped (run concurrently)
     const allStarted = Math.max(...Object.values(startTimes));
     const firstEnded = Math.min(...Object.values(endTimes));
 
-    console.log(`DEBUG: allStarted=${allStarted}, firstEnded=${firstEnded}, testStartTime=${testStartTime}`);
-    console.log(`DEBUG: Relative allStarted=${allStarted - testStartTime}ms, firstEnded=${firstEnded - testStartTime}ms`);
+    console.log(
+      `DEBUG: allStarted=${allStarted}, firstEnded=${firstEnded}, testStartTime=${testStartTime}`
+    );
+    console.log(
+      `DEBUG: Relative allStarted=${allStarted - testStartTime}ms, firstEnded=${firstEnded - testStartTime}ms`
+    );
 
     // If they ran concurrently, the last to start should start before the first to end
     expect(allStarted).toBeLessThan(firstEnded);

@@ -190,13 +190,50 @@ export abstract class BaseSocketConnection
    */
   private writeToSocket(buffer: Buffer): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.socket.write(buffer, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve();
+      // Check socket state more strictly
+      if (this.socket.destroyed || !this.socket.writable) {
+        reject(new Error('Socket is not connected'));
+        return;
+      }
+
+      // Set up error handler with proper cleanup
+      const errorHandler = (error: Error): void => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((error as any)?.code === 'EPIPE') {
+          // Connection was closed by the other end, update our state
+          this.status = 'disconnected';
         }
-      });
+        // Don't call reject here - let the write callback handle it
+      };
+
+      try {
+        this.socket.once('error', errorHandler);
+
+        this.socket.write(buffer, (error) => {
+          // Always clean up the error handler
+          this.socket.removeListener('error', errorHandler);
+
+          if (error) {
+            // Handle EPIPE errors gracefully (broken pipe - connection closed)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((error as any)?.code === 'EPIPE') {
+              // Connection was closed by the other end, update our state
+              this.status = 'disconnected';
+            }
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      } catch (syncError) {
+        // Clean up error handler if write() throws synchronously
+        this.socket.removeListener('error', errorHandler);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((syncError as any)?.code === 'EPIPE') {
+          this.status = 'disconnected';
+        }
+        reject(syncError);
+      }
     });
   }
 
@@ -214,8 +251,17 @@ export abstract class BaseSocketConnection
     };
 
     const errorHandler = (error: Error): void => {
-      this.status = 'error';
-      this.emit('error', error);
+      // Handle EPIPE errors gracefully (broken pipe - connection closed)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((error as any)?.code === 'EPIPE') {
+        // EPIPE is expected when connection closes, just update status
+        this.status = 'disconnected';
+        // Don't emit error for expected EPIPE, just emit close
+        this.emit('close');
+      } else {
+        this.status = 'error';
+        this.emit('error', error);
+      }
     };
 
     const closeHandler = (): void => {

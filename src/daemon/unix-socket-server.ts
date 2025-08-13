@@ -54,120 +54,103 @@ export class UnixSocketServer extends IPCServerBase {
    */
   protected async startServer(): Promise<void> {
     const startTime = Date.now();
-    console.error('[DEBUG-UNIX-SOCKET] Starting Unix socket server...');
-    console.error(
-      '[DEBUG-UNIX-SOCKET] Socket configuration:',
-      JSON.stringify(
-        {
-          socketPath: this.socketPath,
-          processId: process.pid,
-          timestamp: new Date().toISOString(),
-          environment: {
-            HOME: process.env.HOME,
-            PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
-          },
-        },
-        null,
-        2
-      )
-    );
+
+    // Debug logging only when DEBUG_IPC environment variable is set
+    const debug = (message: string, data?: any): void => {
+      if (process.env.DEBUG_IPC) {
+        console.error(
+          `[DEBUG-UNIX-SOCKET] ${message}`,
+          data ? JSON.stringify(data, null, 2) : ''
+        );
+      }
+    };
+
+    debug('Starting Unix socket server...');
+    debug('Socket configuration:', {
+      socketPath: this.socketPath,
+      processId: process.pid,
+      timestamp: new Date().toISOString(),
+      environment: {
+        HOME: process.env.HOME,
+        PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
+      },
+    });
 
     // Ensure directory exists
     const socketDir = path.dirname(this.socketPath);
-    console.error('[DEBUG-UNIX-SOCKET] Creating socket directory:', socketDir);
+    debug('Creating socket directory:', socketDir);
     await fs.mkdir(socketDir, { recursive: true });
-    console.error('[DEBUG-UNIX-SOCKET] ✓ Socket directory ready');
+    debug('✓ Socket directory ready');
 
     // Remove existing socket file if it exists
     try {
-      console.error('[DEBUG-UNIX-SOCKET] Removing existing socket file...');
+      debug('Removing existing socket file...');
       await fs.unlink(this.socketPath);
-      console.error('[DEBUG-UNIX-SOCKET] ✓ Existing socket file removed');
+      debug('✓ Existing socket file removed');
     } catch (error) {
-      console.error(
-        '[DEBUG-UNIX-SOCKET] No existing socket file to remove (normal):',
+      debug(
+        'No existing socket file to remove (normal):',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (error as any)?.code
       );
     }
 
     // Create server
-    console.error('[DEBUG-UNIX-SOCKET] Creating net.Server instance...');
+    debug('Creating net.Server instance...');
     this.server = net.createServer();
-    console.error('[DEBUG-UNIX-SOCKET] ✓ Server instance created');
+    debug('✓ Server instance created');
 
     // Set up server event handlers
-    console.error('[DEBUG-UNIX-SOCKET] Setting up server event handlers...');
+    debug('Setting up server event handlers...');
     this.setupServerHandlers();
-    console.error('[DEBUG-UNIX-SOCKET] ✓ Event handlers configured');
+    debug('✓ Event handlers configured');
 
     // Start listening
-    console.error('[DEBUG-UNIX-SOCKET] Starting to listen on socket...');
+    debug('Starting to listen on socket...');
     return new Promise<void>((resolve, reject) => {
       // Add error handler before listening
       const errorHandler = (error: Error): void => {
         const listenTime = Date.now() - startTime;
-        console.error('[DEBUG-UNIX-SOCKET] ❌ Socket listen error');
-        console.error(
-          '[DEBUG-UNIX-SOCKET] Listen error details:',
-          JSON.stringify(
-            {
-              listenTimeMs: listenTime,
-              socketPath: this.socketPath,
-              errorMessage: error.message,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              errorCode: (error as any)?.code,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              errorErrno: (error as any)?.errno,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              errorSyscall: (error as any)?.syscall,
-            },
-            null,
-            2
-          )
-        );
+        debug('❌ Socket listen error');
+        debug('Listen error details:', {
+          listenTimeMs: listenTime,
+          socketPath: this.socketPath,
+          errorMessage: error.message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          errorCode: (error as any)?.code,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          errorErrno: (error as any)?.errno,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          errorSyscall: (error as any)?.syscall,
+        });
         this.server!.removeListener('error', errorHandler);
         reject(error);
       };
 
       this.server!.on('error', errorHandler);
 
-      console.error('[DEBUG-UNIX-SOCKET] Calling listen() on socket path...');
+      debug('Calling listen() on socket path...');
       this.server!.listen(this.socketPath, () => {
         const listenTime = Date.now() - startTime;
-        console.error('[DEBUG-UNIX-SOCKET] ✓ Socket listen() callback fired');
-        console.error(
-          '[DEBUG-UNIX-SOCKET] Listen success stats:',
-          JSON.stringify(
-            {
-              listenTimeMs: listenTime,
-              socketPath: this.socketPath,
-            },
-            null,
-            2
-          )
-        );
+        debug('✓ Socket listen() callback fired');
+        debug('Listen success stats:', {
+          listenTimeMs: listenTime,
+          socketPath: this.socketPath,
+        });
 
         // Remove error handler after successful listen
         this.server!.removeListener('error', errorHandler);
 
-        console.error('[DEBUG-UNIX-SOCKET] Setting socket permissions...');
+        debug('Setting socket permissions...');
         this.setSocketPermissions()
           .then(() => {
             const totalTime = Date.now() - startTime;
-            console.error('[DEBUG-UNIX-SOCKET] ✓ UNIX SOCKET SERVER READY');
-            console.error(
-              '[DEBUG-UNIX-SOCKET] Final socket stats:',
-              JSON.stringify(
-                {
-                  totalStartupTimeMs: totalTime,
-                  socketPath: this.socketPath,
-                  socketExists: true, // At this point it should exist
-                },
-                null,
-                2
-              )
-            );
+            debug('✓ UNIX SOCKET SERVER READY');
+            debug('Final socket stats:', {
+              totalStartupTimeMs: totalTime,
+              socketPath: this.socketPath,
+              socketExists: true, // At this point it should exist
+            });
             resolve();
           })
           .catch(reject);

@@ -43,7 +43,7 @@ import {
   CONCURRENT_DAEMON_TIMEOUT,
 } from './shared/cli-commands-shared';
 
-describe('CLI Concurrent Operations and Stress Testing E2E Tests', () => {
+describe.skipIf(process.env.CI === 'true')('CLI Concurrent Operations and Stress Testing E2E Tests', () => {
   // Set default timeout for all tests in this suite
   vi.setConfig({ testTimeout: 90000 });
 

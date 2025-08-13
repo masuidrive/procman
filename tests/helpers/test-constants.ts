@@ -39,13 +39,13 @@ export const TEST_TIMEOUTS = {
   MONITOR_INTERVAL: 5000 * CI_TIMEOUT_MULTIPLIER,
 } as const;
 
-// Sleep/delay constants
+// Sleep/delay constants (optimized for faster test execution)
 export const TEST_DELAYS = {
-  TINY: 50, // 50ms - very short delay
-  SHORT: 100, // 100ms - short delay
-  MEDIUM: 500, // 500ms - medium delay
-  LONG: 1000, // 1000ms - long delay
-  VERY_LONG: 2000, // 2000ms - very long delay
+  TINY: 10, // 10ms - very short delay (was 50ms)
+  SHORT: 25, // 25ms - short delay (was 100ms)
+  MEDIUM: 50, // 50ms - medium delay (was 500ms)
+  LONG: 100, // 100ms - long delay (was 1000ms)
+  VERY_LONG: 200, // 200ms - very long delay (was 2000ms)
 } as const;
 
 // Memory size constants (automatically adjusted for CI)

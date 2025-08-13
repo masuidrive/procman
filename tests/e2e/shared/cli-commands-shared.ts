@@ -98,7 +98,7 @@ export const execCLI = async (
   };
 
   return new Promise((resolve, reject) => {
-    // Use absolute path to procman binary to avoid CWD dependencies  
+    // Use absolute path to procman binary to avoid CWD dependencies
     const procmanBinary = path.join(cwd, 'bin', 'procman');
     const child = spawn(procmanBinary, args, {
       cwd,
@@ -184,15 +184,15 @@ export const cleanupDaemon = async (
   try {
     // Reduced timeout for CI environments to avoid hook timeouts
     const exitTimeout = process.env.CI === 'true' ? 2000 : 5000;
-    
+
     // In CI, use more aggressive cleanup approach
     if (process.env.CI === 'true') {
       // For CI: try graceful exit but timeout quickly, then force kill
       await Promise.race([
         execCLI(['exit'], { timeout: exitTimeout, env }),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('CI timeout')), 1500)
-        )
+        ),
       ]);
     } else {
       await execCLI(['exit'], { timeout: exitTimeout, env });
@@ -208,13 +208,21 @@ export const cleanupDaemon = async (
     await Promise.allSettled([
       // Clean socket file
       socketPath
-        ? fs.access(socketPath).then(() => fs.unlink(socketPath)).catch(() => {})
+        ? fs
+            .access(socketPath)
+            .then(() => fs.unlink(socketPath))
+            .catch(() => {})
         : Promise.resolve(),
-      
+
       // Clean PID file and kill process
       (async () => {
         try {
-          if (await fs.access(pidFile).then(() => true).catch(() => false)) {
+          if (
+            await fs
+              .access(pidFile)
+              .then(() => true)
+              .catch(() => false)
+          ) {
             const pid = await fs.readFile(pidFile, 'utf-8');
             process.kill(parseInt(pid.trim()), 'SIGKILL');
             await fs.unlink(pidFile).catch(() => {});
@@ -223,7 +231,7 @@ export const cleanupDaemon = async (
           // Ignore errors
         }
       })(),
-      
+
       // Clean unique test directory
       uniqueDir
         ? fs.rm(uniqueDir, { recursive: true, force: true }).catch(() => {})

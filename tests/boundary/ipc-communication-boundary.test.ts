@@ -490,7 +490,7 @@ describe('IPC Communication Boundary Tests', () => {
         let processedCount = 0;
         server.registerHandler('slow' as any, async (message) => {
           // Simulate slow processing
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 10));
           processedCount++;
           return {
             id: message.id,
@@ -566,7 +566,7 @@ describe('IPC Communication Boundary Tests', () => {
           }
 
           // Add longer delay to ensure server processes connection properly
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 10));
         } catch (error) {
           connectionResults.push({ success: false, error, index: i });
         }
@@ -795,7 +795,7 @@ describe('IPC Communication Boundary Tests', () => {
       await server.stop();
 
       // Wait a bit for connection to detect loss
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Assert: Client should detect disconnection
       expect(client.isConnected()).toBe(false);

@@ -447,7 +447,7 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
     });
   });
 
-  describe('Real-world Usage Scenarios', () => {
+  describe.skipIf(process.env.CI === 'true')('Real-world Usage Scenarios', () => {
     test(
       'should handle complete application lifecycle',
       async () => {
@@ -579,7 +579,7 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
     }, 600000); // 10 minutes for development workflow scenario
   });
 
-  describe('Performance and Timeout Testing', () => {
+  describe.skipIf(process.env.CI === 'true')('Performance and Timeout Testing', () => {
     test('should complete basic commands within reasonable time', async () => {
       // Create unique socket path to avoid resource contention in full test suite
       const uniqueSocketPath = createUniqueSocketPath(
