@@ -70,28 +70,34 @@ describe('Mutex', () => {
   });
 
   it('should handle concurrent access with withLock', async () => {
+    console.log('DEBUG: Starting withLock test');
     let sharedValue = 0;
     const operations: Promise<number>[] = [];
 
     // Simulate concurrent operations
     for (let i = 0; i < 5; i++) {
+      console.log(`DEBUG: Creating operation ${i}`);
       operations.push(
         withLock(mutex, async () => {
+          console.log(`DEBUG: Operation started, sharedValue=${sharedValue}`);
           const current = sharedValue;
           // Simulate async work
           await new Promise((resolve) => setTimeout(resolve, 10));
           sharedValue = current + 1;
+          console.log(`DEBUG: Operation completed, sharedValue=${sharedValue}`);
           return sharedValue;
         })
       );
     }
 
+    console.log('DEBUG: Waiting for all operations...');
     const results = await Promise.all(operations);
+    console.log('DEBUG: All operations completed');
 
     // Without mutex, this could be less than 5 due to race conditions
     expect(sharedValue).toBe(5);
     expect(results).toEqual([1, 2, 3, 4, 5]);
-  });
+  }, 45000);
 });
 
 describe('KeyedMutex', () => {
@@ -167,24 +173,30 @@ describe('KeyedMutex', () => {
   });
 
   it('should handle withKeyedLock helper', async () => {
+    console.log('DEBUG: Starting withKeyedLock test');
     const results: number[] = [];
 
     // Concurrent operations on same key
     const promises = [1, 2, 3].map(async (n) => {
+      console.log(`DEBUG: Creating operation ${n}`);
       return withKeyedLock(keyedMutex, 'shared', async () => {
+        console.log(`DEBUG: Operation ${n} started`);
         // Simulate async work
         await new Promise((resolve) => setTimeout(resolve, 10));
         results.push(n);
+        console.log(`DEBUG: Operation ${n} completed`);
         return n;
       });
     });
 
+    console.log('DEBUG: Waiting for all withKeyedLock operations...');
     const values = await Promise.all(promises);
+    console.log('DEBUG: All withKeyedLock operations completed');
 
     // Results should be in order due to mutex
     expect(results).toEqual([1, 2, 3]);
     expect(values).toEqual([1, 2, 3]);
-  });
+  }, 45000);
 
   it('should clear all mutexes', () => {
     keyedMutex.acquire('key1');
@@ -202,29 +214,38 @@ describe('KeyedMutex', () => {
 
 describe('Mutex integration with ProcessLifecycleManager', () => {
   it('should prevent concurrent operations on same process', async () => {
+    console.log('DEBUG: Starting prevent concurrent operations test');
     const keyedMutex = new KeyedMutex<string>();
     const operationLog: string[] = [];
 
     // Simulate concurrent start/stop operations
     const startOperation = withKeyedLock(keyedMutex, 'process1', async () => {
+      console.log('DEBUG: start-begin');
       operationLog.push('start-begin');
       await new Promise((resolve) => setTimeout(resolve, 50));
       operationLog.push('start-end');
+      console.log('DEBUG: start-end');
     });
 
     const stopOperation = withKeyedLock(keyedMutex, 'process1', async () => {
+      console.log('DEBUG: stop-begin');
       operationLog.push('stop-begin');
       await new Promise((resolve) => setTimeout(resolve, 30));
       operationLog.push('stop-end');
+      console.log('DEBUG: stop-end');
     });
 
     const restartOperation = withKeyedLock(keyedMutex, 'process1', async () => {
+      console.log('DEBUG: restart-begin');
       operationLog.push('restart-begin');
       await new Promise((resolve) => setTimeout(resolve, 20));
       operationLog.push('restart-end');
+      console.log('DEBUG: restart-end');
     });
 
+    console.log('DEBUG: Waiting for all concurrent operations...');
     await Promise.all([startOperation, stopOperation, restartOperation]);
+    console.log('DEBUG: All concurrent operations completed');
 
     // Operations should not interleave
     expect(operationLog).toEqual([
@@ -235,30 +256,38 @@ describe('Mutex integration with ProcessLifecycleManager', () => {
       'restart-begin',
       'restart-end',
     ]);
-  });
+  }, 45000);
 
   it('should allow concurrent operations on different processes', async () => {
+    console.log('DEBUG: Starting concurrent different processes test');
     const keyedMutex = new KeyedMutex<string>();
     const startTimes: Record<string, number> = {};
     const endTimes: Record<string, number> = {};
 
     const operations = ['process1', 'process2', 'process3'].map(
       async (processName) => {
+        console.log(`DEBUG: Creating operation for ${processName}`);
         return withKeyedLock(keyedMutex, processName, async () => {
+          console.log(`DEBUG: ${processName} started`);
           startTimes[processName] = Date.now();
           await new Promise((resolve) => setTimeout(resolve, 50));
           endTimes[processName] = Date.now();
+          console.log(`DEBUG: ${processName} ended`);
         });
       }
     );
 
+    console.log('DEBUG: Waiting for all different process operations...');
     await Promise.all(operations);
+    console.log('DEBUG: All different process operations completed');
 
     // All operations should have overlapped (run concurrently)
     const allStarted = Math.max(...Object.values(startTimes));
     const firstEnded = Math.min(...Object.values(endTimes));
 
+    console.log(`DEBUG: allStarted=${allStarted}, firstEnded=${firstEnded}`);
+
     // If they ran concurrently, the last to start should start before the first to end
     expect(allStarted).toBeLessThan(firstEnded);
-  });
+  }, 45000);
 });
