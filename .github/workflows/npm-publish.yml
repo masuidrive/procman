@@ -32,14 +32,14 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-      - name: Run unit tests
-        run: npm run test
-
       - name: Build project
         run: npm run build
 
+      - name: Run unit tests (without E2E)
+        run: npm run test:run
+
       - name: Run integration tests
-        run: npm run test:integration
+        run: ./bin/test-integration.sh
 
       - name: Publish to npm
         run: npm publish
