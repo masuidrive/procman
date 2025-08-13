@@ -35,11 +35,8 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Debug mutex tests only
-        run: npx vitest run tests/process-manager/utils/mutex.test.ts --reporter=verbose
-
-      - name: Run unit tests (exclude mutex and E2E)
-        run: npx vitest run --exclude "tests/e2e/**" --exclude "tests/process-manager/utils/mutex.test.ts"
+      - name: Run unit tests (exclude E2E)
+        run: npx vitest run --exclude "tests/e2e/**"
 
       - name: Run integration tests
         run: ./bin/test-integration.sh
