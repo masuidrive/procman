@@ -74,13 +74,13 @@ describe('Basic CLI Commands E2E Tests', () => {
 
     // Cleanup any existing daemon
     await cleanupDaemon(testEnv);
-  });
+  }, 30000); // Increase timeout for CI environment
 
   afterEach(async () => {
     // Cleanup daemon and test directory
     await cleanupDaemon(testEnv);
     await cleanupTestDirectory(testDir);
-  });
+  }, 30000); // Increase timeout for CI environment
 
   describe('Help and Version Commands', () => {
     test('should display comprehensive help information', async () => {

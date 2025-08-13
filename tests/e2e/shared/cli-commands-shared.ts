@@ -180,45 +180,58 @@ export const cleanupDaemon = async (
   env: Record<string, string>
 ): Promise<void> => {
   try {
-    await execCLI(['exit'], { timeout: 5000, env });
-  } catch (error) {
-    // FORCE cleanup when exit command fails
-    const socketPath = env.PROCMAN_SOCKET_PATH;
-    if (
-      socketPath &&
-      (await fs
-        .access(socketPath)
-        .then(() => true)
-        .catch(() => false))
-    ) {
-      await fs.unlink(socketPath).catch(() => {});
+    // Reduced timeout for CI environments to avoid hook timeouts
+    const exitTimeout = process.env.CI === 'true' ? 2000 : 5000;
+    
+    // In CI, use more aggressive cleanup approach
+    if (process.env.CI === 'true') {
+      // For CI: try graceful exit but timeout quickly, then force kill
+      await Promise.race([
+        execCLI(['exit'], { timeout: exitTimeout, env }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('CI timeout')), 1500)
+        )
+      ]);
+    } else {
+      await execCLI(['exit'], { timeout: exitTimeout, env });
     }
-
-    // Kill orphaned daemon processes
+  } catch (error) {
+    // FORCE cleanup when exit command fails - Use parallel cleanup in CI
+    const socketPath = env.PROCMAN_SOCKET_PATH;
     const homeDir = env.HOME || os.homedir();
     const pidFile = path.join(homeDir, '.masuidrive-procman', 'procman.pid');
-    if (
-      await fs
-        .access(pidFile)
-        .then(() => true)
-        .catch(() => false)
-    ) {
-      try {
-        const pid = await fs.readFile(pidFile, 'utf-8');
-        process.kill(parseInt(pid.trim()), 'SIGKILL');
-      } catch {
-        // Ignore errors
-      }
-      await fs.unlink(pidFile).catch(() => {});
-    }
+    const uniqueDir = socketPath ? path.dirname(socketPath) : '';
 
-    // Clean up unique test directory
-    const uniqueDir = path.dirname(socketPath);
-    await fs.rm(uniqueDir, { recursive: true, force: true }).catch(() => {});
+    // Parallel cleanup operations for faster CI execution
+    await Promise.allSettled([
+      // Clean socket file
+      socketPath
+        ? fs.access(socketPath).then(() => fs.unlink(socketPath)).catch(() => {})
+        : Promise.resolve(),
+      
+      // Clean PID file and kill process
+      (async () => {
+        try {
+          if (await fs.access(pidFile).then(() => true).catch(() => false)) {
+            const pid = await fs.readFile(pidFile, 'utf-8');
+            process.kill(parseInt(pid.trim()), 'SIGKILL');
+            await fs.unlink(pidFile).catch(() => {});
+          }
+        } catch {
+          // Ignore errors
+        }
+      })(),
+      
+      // Clean unique test directory
+      uniqueDir
+        ? fs.rm(uniqueDir, { recursive: true, force: true }).catch(() => {})
+        : Promise.resolve(),
+    ]);
   }
 
-  // Wait for complete cleanup
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  // Wait for complete cleanup - reduced for CI
+  const cleanupDelay = process.env.CI === 'true' ? 100 : 300;
+  await new Promise((resolve) => setTimeout(resolve, cleanupDelay));
 };
 
 /**
