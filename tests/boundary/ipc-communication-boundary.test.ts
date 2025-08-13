@@ -330,9 +330,15 @@ describe('IPC Communication Boundary Tests', () => {
       'should handle extremely large message payloads',
       { timeout: 15000 },
       async () => {
+        const testStartTime = Date.now();
+        console.log(`[TIMING] Test started at: ${new Date().toISOString()}`);
+        
         // Arrange: Set up connection
+        const setupStart = Date.now();
+        console.log(`[TIMING] Setting up server and client...`);
         server = IPCFactory.createServer({ path: socketPath });
         client = IPCFactory.createClient({ path: socketPath });
+        console.log(`[TIMING] Setup completed in: ${Date.now() - setupStart}ms`);
 
         server.registerHandler('large' as any, async (message) => {
           return {
@@ -345,21 +351,31 @@ describe('IPC Communication Boundary Tests', () => {
           } as any;
         });
 
+        const connectStart = Date.now();
+        console.log(`[TIMING] Starting server and client connection...`);
         await server.start();
         await client.connect();
+        console.log(`[TIMING] Connection completed in: ${Date.now() - connectStart}ms`);
 
         // Act: Send very large payload (1MB)
+        const payloadStart = Date.now();
+        console.log(`[TIMING] Creating large payload...`);
         const largeData = {
           data: 'x'.repeat(TEST_MEMORY_SIZES.SMALL),
           array: new Array(TEST_COUNTS.VERY_LARGE).fill('large string data'),
         };
+        const payloadSize = JSON.stringify(largeData).length;
+        console.log(`[TIMING] Large payload created (${payloadSize} bytes) in: ${Date.now() - payloadStart}ms`);
 
         try {
+          const sendStart = Date.now();
+          console.log(`[TIMING] Sending large command...`);
           const response = await client.sendCommand(
             'large' as any,
             largeData,
             TEST_TIMEOUTS.LONG
           );
+          console.log(`[TIMING] Large command sent and response received in: ${Date.now() - sendStart}ms`);
 
           // Assert: Should handle large payloads
           expect(response.success).toBe(true);
@@ -367,8 +383,14 @@ describe('IPC Communication Boundary Tests', () => {
           expect(responseData.size).toBeGreaterThan(1000000);
         } catch (error) {
           // Acceptable to fail with extremely large payloads
+          console.log(`[TIMING] Test failed with error: ${error}`);
           expect(error).toBeInstanceOf(Error);
         }
+        
+        const testEndTime = Date.now();
+        const totalTime = testEndTime - testStartTime;
+        console.log(`[TIMING] Test completed at: ${new Date().toISOString()}`);
+        console.log(`[TIMING] Total test execution time: ${totalTime}ms`);
       }
     );
 
