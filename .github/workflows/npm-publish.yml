@@ -36,7 +36,7 @@ jobs:
         run: npm run build
 
       - name: Debug mutex tests only
-        run: npx vitest run tests/process-manager/utils/mutex.test.ts --reporter=verbose --timeout=60000
+        run: npx vitest run tests/process-manager/utils/mutex.test.ts --reporter=verbose
 
       - name: Run unit tests (exclude mutex and E2E)
         run: npx vitest run --exclude "tests/e2e/**" --exclude "tests/process-manager/utils/mutex.test.ts"
