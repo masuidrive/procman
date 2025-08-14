@@ -826,8 +826,14 @@ export const cleanupParallelTestEnvironment = async (
   testTempDir?: string
 ): Promise<void> => {
   try {
-    // Resource-aware daemon cleanup
-    await ParallelTestResourceManager.smartCleanupDaemon(env, testId);
+    // Validate environment before cleanup
+    if (env && typeof env === 'object') {
+      // Resource-aware daemon cleanup
+      await ParallelTestResourceManager.smartCleanupDaemon(env, testId);
+    } else {
+      // Just release the resource slot if env is invalid
+      ParallelTestResourceManager.releaseTestSlot(testId);
+    }
     
     // Clean up temporary directory
     if (testTempDir) {
