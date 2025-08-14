@@ -16,6 +16,13 @@ on:
           - 'tests/e2e/cli-commands-advanced.e2e.test.ts'
           - 'tests/e2e/cli-commands-logs.e2e.test.ts'
           - 'tests/e2e/cli-commands-concurrent.e2e.test.ts'
+          - 'tests/e2e/memory-management.e2e.test.ts'
+          - 'tests/e2e/process-manager.e2e.test.ts'
+          - 'tests/e2e/daemon-crash-recovery.e2e.test.ts'
+          - 'tests/e2e/cli.e2e.test.ts'
+          - 'tests/e2e/test-simple.e2e.test.ts'
+          - 'tests/e2e/lock-problem-verification.e2e.test.ts'
+          - 'tests/e2e/simple-lock-test.e2e.test.ts'
 
 jobs:
   # Phase 11.1: Basic CLI E2E Tests
@@ -196,4 +203,112 @@ jobs:
           echo "Expected: 10 tests"
           echo "Start time: $(date)"
           time npx vitest run tests/e2e/cli-commands-concurrent.e2e.test.ts --reporter=verbose
+          echo "End time: $(date)"
+
+  # Phase 11.6: Memory Management E2E Tests
+  phase-11-6-memory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    if: contains(github.event.head_commit.message, 'Phase 11.6-memory') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_file == 'tests/e2e/memory-management.e2e.test.ts')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Execute Phase 11.6 - Memory Management E2E Tests
+        run: |
+          echo "========== Phase 11.6: Memory Management E2E Tests =========="
+          echo "Executing: tests/e2e/memory-management.e2e.test.ts"
+          echo "Expected: 4 tests"
+          echo "Start time: $(date)"
+          time npx vitest run tests/e2e/memory-management.e2e.test.ts --reporter=verbose
+          echo "End time: $(date)"
+
+  # Phase 11.6: Process Manager E2E Tests  
+  phase-11-6-process:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    if: contains(github.event.head_commit.message, 'Phase 11.6-process') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_file == 'tests/e2e/process-manager.e2e.test.ts')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Execute Phase 11.6 - Process Manager E2E Tests
+        run: |
+          echo "========== Phase 11.6: Process Manager E2E Tests =========="
+          echo "Executing: tests/e2e/process-manager.e2e.test.ts"
+          echo "Expected: 8 tests"
+          echo "Start time: $(date)"
+          time npx vitest run tests/e2e/process-manager.e2e.test.ts --reporter=verbose
+          echo "End time: $(date)"
+
+  # Phase 11.6: CLI E2E Tests (Large Suite)
+  phase-11-6-cli:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    if: contains(github.event.head_commit.message, 'Phase 11.6-cli') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_file == 'tests/e2e/cli.e2e.test.ts')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Execute Phase 11.6 - CLI E2E Tests
+        run: |
+          echo "========== Phase 11.6: CLI E2E Tests =========="
+          echo "Executing: tests/e2e/cli.e2e.test.ts"
+          echo "Expected: 51 tests"
+          echo "Start time: $(date)"
+          time npx vitest run tests/e2e/cli.e2e.test.ts --reporter=verbose
           echo "End time: $(date)"
