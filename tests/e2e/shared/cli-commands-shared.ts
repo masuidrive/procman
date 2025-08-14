@@ -6,6 +6,7 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
+import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
@@ -152,28 +153,74 @@ export const execCLI = async (
 
 /**
  * Create unique socket path for concurrent testing
+ * Uses crypto.randomUUID() for guaranteed uniqueness in parallel test execution
  */
 export const createUniqueSocketPath = (
   prefix: string,
   index: number
 ): string => {
-  // Add process ID and random component for true uniqueness
-  const uniqueId = `${Date.now()}-${process.pid}-${Math.random().toString(36).substr(2, 9)}-${index}`;
+  // Generate truly unique identifier combining multiple entropy sources
+  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+  const processId = process.pid.toString();
+  const timestamp = Date.now().toString();
+  
   const testTempDir = path.join(
     os.tmpdir(),
-    `procman-concurrent-test-${prefix}-${uniqueId}`
+    `procman-concurrent-test-${prefix}-${processId}-${timestamp}-${uniqueId}-${index}`
   );
   return path.join(testTempDir, 'procman.sock');
 };
 
 /**
  * Create unique HOME directory for concurrent testing to avoid PID file conflicts
+ * Uses crypto.randomUUID() for guaranteed uniqueness in parallel test execution
  */
 export const createUniqueHomeDir = (prefix: string, index: number): string => {
-  // Use same unique ID pattern as socket path for consistency
-  const uniqueId = `${Date.now()}-${process.pid}-${Math.random().toString(36).substr(2, 9)}-${index}`;
-  return path.join(os.tmpdir(), `procman-home-${prefix}-${uniqueId}`);
+  // Generate truly unique identifier combining multiple entropy sources
+  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+  const processId = process.pid.toString();
+  const timestamp = Date.now().toString();
+  
+  return path.join(os.tmpdir(), `procman-home-${prefix}-${processId}-${timestamp}-${uniqueId}-${index}`);
 };
+
+/**
+ * Resource management for parallel E2E test execution
+ * Prevents file descriptor exhaustion and process creation limits
+ */
+export class ParallelTestResourceManager {
+  private static activeTests = new Set<string>();
+  private static maxConcurrentTests = 2; // Match vitest maxForks setting
+  
+  static async acquireTestSlot(testId: string): Promise<void> {
+    // Wait for available slot if all slots are occupied
+    while (this.activeTests.size >= this.maxConcurrentTests) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    this.activeTests.add(testId);
+  }
+  
+  static releaseTestSlot(testId: string): void {
+    this.activeTests.delete(testId);
+  }
+  
+  static getActiveTestCount(): number {
+    return this.activeTests.size;
+  }
+  
+  /**
+   * Smart cleanup with resource-aware timeout management
+   */
+  static async smartCleanupDaemon(env: Record<string, string>, testId: string): Promise<void> {
+    try {
+      await cleanupDaemon(env);
+    } finally {
+      // Always release the test slot even if cleanup fails
+      this.releaseTestSlot(testId);
+    }
+  }
+}
 
 /**
  * Improved cleanup with proper timeout handling and graceful degradation
@@ -671,10 +718,20 @@ export const startDaemonWithCoordination = async (
 
 /**
  * Setup test environment with unique socket path and temporary directories
+ * Uses crypto.randomUUID() for guaranteed uniqueness in parallel test execution
  */
 export const setupTestEnvironment = async () => {
-  // Set up custom socket path for tests
-  const testTempDir = path.join(os.tmpdir(), 'procman-e2e-test-' + Date.now());
+  // Generate truly unique identifier for parallel test isolation
+  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+  const processId = process.pid.toString();
+  const timestamp = Date.now().toString();
+  
+  // Create unique directory path with multiple entropy sources
+  const testTempDir = path.join(
+    os.tmpdir(), 
+    `procman-e2e-test-${processId}-${timestamp}-${uniqueId}`
+  );
+  
   await fs.mkdir(testTempDir, { recursive: true });
 
   const testSocketPath = path.join(testTempDir, 'procman.sock');
@@ -689,15 +746,18 @@ export const setupTestEnvironment = async () => {
 
 /**
  * Create temporary test directory with config files
+ * Uses crypto.randomUUID() for guaranteed uniqueness in parallel test execution
  */
 export const setupTestDirectory = async () => {
-  // Create temporary directory for test files
+  // Generate truly unique identifier for parallel test isolation
+  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+  const processId = process.pid.toString();
+  const timestamp = Date.now().toString();
+  
+  // Create unique directory path with multiple entropy sources
   const testDir = path.join(
     os.tmpdir(),
-    'procman-cli-e2e-' +
-      Date.now() +
-      '-' +
-      Math.random().toString(36).substr(2, 9)
+    `procman-cli-e2e-${processId}-${timestamp}-${uniqueId}`
   );
   await fs.mkdir(testDir, { recursive: true });
 
@@ -732,5 +792,50 @@ export const cleanupTestDirectory = async (testDir: string) => {
     await fs.rm(testDir, { recursive: true, force: true });
   } catch (error) {
     console.warn('Failed to cleanup test directory:', error);
+  }
+};
+
+/**
+ * Enhanced test environment setup with resource management and collision prevention
+ * Addresses socket path conflicts and system resource competition in parallel execution
+ */
+export const setupParallelTestEnvironment = async (testId?: string): Promise<{
+  testTempDir: string;
+  testSocketPath: string;
+  testEnv: Record<string, string>;
+  testId: string;
+}> => {
+  // Generate globally unique test identifier
+  const generatedTestId = testId || crypto.randomUUID();
+  
+  // Acquire test slot for resource management
+  await ParallelTestResourceManager.acquireTestSlot(generatedTestId);
+  
+  // Setup environment with enhanced uniqueness
+  const { testTempDir, testSocketPath, testEnv } = await setupTestEnvironment();
+  
+  return { testTempDir, testSocketPath, testEnv, testId: generatedTestId };
+};
+
+/**
+ * Enhanced cleanup that handles resource management and prevents lock issues
+ */
+export const cleanupParallelTestEnvironment = async (
+  env: Record<string, string>,
+  testId: string,
+  testTempDir?: string
+): Promise<void> => {
+  try {
+    // Resource-aware daemon cleanup
+    await ParallelTestResourceManager.smartCleanupDaemon(env, testId);
+    
+    // Clean up temporary directory
+    if (testTempDir) {
+      await cleanupTestDirectory(testTempDir);
+    }
+  } catch (error) {
+    console.warn(`Parallel test cleanup failed for ${testId}:`, error);
+    // Still release the resource slot even if cleanup fails
+    ParallelTestResourceManager.releaseTestSlot(testId);
   }
 };
