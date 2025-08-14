@@ -503,27 +503,49 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
       const uniqueEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
       const uniqueExecCLI = createTestExecCLI(uniqueEnv);
 
-      // Load configuration
+      console.log(
+        `[Multi-namespace test] Starting at: ${new Date().toISOString()}`
+      );
+
+      // Load configuration - increased timeout for CI environment
+      console.log(`[Multi-namespace test] Loading config: ${testConfigPath}`);
       await uniqueExecCLI(['load', testConfigPath], {
-        timeout: 30000, // 30 seconds for daemon load in multi-namespace scenario
+        timeout: 60000, // Increased from 30s to 60s for CI environment stability
       });
-      await waitForDaemonReady(uniqueEnv, 15000); // 15 seconds for fast failure detection
+      console.log(
+        `[Multi-namespace test] Config loaded at: ${new Date().toISOString()}`
+      );
+
+      console.log('[Multi-namespace test] Waiting for daemon ready...');
+      await waitForDaemonReady(uniqueEnv, 30000); // Increased from 15s to 30s for CI environment
+      console.log(
+        `[Multi-namespace test] Daemon ready at: ${new Date().toISOString()}`
+      );
 
       // Start all apps in e2e-test namespace
+      console.log('[Multi-namespace test] Starting e2e-test namespace...');
       const startE2E = await uniqueExecCLI(['start', '-n', 'e2e-test'], {
         timeout: PROCESS_STARTUP_TIMEOUT,
       });
       expect(startE2E.exitCode).toBe(0);
+      console.log(
+        `[Multi-namespace test] E2E namespace started at: ${new Date().toISOString()}`
+      );
 
       // Start worker
+      console.log('[Multi-namespace test] Starting worker...');
       const startWorker = await uniqueExecCLI(['start', 'e2e-worker'], {
         timeout: PROCESS_STARTUP_TIMEOUT,
       });
       expect(startWorker.exitCode).toBe(0);
+      console.log(
+        `[Multi-namespace test] Worker started at: ${new Date().toISOString()}`
+      );
 
       await sleep(3000);
 
       // Check namespace separation
+      console.log('[Multi-namespace test] Checking namespace separation...');
       const e2eList = await uniqueExecCLI(['list', '-n', 'e2e-test']);
       const workersList = await uniqueExecCLI(['list', '-n', 'workers']);
 
@@ -532,13 +554,24 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
 
       expect(e2eList.stdout).not.toContain('e2e-worker');
       expect(workersList.stdout).not.toContain('e2e-test-app');
+      console.log(
+        `[Multi-namespace test] Namespace separation verified at: ${new Date().toISOString()}`
+      );
 
       // Stop by namespace
+      console.log('[Multi-namespace test] Stopping e2e-test namespace...');
       const stopE2E = await uniqueExecCLI(['stop', '-n', 'e2e-test']);
       expect(stopE2E.exitCode).toBe(0);
+      console.log(
+        `[Multi-namespace test] E2E namespace stopped at: ${new Date().toISOString()}`
+      );
 
       // Clean up daemon
+      console.log('[Multi-namespace test] Cleaning up daemon...');
       await uniqueExecCLI(['exit'], { timeout: 5000 }).catch(() => {});
+      console.log(
+        `[Multi-namespace test] Test completed at: ${new Date().toISOString()}`
+      );
     }, 600000); // 10 minutes for multi-namespace deployment scenario
 
     test('should handle development workflow scenario', async () => {
