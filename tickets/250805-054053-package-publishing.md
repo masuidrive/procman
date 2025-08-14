@@ -198,31 +198,39 @@ IPC通信境界テストの"should handle extremely large message payloads"テ�
 
 ### Phase 11: Complete E2E Test Verification
 
-全151のE2Eテストを段階的に実行してFailed=0を確実に達成する。現在2テストのみ実行済みのため、残り149テストを塊ごとに実行確認。各段階でローカルとCI両環境での実行を確認する。
+全151のE2Eテストを段階的に実行してFailed=0を確実に達成する。各段階でローカルとCI両環境での実行時間を記録し、該当テストのみCI実行する。
 
-- [ ] Phase 11.1: 基本CLI E2Eテスト完全実行（cli-commands-basic.e2e.test.ts - 15テスト）
-  - [ ] ローカル環境での実行確認（npm test -- --run tests/e2e/cli-commands-basic.e2e.test.ts）
-  - [ ] CI環境での実行確認（GitHub Actions経由でのテスト実行証跡確認）
+- [x] Phase 11.1: 基本CLI E2Eテスト完全実行（cli-commands-basic.e2e.test.ts - 15テスト）
+  - [x] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-basic.e2e.test.ts）
+  - [x] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-basic.e2e.test.ts）
+  - [x] 実行時間記録：ローカル: 13.85秒、CI: 3.64秒
 - [ ] Phase 11.2: ライフサイクルE2Eテスト完全実行（cli-commands-lifecycle.e2e.test.ts - 30テスト）
-  - [ ] ローカル環境での実行確認（npm test -- --run tests/e2e/cli-commands-lifecycle.e2e.test.ts）
-  - [ ] CI環境での実行確認（GitHub Actions経由でのテスト実行証跡確認）  
+  - [ ] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-lifecycle.e2e.test.ts）
+  - [ ] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-lifecycle.e2e.test.ts）
+  - [ ] 実行時間記録：ローカル: __秒、CI: __秒
 - [ ] Phase 11.3: 高度機能E2Eテスト完全実行（cli-commands-advanced.e2e.test.ts - 14テスト）
-  - [ ] ローカル環境での実行確認（npm test -- --run tests/e2e/cli-commands-advanced.e2e.test.ts）
-  - [ ] CI環境での実行確認（GitHub Actions経由でのテスト実行証跡確認）
+  - [ ] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-advanced.e2e.test.ts）
+  - [ ] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-advanced.e2e.test.ts）
+  - [ ] 実行時間記録：ローカル: __秒、CI: __秒
 - [ ] Phase 11.4: ログ機能E2Eテスト完全実行（cli-commands-logs.e2e.test.ts - 19テスト）
-  - [ ] ローカル環境での実行確認（npm test -- --run tests/e2e/cli-commands-logs.e2e.test.ts）
-  - [ ] CI環境での実行確認（GitHub Actions経由でのテスト実行証跡確認）
+  - [ ] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-logs.e2e.test.ts）
+  - [ ] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-logs.e2e.test.ts）
+  - [ ] 実行時間記録：ローカル: __秒、CI: __秒
 - [ ] Phase 11.5: 並行処理E2Eテスト完全実行（cli-commands-concurrent.e2e.test.ts - 10テスト）
-  - [ ] ローカル環境での実行確認（npm test -- --run tests/e2e/cli-commands-concurrent.e2e.test.ts）
-  - [ ] CI環境での実行確認（GitHub Actions経由でのテスト実行証跡確認）
+  - [ ] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-concurrent.e2e.test.ts）
+  - [ ] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-concurrent.e2e.test.ts）
+  - [ ] 実行時間記録：ローカル: __秒、CI: __秒
 - [ ] Phase 11.6: 大規模E2Eテスト完全実行（残りファイル：process-manager, memory-management等）
-  - [ ] 残りE2Eテストファイルの特定と実行（daemon-crash-recovery, process-manager, memory-management, cli等）
-  - [ ] CI環境での実行確認（GitHub Actions経由でのテスト実行証跡確認）
+  - [ ] 残りE2Eテストファイルの特定と実行（./bin/test-e2e.sh 各ファイル）
+  - [ ] CI環境での各テストファイル個別実行
+  - [ ] 実行時間記録：ローカル: __秒、CI: __秒
 - [ ] Phase 11.7: CI環境での全E2Eテスト実行確認（151テスト全て）
   - [ ] CI環境でのフルE2Eテストスイート実行
   - [ ] 全151テストでFailed=0の達成確認
+  - [ ] 実行時間記録：総実行時間: __分__秒
 - [ ] Phase 11.8: 最終検証とWorking notes更新
-  - [ ] ローカル・CI両環境での全テスト結果まとめ
+  - [ ] ローカル・CI両環境での全テスト結果サマリー作成
+  - [ ] 実行時間分析とパフォーマンス比較
   - [ ] Working notesに完了報告を記載
 
 ## Wireframes
