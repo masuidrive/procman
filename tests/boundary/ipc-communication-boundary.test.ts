@@ -368,14 +368,15 @@ describe('IPC Communication Boundary Tests', () => {
         const payloadStart = Date.now();
         console.log(`[TIMING] Creating large payload...`);
         
-        // Use more reasonable payload sizes to prevent CI hangs
-        // CI environments have resource constraints that make very large payloads problematic
+        // Use realistic payload sizes for production-like boundary testing
+        // CI: Test realistic message sizes that occur in production (50KB)
+        // Local: Test extreme boundary conditions (1MB)
         const dataSize = process.env.CI === 'true' 
-          ? TEST_MEMORY_SIZES.BYTES_1KB // 1KB in CI to prevent hangs
-          : TEST_MEMORY_SIZES.SMALL; // 1MB locally
+          ? 50 * 1024 // 50KB in CI - realistic production message size
+          : TEST_MEMORY_SIZES.SMALL; // 1MB locally - extreme boundary test
         const arraySize = process.env.CI === 'true'
-          ? TEST_COUNTS.SMALL // 50 elements in CI
-          : TEST_COUNTS.VERY_LARGE; // 1000 elements locally
+          ? TEST_COUNTS.MEDIUM // 100 elements in CI - realistic process count
+          : TEST_COUNTS.VERY_LARGE; // 1000 elements locally - extreme test
           
         const largeData = {
           data: 'x'.repeat(dataSize),
@@ -404,8 +405,8 @@ describe('IPC Communication Boundary Tests', () => {
           
           // Adjust expectations based on environment
           const expectedMinSize = process.env.CI === 'true' 
-            ? 1000 // 1KB minimum in CI
-            : 1000000; // 1MB minimum locally
+            ? 30000 // 30KB minimum in CI - realistic production boundary
+            : 1000000; // 1MB minimum locally - extreme boundary
           expect(responseData.size).toBeGreaterThan(expectedMinSize);
         } catch (error) {
           // Acceptable to fail with extremely large payloads
