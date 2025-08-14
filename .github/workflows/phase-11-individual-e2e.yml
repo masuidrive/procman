@@ -1,0 +1,199 @@
+name: 'Phase 11: Individual E2E Test Execution'
+
+on:
+  push:
+    branches: [ feature/250805-054053-package-publishing ]
+  workflow_dispatch:
+    inputs:
+      test_file:
+        description: 'E2E test file to execute'
+        required: true
+        default: 'tests/e2e/cli-commands-basic.e2e.test.ts'
+        type: choice
+        options:
+          - 'tests/e2e/cli-commands-basic.e2e.test.ts'
+          - 'tests/e2e/cli-commands-lifecycle.e2e.test.ts'
+          - 'tests/e2e/cli-commands-advanced.e2e.test.ts'
+          - 'tests/e2e/cli-commands-logs.e2e.test.ts'
+          - 'tests/e2e/cli-commands-concurrent.e2e.test.ts'
+
+jobs:
+  # Phase 11.1: Basic CLI E2E Tests
+  phase-11-1-basic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: contains(github.event.head_commit.message, 'Phase 11.1') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_file == 'tests/e2e/cli-commands-basic.e2e.test.ts')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Execute Phase 11.1 - Basic CLI E2E Tests
+        run: |
+          echo "========== Phase 11.1: Basic CLI E2E Tests =========="
+          echo "Executing: tests/e2e/cli-commands-basic.e2e.test.ts"
+          echo "Expected: 15 tests"
+          echo "Start time: $(date)"
+          time npx vitest run tests/e2e/cli-commands-basic.e2e.test.ts --reporter=verbose
+          echo "End time: $(date)"
+
+  # Phase 11.2: Lifecycle E2E Tests
+  phase-11-2-lifecycle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    if: contains(github.event.head_commit.message, 'Phase 11.2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_file == 'tests/e2e/cli-commands-lifecycle.e2e.test.ts')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Execute Phase 11.2 - Lifecycle E2E Tests
+        run: |
+          echo "========== Phase 11.2: Lifecycle E2E Tests =========="
+          echo "Executing: tests/e2e/cli-commands-lifecycle.e2e.test.ts"
+          echo "Expected: 30 tests"
+          echo "Start time: $(date)"
+          time npx vitest run tests/e2e/cli-commands-lifecycle.e2e.test.ts --reporter=verbose
+          echo "End time: $(date)"
+
+  # Phase 11.3: Advanced E2E Tests
+  phase-11-3-advanced:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: contains(github.event.head_commit.message, 'Phase 11.3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_file == 'tests/e2e/cli-commands-advanced.e2e.test.ts')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Execute Phase 11.3 - Advanced E2E Tests
+        run: |
+          echo "========== Phase 11.3: Advanced E2E Tests =========="
+          echo "Executing: tests/e2e/cli-commands-advanced.e2e.test.ts"
+          echo "Expected: 14 tests"
+          echo "Start time: $(date)"
+          time npx vitest run tests/e2e/cli-commands-advanced.e2e.test.ts --reporter=verbose
+          echo "End time: $(date)"
+
+  # Phase 11.4: Logs E2E Tests
+  phase-11-4-logs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: contains(github.event.head_commit.message, 'Phase 11.4') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_file == 'tests/e2e/cli-commands-logs.e2e.test.ts')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Execute Phase 11.4 - Logs E2E Tests
+        run: |
+          echo "========== Phase 11.4: Logs E2E Tests =========="
+          echo "Executing: tests/e2e/cli-commands-logs.e2e.test.ts"
+          echo "Expected: 19 tests"
+          echo "Start time: $(date)"
+          time npx vitest run tests/e2e/cli-commands-logs.e2e.test.ts --reporter=verbose
+          echo "End time: $(date)"
+
+  # Phase 11.5: Concurrent E2E Tests
+  phase-11-5-concurrent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: contains(github.event.head_commit.message, 'Phase 11.5') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_file == 'tests/e2e/cli-commands-concurrent.e2e.test.ts')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Execute Phase 11.5 - Concurrent E2E Tests
+        run: |
+          echo "========== Phase 11.5: Concurrent E2E Tests =========="
+          echo "Executing: tests/e2e/cli-commands-concurrent.e2e.test.ts"
+          echo "Expected: 10 tests"
+          echo "Start time: $(date)"
+          time npx vitest run tests/e2e/cli-commands-concurrent.e2e.test.ts --reporter=verbose
+          echo "End time: $(date)"
