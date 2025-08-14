@@ -202,7 +202,7 @@ export const cleanupDaemon = async (
         setTimeout(() => reject(new Error('Graceful exit timeout')), 2000)
       ),
     ]);
-    
+
     // Verify daemon actually stopped
     await sleep(200);
     const stillRunning = await isDaemonRunning(pidFile);
@@ -231,7 +231,12 @@ const forceCleanupDaemon = async (
     // Kill daemon process first (most important)
     (async () => {
       try {
-        if (await fs.access(pidFile).then(() => true).catch(() => false)) {
+        if (
+          await fs
+            .access(pidFile)
+            .then(() => true)
+            .catch(() => false)
+        ) {
           const pidStr = await fs.readFile(pidFile, 'utf-8');
           const pid = parseInt(pidStr.trim());
           if (!isNaN(pid) && pid > 0) {
@@ -239,7 +244,7 @@ const forceCleanupDaemon = async (
             try {
               process.kill(pid, 'SIGTERM');
               await sleep(500); // Give it time to exit gracefully
-              
+
               // Check if still running
               try {
                 process.kill(pid, 0); // Check if process exists
@@ -263,7 +268,9 @@ const forceCleanupDaemon = async (
     socketPath ? fs.unlink(socketPath).catch(() => {}) : Promise.resolve(),
 
     // Clean test directory
-    uniqueDir ? fs.rm(uniqueDir, { recursive: true, force: true }).catch(() => {}) : Promise.resolve(),
+    uniqueDir
+      ? fs.rm(uniqueDir, { recursive: true, force: true }).catch(() => {})
+      : Promise.resolve(),
   ]);
 };
 
@@ -272,16 +279,21 @@ const forceCleanupDaemon = async (
  */
 const isDaemonRunning = async (pidFile: string): Promise<boolean> => {
   try {
-    if (!(await fs.access(pidFile).then(() => true).catch(() => false))) {
+    if (
+      !(await fs
+        .access(pidFile)
+        .then(() => true)
+        .catch(() => false))
+    ) {
       return false;
     }
-    
+
     const pidStr = await fs.readFile(pidFile, 'utf-8');
     const pid = parseInt(pidStr.trim());
     if (isNaN(pid) || pid <= 0) {
       return false;
     }
-    
+
     // Check if process exists
     try {
       process.kill(pid, 0);

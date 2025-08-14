@@ -21,6 +21,7 @@ import {
   afterEach,
   beforeAll,
   afterAll,
+  vi,
 } from 'vitest';
 import * as fs from 'fs/promises';
 import * as os from 'os';
@@ -35,9 +36,9 @@ import {
 
 describe('Basic CLI Commands E2E Tests', () => {
   // Set timeout for tests and hooks - critical for CI stability
-  vi.setConfig({ 
-    testTimeout: 90000,  // 90 seconds for test execution
-    hookTimeout: 60000   // 60 seconds for setup/teardown hooks
+  vi.setConfig({
+    testTimeout: 90000, // 90 seconds for test execution
+    hookTimeout: 60000, // 60 seconds for setup/teardown hooks
   });
 
   let testDir: string;

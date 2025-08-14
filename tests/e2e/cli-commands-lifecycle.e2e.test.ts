@@ -44,9 +44,9 @@ import {
 
 describe('CLI Lifecycle Commands E2E Tests', () => {
   // Set timeout for tests and hooks - critical for CI stability
-  vi.setConfig({ 
-    testTimeout: 90000,  // 90 seconds for test execution
-    hookTimeout: 60000   // 60 seconds for setup/teardown hooks
+  vi.setConfig({
+    testTimeout: 90000, // 90 seconds for test execution
+    hookTimeout: 60000, // 60 seconds for setup/teardown hooks
   });
 
   let testDir: string;
@@ -445,175 +445,166 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
     });
   });
 
-  describe(
-    'Real-world Usage Scenarios',
-    () => {
-      test(
-        'should handle complete application lifecycle',
-        async () => {
-          // Load configuration
-          const loadResult = await testExecCLI(['load', testConfigPath], {
-            timeout: 15000, // Increased timeout for better stability
-          });
-          expect([0, 1]).toContain(loadResult.exitCode); // Allow failure in test environment
-
-          // Only continue with the full test if load succeeded
-          if (loadResult.exitCode === 0) {
-            await waitForDaemonReady(testEnv);
-
-            // Check initial status (empty)
-            const initialList = await testExecCLI(['list']);
-            expect(initialList.exitCode).toBe(0);
-
-            // Start application
-            const startResult = await testExecCLI(['start', 'e2e-test-app'], {
-              timeout: PROCESS_STARTUP_TIMEOUT,
-            });
-            expect(startResult.exitCode).toBe(0);
-
-            await sleep(2000);
-
-            // Check status (running)
-            const runningList = await testExecCLI(['list']);
-            expect(runningList.exitCode).toBe(0);
-            expect(runningList.stdout).toContain('e2e-test-app');
-
-            // Restart application
-            const restartResult = await testExecCLI(
-              ['restart', 'e2e-test-app'],
-              {
-                timeout: PROCESS_STARTUP_TIMEOUT,
-              }
-            );
-            expect(restartResult.exitCode).toBe(0);
-
-            // Stop application
-            const stopResult = await testExecCLI(['stop', 'e2e-test-app']);
-            expect(stopResult.exitCode).toBe(0);
-
-            // Exit daemon
-            const exitResult = await testExecCLI(['exit']);
-            expect(exitResult.exitCode).toBe(0);
-          }
-        },
-        DAEMON_STARTUP_TIMEOUT + PROCESS_STARTUP_TIMEOUT * 2 + 10000
-      );
-
-      test('should handle multi-namespace deployment scenario', async () => {
-        // Create unique socket path to avoid resource contention in full test suite
-        const uniqueSocketPath = createUniqueSocketPath(
-          'multi-namespace',
-          Date.now()
-        );
-        const uniqueEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
-        const uniqueExecCLI = createTestExecCLI(uniqueEnv);
-
+  describe('Real-world Usage Scenarios', () => {
+    test(
+      'should handle complete application lifecycle',
+      async () => {
         // Load configuration
-        await uniqueExecCLI(['load', testConfigPath], {
-          timeout: 30000, // 30 seconds for daemon load in multi-namespace scenario
+        const loadResult = await testExecCLI(['load', testConfigPath], {
+          timeout: 15000, // Increased timeout for better stability
         });
-        await waitForDaemonReady(uniqueEnv, 15000); // 15 seconds for fast failure detection
+        expect([0, 1]).toContain(loadResult.exitCode); // Allow failure in test environment
 
-        // Start all apps in e2e-test namespace
-        const startE2E = await uniqueExecCLI(['start', '-n', 'e2e-test'], {
-          timeout: PROCESS_STARTUP_TIMEOUT,
-        });
-        expect(startE2E.exitCode).toBe(0);
+        // Only continue with the full test if load succeeded
+        if (loadResult.exitCode === 0) {
+          await waitForDaemonReady(testEnv);
 
-        // Start worker
-        const startWorker = await uniqueExecCLI(['start', 'e2e-worker'], {
-          timeout: PROCESS_STARTUP_TIMEOUT,
-        });
-        expect(startWorker.exitCode).toBe(0);
+          // Check initial status (empty)
+          const initialList = await testExecCLI(['list']);
+          expect(initialList.exitCode).toBe(0);
 
-        await sleep(3000);
+          // Start application
+          const startResult = await testExecCLI(['start', 'e2e-test-app'], {
+            timeout: PROCESS_STARTUP_TIMEOUT,
+          });
+          expect(startResult.exitCode).toBe(0);
 
-        // Check namespace separation
-        const e2eList = await uniqueExecCLI(['list', '-n', 'e2e-test']);
-        const workersList = await uniqueExecCLI(['list', '-n', 'workers']);
+          await sleep(2000);
 
-        expect(e2eList.exitCode).toBe(0);
-        expect(workersList.exitCode).toBe(0);
+          // Check status (running)
+          const runningList = await testExecCLI(['list']);
+          expect(runningList.exitCode).toBe(0);
+          expect(runningList.stdout).toContain('e2e-test-app');
 
-        expect(e2eList.stdout).not.toContain('e2e-worker');
-        expect(workersList.stdout).not.toContain('e2e-test-app');
+          // Restart application
+          const restartResult = await testExecCLI(['restart', 'e2e-test-app'], {
+            timeout: PROCESS_STARTUP_TIMEOUT,
+          });
+          expect(restartResult.exitCode).toBe(0);
 
-        // Stop by namespace
-        const stopE2E = await uniqueExecCLI(['stop', '-n', 'e2e-test']);
-        expect(stopE2E.exitCode).toBe(0);
+          // Stop application
+          const stopResult = await testExecCLI(['stop', 'e2e-test-app']);
+          expect(stopResult.exitCode).toBe(0);
 
-        // Clean up daemon
-        await uniqueExecCLI(['exit'], { timeout: 5000 }).catch(() => {});
-      }, 600000); // 10 minutes for multi-namespace deployment scenario
-
-      test('should handle development workflow scenario', async () => {
-        // Create unique socket path to avoid resource contention in full test suite
-        const uniqueSocketPath = createUniqueSocketPath(
-          'dev-workflow',
-          Date.now()
-        );
-        const uniqueEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
-        const uniqueExecCLI = createTestExecCLI(uniqueEnv);
-
-        // Developer loads config and starts working
-        await uniqueExecCLI(['load', testConfigPath], {
-          timeout: 30000, // 30 seconds for daemon load in development workflow
-        });
-        await waitForDaemonReady(uniqueEnv, 15000); // 15 seconds for fast failure detection
-
-        // Start development services
-        await uniqueExecCLI(['start', 'e2e-test-app', 'e2e-test-app-2'], {
-          timeout: PROCESS_STARTUP_TIMEOUT,
-        });
-        await sleep(2000);
-
-        // Simulate code changes requiring restart
-        const restartDev = await uniqueExecCLI(['restart', 'e2e-test-app'], {
-          timeout: PROCESS_STARTUP_TIMEOUT,
-        });
-        expect(restartDev.exitCode).toBe(0);
-
-        // End of development session
-        const stopAll = await uniqueExecCLI(['stop', '--all']);
-        expect(stopAll.exitCode).toBe(0);
-
-        const exit = await uniqueExecCLI(['exit']);
-        expect(exit.exitCode).toBe(0);
-      }, 600000); // 10 minutes for development workflow scenario
-    }
-  );
-
-  describe(
-    'Performance and Timeout Testing',
-    () => {
-      test('should complete basic commands within reasonable time', async () => {
-        // Create unique socket path to avoid resource contention in full test suite
-        const uniqueSocketPath = createUniqueSocketPath(
-          'performance',
-          Date.now()
-        );
-        const uniqueEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
-        const uniqueExecCLI = createTestExecCLI(uniqueEnv);
-
-        await uniqueExecCLI(['load', minimalConfigPath], {
-          timeout: 30000, // 30 seconds for daemon load in performance tests
-        });
-        await waitForDaemonReady(uniqueEnv, 15000); // 15 seconds for fast failure detection
-
-        const commands = [
-          { cmd: ['list'], maxTime: 2000 },
-          { cmd: ['start', 'minimal-app'], maxTime: 5000 },
-          { cmd: ['list'], maxTime: 2000 },
-          { cmd: ['stop', 'minimal-app'], maxTime: 3000 },
-          { cmd: ['exit'], maxTime: 3000 },
-        ];
-
-        for (const { cmd, maxTime } of commands) {
-          const result = await uniqueExecCLI(cmd, { timeout: maxTime });
-          expect(result.exitCode).toBe(0);
-          expect(result.duration).toBeLessThan(maxTime);
+          // Exit daemon
+          const exitResult = await testExecCLI(['exit']);
+          expect(exitResult.exitCode).toBe(0);
         }
-      }, 600000); // 10 minutes for performance test - needs time for daemon startup
-    }
-  );
+      },
+      DAEMON_STARTUP_TIMEOUT + PROCESS_STARTUP_TIMEOUT * 2 + 10000
+    );
+
+    test('should handle multi-namespace deployment scenario', async () => {
+      // Create unique socket path to avoid resource contention in full test suite
+      const uniqueSocketPath = createUniqueSocketPath(
+        'multi-namespace',
+        Date.now()
+      );
+      const uniqueEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
+      const uniqueExecCLI = createTestExecCLI(uniqueEnv);
+
+      // Load configuration
+      await uniqueExecCLI(['load', testConfigPath], {
+        timeout: 30000, // 30 seconds for daemon load in multi-namespace scenario
+      });
+      await waitForDaemonReady(uniqueEnv, 15000); // 15 seconds for fast failure detection
+
+      // Start all apps in e2e-test namespace
+      const startE2E = await uniqueExecCLI(['start', '-n', 'e2e-test'], {
+        timeout: PROCESS_STARTUP_TIMEOUT,
+      });
+      expect(startE2E.exitCode).toBe(0);
+
+      // Start worker
+      const startWorker = await uniqueExecCLI(['start', 'e2e-worker'], {
+        timeout: PROCESS_STARTUP_TIMEOUT,
+      });
+      expect(startWorker.exitCode).toBe(0);
+
+      await sleep(3000);
+
+      // Check namespace separation
+      const e2eList = await uniqueExecCLI(['list', '-n', 'e2e-test']);
+      const workersList = await uniqueExecCLI(['list', '-n', 'workers']);
+
+      expect(e2eList.exitCode).toBe(0);
+      expect(workersList.exitCode).toBe(0);
+
+      expect(e2eList.stdout).not.toContain('e2e-worker');
+      expect(workersList.stdout).not.toContain('e2e-test-app');
+
+      // Stop by namespace
+      const stopE2E = await uniqueExecCLI(['stop', '-n', 'e2e-test']);
+      expect(stopE2E.exitCode).toBe(0);
+
+      // Clean up daemon
+      await uniqueExecCLI(['exit'], { timeout: 5000 }).catch(() => {});
+    }, 600000); // 10 minutes for multi-namespace deployment scenario
+
+    test('should handle development workflow scenario', async () => {
+      // Create unique socket path to avoid resource contention in full test suite
+      const uniqueSocketPath = createUniqueSocketPath(
+        'dev-workflow',
+        Date.now()
+      );
+      const uniqueEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
+      const uniqueExecCLI = createTestExecCLI(uniqueEnv);
+
+      // Developer loads config and starts working
+      await uniqueExecCLI(['load', testConfigPath], {
+        timeout: 30000, // 30 seconds for daemon load in development workflow
+      });
+      await waitForDaemonReady(uniqueEnv, 15000); // 15 seconds for fast failure detection
+
+      // Start development services
+      await uniqueExecCLI(['start', 'e2e-test-app', 'e2e-test-app-2'], {
+        timeout: PROCESS_STARTUP_TIMEOUT,
+      });
+      await sleep(2000);
+
+      // Simulate code changes requiring restart
+      const restartDev = await uniqueExecCLI(['restart', 'e2e-test-app'], {
+        timeout: PROCESS_STARTUP_TIMEOUT,
+      });
+      expect(restartDev.exitCode).toBe(0);
+
+      // End of development session
+      const stopAll = await uniqueExecCLI(['stop', '--all']);
+      expect(stopAll.exitCode).toBe(0);
+
+      const exit = await uniqueExecCLI(['exit']);
+      expect(exit.exitCode).toBe(0);
+    }, 600000); // 10 minutes for development workflow scenario
+  });
+
+  describe('Performance and Timeout Testing', () => {
+    test('should complete basic commands within reasonable time', async () => {
+      // Create unique socket path to avoid resource contention in full test suite
+      const uniqueSocketPath = createUniqueSocketPath(
+        'performance',
+        Date.now()
+      );
+      const uniqueEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
+      const uniqueExecCLI = createTestExecCLI(uniqueEnv);
+
+      await uniqueExecCLI(['load', minimalConfigPath], {
+        timeout: 30000, // 30 seconds for daemon load in performance tests
+      });
+      await waitForDaemonReady(uniqueEnv, 15000); // 15 seconds for fast failure detection
+
+      const commands = [
+        { cmd: ['list'], maxTime: 2000 },
+        { cmd: ['start', 'minimal-app'], maxTime: 5000 },
+        { cmd: ['list'], maxTime: 2000 },
+        { cmd: ['stop', 'minimal-app'], maxTime: 3000 },
+        { cmd: ['exit'], maxTime: 3000 },
+      ];
+
+      for (const { cmd, maxTime } of commands) {
+        const result = await uniqueExecCLI(cmd, { timeout: maxTime });
+        expect(result.exitCode).toBe(0);
+        expect(result.duration).toBeLessThan(maxTime);
+      }
+    }, 600000); // 10 minutes for performance test - needs time for daemon startup
+  });
 });

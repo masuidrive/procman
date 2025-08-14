@@ -27,6 +27,7 @@ export interface ConfigLoaderOptions {
   enableCache?: boolean;
   enableReporting?: boolean;
   moduleLoader?: (path: string) => unknown;
+  fileWatcher?: ConfigWatcher;
 }
 
 export type {
@@ -64,6 +65,9 @@ export class ConfigLoader extends EventEmitter {
       enableCache: options.enableCache ?? true,
       enableReporting: options.enableReporting ?? false,
       moduleLoader: options.moduleLoader ?? this.dynamicRequire.bind(this),
+      fileWatcher:
+        options.fileWatcher ??
+        new ConfigWatcher({ interval: 1000, persistent: true }),
     };
 
     this.moduleLoader = this.options.moduleLoader;
@@ -77,7 +81,7 @@ export class ConfigLoader extends EventEmitter {
       baseDirectory: cwd,
       expandEnvironmentVariables: true,
     });
-    this.watcher = new ConfigWatcher({ interval: 1000, persistent: true });
+    this.watcher = this.options.fileWatcher;
     this.reporter = new ConfigReporter({
       includeSuggestions: true,
       maxIssues: 100,

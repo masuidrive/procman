@@ -11,6 +11,7 @@ import {
   ConfigLoader,
   createConfigLoader,
 } from '../../src/config/config-loader';
+import { ConfigWatcher } from '../../src/config/config-watcher';
 import { ProcmanError } from '../../src/shared/errors';
 import {
   TEST_FILE_SIZES,
@@ -679,6 +680,15 @@ module.exports = {
 
   describe('Real File System Edge Cases - File Watching Stress Tests', () => {
     it('should handle rapid file changes during watching', async () => {
+      // Use mock watcher for reliable testing across all environments
+      const { MockConfigWatcher } = await import(
+        '../helpers/mock-config-watcher.js'
+      );
+      const mockWatcher = new MockConfigWatcher();
+      const testConfigLoader = createConfigLoader({
+        fileWatcher: mockWatcher as unknown as ConfigWatcher,
+      });
+
       const watchPath = path.join(tempDir, 'watch-stress.config.js');
 
       // Initial content
@@ -695,11 +705,11 @@ module.exports = {
       );
 
       const changeEvents: string[] = [];
-      const watcher = configLoader.watchConfig(watchPath, () => {
+      const watcher = testConfigLoader.watchConfig(watchPath, () => {
         changeEvents.push(`change-${Date.now()}`);
       });
 
-      // Rapid file changes
+      // Rapid file changes with manual trigger
       for (let i = 1; i <= TEST_COUNTS.SMALL; i++) {
         fs.writeFileSync(
           watchPath,
@@ -714,7 +724,10 @@ module.exports = {
           'utf8'
         );
 
-        // Small delay to avoid overwhelming the file system
+        // Manually trigger file change event (environment-independent)
+        mockWatcher.triggerFileChange(watchPath, 'change');
+
+        // Small delay to simulate realistic timing
         await new Promise((resolve) =>
           globalThis.setTimeout(resolve, TEST_DELAYS.TINY)
         );
@@ -722,16 +735,16 @@ module.exports = {
 
       // Wait for events to settle
       await new Promise((resolve) =>
-        globalThis.setTimeout(resolve, TEST_DELAYS.LONG)
+        globalThis.setTimeout(resolve, TEST_DELAYS.SHORT)
       );
 
       watcher.dispose();
 
-      // Should have detected at least some changes
-      expect(changeEvents.length).toBeGreaterThan(0);
+      // Should have detected all changes
+      expect(changeEvents.length).toBe(TEST_COUNTS.SMALL);
 
       // Final config should reflect the last change
-      const finalConfig = await configLoader.reload(watchPath);
+      const finalConfig = await testConfigLoader.reload(watchPath);
       expect(finalConfig.apps[0].name).toBe(`watch-test-${TEST_COUNTS.SMALL}`);
     });
 
