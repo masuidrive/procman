@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo -e \"\\n\\n---\\nPlease work following \\`<development-workflow>\\`\""
+            "command": "echo -e \"\\n\\n---\\nPlease work following \\`<development-workflow>\\` and agents\""
           },
           {
             "type": "command",

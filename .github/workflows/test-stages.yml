@@ -106,11 +106,11 @@ jobs:
       - name: Run Full Test Suite (All tests including Integration + Boundary + E2E)
         run: |
           echo "========== Stage 3: Full Tests =========="
-          echo "Running complete test suite"
+          echo "Running complete test suite with CI-optimized E2E tests"
           npx vitest run \
             tests \
             --reporter=verbose --no-coverage --run
-        timeout-minutes: 25
+        timeout-minutes: 15
 
       - name: Generate Test Report
         if: always()
