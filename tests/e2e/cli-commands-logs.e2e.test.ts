@@ -36,6 +36,12 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('CLI Log Commands E2E Tests', () => {
+  // Set timeout for tests and hooks - critical for CI stability
+  vi.setConfig({ 
+    testTimeout: 90000,  // 90 seconds for test execution
+    hookTimeout: 60000   // 60 seconds for setup/teardown hooks
+  });
+
   let testDir: string;
   let testSocketPath: string;
   let testEnv: Record<string, string>;
@@ -212,7 +218,7 @@ describe('CLI Log Commands E2E Tests', () => {
     });
   });
 
-  describe.skipIf(process.env.CI === 'true')(
+  describe(
     'Log Command Advanced Scenarios',
     () => {
       test('should handle log command with various format options', async () => {
@@ -291,7 +297,7 @@ describe('CLI Log Commands E2E Tests', () => {
     }
   );
 
-  describe.skipIf(process.env.CI === 'true')(
+  describe(
     'Log Streaming Advanced Scenarios',
     () => {
       test(

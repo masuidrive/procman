@@ -34,6 +34,12 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('Basic CLI Commands E2E Tests', () => {
+  // Set timeout for tests and hooks - critical for CI stability
+  vi.setConfig({ 
+    testTimeout: 90000,  // 90 seconds for test execution
+    hookTimeout: 60000   // 60 seconds for setup/teardown hooks
+  });
+
   let testDir: string;
   let testSocketPath: string;
   let testEnv: Record<string, string>;

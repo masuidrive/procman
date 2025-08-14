@@ -42,8 +42,11 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('CLI Advanced Scenarios E2E Tests', () => {
-  // Set default timeout for all tests in this suite
-  vi.setConfig({ testTimeout: 90000 });
+  // Set timeout for tests and hooks - critical for CI stability
+  vi.setConfig({ 
+    testTimeout: 90000,  // 90 seconds for test execution
+    hookTimeout: 60000   // 60 seconds for setup/teardown hooks
+  });
 
   let testDir: string;
   let testConfigPath: string;
@@ -401,7 +404,7 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
     });
   });
 
-  describe.skipIf(process.env.CI === 'true')(
+  describe(
     'Complex Workflow Scenarios',
     () => {
       test('should handle rapid daemon restart scenarios', async () => {

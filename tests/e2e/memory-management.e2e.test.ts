@@ -27,8 +27,11 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('Memory Management E2E Tests', () => {
-  // Set default timeout for all tests in this suite
-  vi.setConfig({ testTimeout: 90000 });
+  // Set timeout for tests and hooks - critical for CI stability
+  vi.setConfig({ 
+    testTimeout: 90000,  // 90 seconds for test execution
+    hookTimeout: 60000   // 60 seconds for setup/teardown hooks
+  });
 
   let testDir: string;
   let testSocketPath: string;
@@ -75,7 +78,7 @@ describe('Memory Management E2E Tests', () => {
   });
 
   describe('Process Memory Limit Auto-Restart', () => {
-    test.skipIf(process.env.CI === 'true')(
+    test(
       'should auto-restart process when max_memory_restart is exceeded',
       async () => {
         // Create a test script that consumes memory rapidly for faster testing
