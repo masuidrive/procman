@@ -328,7 +328,7 @@ describe('IPC Communication Boundary Tests', () => {
 
     test(
       'should handle extremely large message payloads',
-      { timeout: 15000, skip: process.env.CI === 'true' },
+      { timeout: 30000 },
       async () => {
         const testStartTime = Date.now();
         console.log(`[TIMING] Test started at: ${new Date().toISOString()}`);
@@ -481,7 +481,7 @@ describe('IPC Communication Boundary Tests', () => {
 
     test(
       'should handle maximum message queue overflow',
-      { timeout: 15000, skip: process.env.CI === 'true' },
+      { timeout: 30000 },
       async () => {
         // Arrange: Set up connection with slow handler
         server = IPCFactory.createServer({ path: socketPath });
@@ -1050,7 +1050,7 @@ describe('IPC Communication Boundary Tests', () => {
 
     test(
       'should handle memory pressure during large message processing',
-      { timeout: 15000, skip: process.env.CI === 'true' },
+      { timeout: 30000 },
       async () => {
         // Arrange: Set up connection
         server = IPCFactory.createServer({ path: socketPath });

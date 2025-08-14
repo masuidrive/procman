@@ -145,6 +145,11 @@ GitHub ActionsでCI環境の最小限テスト（131テスト、283ms）を完�
 - [x] CI環境でのE2Eテスト限定実行（代表的なルートのみチェック）
 - [x] GitHub ActionsでE2E最適化効果の検証実行
 - [x] Memory Management E2Eテストのローカル失敗問題の修正完了
+- [x] CI環境でのE2EテストafterEachフックタイムアウト問題の根本解決
+- [x] cleanupDaemon関数の設計欠陥修正（Promise.race問題、環境依存性排除）
+- [x] 全E2EテストファイルのhookTimeout設定適正化（30秒→60秒）
+- [x] 同様の環境依存問題の包括調査と修正（境界テストのCI skip削除等）
+- [x] 最終的な環境依存問題の解決とCI最適化の完成
 
 ## Wireframes
 
@@ -426,7 +431,7 @@ Additional notes or requirements.
 
 **重要**: 実際のタグ作成とnpm公開は保留中。すべての準備が完了し、ユーザーの明示的な指示後に実施予定。
 
-### Phase 6: CI Performance Enhancement 進捗報告（2025-08-13）:
+### Phase 6: CI Performance Enhancement 完了報告（2025-08-14）:
 
 **段階的テスト実行戦略（Essential→Core→Full）実装完了:**
 
@@ -549,5 +554,37 @@ Additional notes or requirements.
 - Unit Tests: **778 passed, 0 failed** ✅
 - 全ての data-directory.test.ts テストが pass
 - Test 環境汚染問題の根本解決
+
+### Phase 6: CI Performance Enhancement 最終完了報告（2025-08-14）:
+
+**環境依存問題の包括的解決完了:**
+
+**修正対象と解決内容:**
+1. **E2E Tests 根本的なクリーンアップ問題**:
+   - `cleanupDaemon`関数のPromise.race設計欠陥を修正
+   - CI環境では1.5秒タイムアウトで常に失敗→SIGTERM/SIGKILL による高速クリーンアップ（0.5-1秒完了）
+   - 全E2EテストファイルでhookTimeout: 60000設定（30秒デフォルトから拡張）
+
+2. **境界テストのCI Skip削除**:
+   - `/tests/boundary/config-loader-boundary.test.ts`のファイル監視テストCI skip削除
+   - 全環境での一貫性テスト実行を実現
+
+3. **検証済み解決項目**:
+   - ✅ **Memory Management E2E**: 30MB制限vs150MB消費で確実な再起動検出
+   - ✅ **CLI Commands Lifecycle**: Promise.race問題削除、適切なタイムアウト設定
+   - ✅ **IPC Communication Boundary**: 30秒テストタイムアウト維持（適正）
+   - ✅ **All E2E Files**: hookTimeout 60秒、testTimeout 90秒で安定動作
+
+**最終成果:**
+- **CI実行時間短縮**: E2E AfterEach タイムアウト問題解決により大幅改善
+- **テスト安定性向上**: 環境依存によるCI失敗を根本解決
+- **一貫性確保**: Local/CI環境での同一テスト実行（skip設定削除）
+- **根本解決**: Workaround（CI skip）ではなく原因修正によるアプローチ
+
+**技術的改善点:**
+- cleanupDaemon関数の環境適応設計
+- Unix socketとプロセス終了の適切な実装
+- CI環境リソース制約を考慮したタイムアウト戦略
+- 段階的テスト実行（Essential→Core→Full）の確立
 
 </working-notes>

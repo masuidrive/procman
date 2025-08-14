@@ -98,14 +98,9 @@ describe('CLI Lifecycle Commands E2E Tests', () => {
   });
 
   afterEach(async () => {
-    // Cleanup daemon and test directory with timeout handling
+    // Cleanup daemon and test directory - improved cleanup handles timeouts internally
     try {
-      await Promise.race([
-        cleanupDaemon(testEnv),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Cleanup timeout')), 15000)
-        ),
-      ]);
+      await cleanupDaemon(testEnv);
     } catch (error) {
       console.log(
         'Daemon cleanup error (continuing):',
