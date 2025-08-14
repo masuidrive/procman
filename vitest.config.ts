@@ -6,12 +6,14 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.{test,spec}.{js,ts}'],
     exclude: ['node_modules', 'dist'],
-    // Prevent memory issues
+    // Prevent memory issues and resource contention
     pool: 'forks',
     poolOptions: {
       forks: {
         singleFork: true,
-        maxForks: 2,
+        // E2E tests need sequential execution to avoid socket path conflicts
+        // Unit/Integration tests can use parallel execution for speed
+        maxForks: process.env.CI ? 1 : 2,
       }
     },
     isolate: true,
