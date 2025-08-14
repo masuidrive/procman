@@ -1,0 +1,75 @@
+name: Minimal E2E Performance Test
+on:
+  workflow_dispatch:
+
+jobs:
+  minimal-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Run Minimal E2E Performance Tests
+        run: |
+          echo "=========================================="
+          echo "Minimal E2E Performance Test"
+          echo "=========================================="
+          echo "Date: $(date)"
+          echo "Node: $(node --version)"
+          echo "NPM: $(npm --version)"
+          echo "Runner: $RUNNER_NAME"
+          echo "OS: $RUNNER_OS"
+          echo "=========================================="
+          
+          echo ""
+          echo "Test 1: Help command (no daemon required)"
+          echo "------------------------------------------"
+          echo "Run 1:"
+          time npx vitest run tests/e2e/cli-commands-basic.e2e.test.ts --testNamePattern="should display comprehensive help information" --reporter=verbose --no-coverage --run
+          
+          echo ""
+          echo "Run 2:"
+          time npx vitest run tests/e2e/cli-commands-basic.e2e.test.ts --testNamePattern="should display comprehensive help information" --reporter=verbose --no-coverage --run
+          
+          echo ""
+          echo "Run 3:"
+          time npx vitest run tests/e2e/cli-commands-basic.e2e.test.ts --testNamePattern="should display comprehensive help information" --reporter=verbose --no-coverage --run
+          
+          echo ""
+          echo "Test 2: Basic daemon lifecycle"
+          echo "------------------------------------------"
+          echo "Run 1:"
+          time npx vitest run tests/e2e/cli-commands-lifecycle.e2e.test.ts --testNamePattern="should attempt to load configuration file" --reporter=verbose --no-coverage --run
+          
+          echo ""
+          echo "Run 2:"
+          time npx vitest run tests/e2e/cli-commands-lifecycle.e2e.test.ts --testNamePattern="should attempt to load configuration file" --reporter=verbose --no-coverage --run
+          
+          echo ""
+          echo "Run 3:"
+          time npx vitest run tests/e2e/cli-commands-lifecycle.e2e.test.ts --testNamePattern="should attempt to load configuration file" --reporter=verbose --no-coverage --run
+          
+      - name: System Information
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "System Information"
+          echo "=========================================="
+          uname -a
+          cat /proc/cpuinfo | grep "model name" | head -1
+          free -h
+          df -h
+          echo "=========================================="
