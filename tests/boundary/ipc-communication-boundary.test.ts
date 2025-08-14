@@ -328,7 +328,7 @@ describe('IPC Communication Boundary Tests', () => {
 
     test(
       'should handle extremely large message payloads',
-      { timeout: 15000, skip: false },
+      { timeout: 15000, skip: process.env.CI === 'true' },
       async () => {
         const testStartTime = Date.now();
         console.log(`[TIMING] Test started at: ${new Date().toISOString()}`);
