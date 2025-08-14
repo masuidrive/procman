@@ -208,10 +208,10 @@ IPC通信境界テストの"should handle extremely large message payloads"テ�
   - [x] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-lifecycle.e2e.test.ts）
   - [x] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-lifecycle.e2e.test.ts）
   - [x] 実行時間記録：ローカル: 70.29秒、CI: 20.76秒
-- [ ] Phase 11.3: 高度機能E2Eテスト完全実行（cli-commands-advanced.e2e.test.ts - 14テスト）
-  - [ ] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-advanced.e2e.test.ts）
-  - [ ] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-advanced.e2e.test.ts）
-  - [ ] 実行時間記録：ローカル: __秒、CI: __秒
+- [x] Phase 11.3: 高度機能E2Eテスト完全実行（cli-commands-advanced.e2e.test.ts - 14テスト）
+  - [x] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-advanced.e2e.test.ts）
+  - [x] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-advanced.e2e.test.ts）
+  - [x] 実行時間記録：ローカル: 33.30秒、CI: 22.44秒
 - [ ] Phase 11.4: ログ機能E2Eテスト完全実行（cli-commands-logs.e2e.test.ts - 19テスト）
   - [ ] ローカル環境実行（./bin/test-e2e.sh tests/e2e/cli-commands-logs.e2e.test.ts）
   - [ ] CI環境実行（該当テストのみ: npx vitest run tests/e2e/cli-commands-logs.e2e.test.ts）
