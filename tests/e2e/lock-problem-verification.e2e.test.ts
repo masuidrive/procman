@@ -16,7 +16,8 @@ import {
   execCLI,
   setupTestDirectory,
   cleanupTestDirectory,
-  startDaemonWithRetry
+  startDaemonWithCoordination,
+  createTestExecCLI
 } from './shared/cli-commands-shared';
 
 vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
@@ -145,8 +146,11 @@ describe('Lock Problem Resolution Verification', () => {
     });
 
     test('should handle daemon lifecycle with unique socket path', async () => {
+      // Create test-specific execCLI wrapper
+      const testExecCLI = createTestExecCLI(testEnv);
+      
       // Start daemon with unique environment
-      await startDaemonWithRetry(configPath, testEnv);
+      await startDaemonWithCoordination(testExecCLI, configPath, { env: testEnv });
       
       // Verify daemon is running with our unique socket
       const listResult = await execCLI(['list'], { env: testEnv });
