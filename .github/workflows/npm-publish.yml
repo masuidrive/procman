@@ -6,7 +6,46 @@ on:
       - 'v*'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node-version }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install C compiler for E2E tests
+        run: sudo apt-get update && sudo apt-get install -y gcc
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Build project
+        run: npm run build
+
+      - name: Run complete test suite
+        run: npx vitest run tests --reporter=verbose --no-coverage --run
+        timeout-minutes: 12
+
   publish-npm:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -29,14 +68,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linter
-        run: npm run lint
-
       - name: Build project
         run: npm run build
-
-      - name: Run minimal unit tests (basic functionality only)
-        run: npx vitest run tests/shared tests/cli.test.ts tests/example.test.ts --exclude "tests/e2e/**" --exclude "tests/integration/**"
 
       - name: Publish to npm
         run: npm publish
@@ -44,14 +77,12 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           body: |
-            Release notes for ${{ github.ref }}
+            Release notes for ${{ github.ref_name }}
             
             ## Changes
             
@@ -68,5 +99,12 @@ jobs:
             ```bash
             npm install -g @masuidrive/procman
             ```
+            
+            ## Requirements
+            
+            - Node.js 18.x or higher
+            - Unix-like systems (Linux, macOS) or Windows with WSL
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
