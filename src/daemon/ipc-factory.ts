@@ -92,6 +92,7 @@ export class IPCFactory {
    */
   static getDefaultIPCPath(): string {
     // Debug logging only when DEBUG_IPC environment variable is set
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const debug = (message: string, data?: any): void => {
       if (process.env.DEBUG_IPC) {
         console.error(
@@ -176,6 +177,7 @@ export class IPCFactory {
    */
   private static expandPath(filePath: string): string {
     // Debug logging only when DEBUG_IPC environment variable is set
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const debug = (message: string, data?: any): void => {
       if (process.env.DEBUG_IPC) {
         console.error(

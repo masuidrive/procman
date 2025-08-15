@@ -55,6 +55,7 @@ export class UnixSocketClient extends IPCClientBase {
     const connectStartTime = Date.now();
 
     // Debug logging only when DEBUG_IPC environment variable is set
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const debug = (message: string, data?: any): void => {
       if (process.env.DEBUG_IPC) {
         console.error(
