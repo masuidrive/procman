@@ -414,6 +414,14 @@ Additional notes or requirements.
 
 ### Phase 3 完了報告（2025-08-12）:
 
+### 統合テスト修正作業（2025-08-15）:
+**修正内容:**
+- `tests/integration/process-manager.integration.test.ts:222` のメモリ期待値修正
+- '1G' 設定（1GB = 1073741824 bytes）に対して正しい期待値（TEST_MEMORY_SIZES.HUGE の 2GB ではなく実際の 1GB）を使用
+- CI環境でのメモリ倍率設定とは無関係に、文字列 '1G' は常に1GBとしてパースされることを確認
+**テスト結果:**
+- 修正後、統合テストが全て通過することを確認
+
 **作成したファイル:**
 
 - .github/workflows/npm-publish.yml: GitHub Actions自動公開ワークフロー
@@ -1086,18 +1094,23 @@ CI実行結果: https://github.com/masuidrive/procman/actions/runs/16980528604/j
 - [x] graceful-shutdown-integration.test.ts の process.exit モック問題修正
 - [x] SignalHandler非同期イベントハンドラーの適切な処理実装
 - [x] Unhandled Rejection エラーの完全解消
+- [x] process-manager.integration.test.ts のメモリサイズアサーション修正
+- [x] TypeScript型互換性エラー修正（process.exit型定義）
+- [x] Prettier書式エラー修正完了
 - [x] CI環境での全テスト成功確認（Failed=0達成）
 - [x] ローカル・CI環境両方での安定動作検証
 
 **Phase 12完了結果（2025-08-15）:**
 
+- ✅ **成功CI実行**: https://github.com/masuidrive/procman/actions/runs/16995350929
 - ✅ **Unhandled Rejection問題の根本解決**: process.exitモックのエラースロー除去
+- ✅ **メモリサイズアサーション修正**: CI環境での期待値不一致解消
 - ✅ **完全テスト成功**: Unit 788 + Integration 70 + E2E 161 = 1019テスト全て Pass
 - ✅ **ESLintエラーゼロ**: Prettierフォーマット修正で4エラー解消
 - ✅ **TypeScript型安全性**: process.exit型定義修正で型エラー解消
 - ✅ **CI環境準備完了**: ローカル・CI両環境でFailed=0達成確認
 - ✅ **最終検証完了**: 全テストスイート（Unit/Integration/E2E）でFailed=0, Errors=0確認
-- 対象: process.exitモックの実装問題、SignalHandlerクリーンアップの強化
+- 対象: process.exitモック、メモリサイズアサーション、TypeScript型互換性、Prettier書式
 - 成果: CI環境で8テスト失敗→0失敗、全1019テストでFailed=0 + エラーゼロの完全達成
 
 </working-notes>
