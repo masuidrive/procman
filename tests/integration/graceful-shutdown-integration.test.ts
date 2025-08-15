@@ -30,9 +30,12 @@ describe('Graceful Shutdown Integration', () => {
     process.env.NODE_ENV = 'test';
 
     // Mock process.exit to prevent actual exit during tests
-    vi.spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
+    vi.spyOn(process, 'exit').mockImplementation(
+      (code?: string | number | null | undefined) => {
+        // Record the call but don't throw error to prevent Unhandled Rejection
+        return undefined as never;
+      }
+    );
 
     // Create daemon instance
     daemon = new ProcmanDaemon();

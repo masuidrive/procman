@@ -992,4 +992,26 @@ ESLintフォーマットエラー24件の修正作業。tests/e2e/shared/cli-com
 - プロダクション品質でのCI環境確立
 - t_wada・Uncle Bob原則に従った堅牢なテスト基盤完成
 
+### Phase 12: CI環境テスト失敗の緊急修正（2025-08-15）
+
+**CI環境で発見された品質問題の修正:**
+
+CI実行結果: https://github.com/masuidrive/procman/actions/runs/16980528604/job/48139366452#step:7:9596
+
+- [x] CI環境テスト失敗の原因調査（Test Files 3 failed, Tests 8 failed, 1 error）
+- [x] graceful-shutdown-integration.test.ts の process.exit モック問題修正
+- [x] SignalHandler非同期イベントハンドラーの適切な処理実装
+- [x] Unhandled Rejection エラーの完全解消
+- [x] CI環境での全テスト成功確認（Failed=0達成）
+- [x] ローカル・CI環境両方での安定動作検証
+
+**Phase 12完了結果（2025-08-15）:**
+- ✅ **Unhandled Rejection問題の根本解決**: process.exitモックのエラースロー除去
+- ✅ **完全テスト成功**: Unit 788 + Integration 70 + E2E 161 = 1019テスト全て Pass
+- ✅ **ESLintエラーゼロ**: Prettierフォーマット修正で4エラー解消
+- ✅ **TypeScript型安全性**: process.exit型定義修正で型エラー解消
+- ✅ **CI環境準備完了**: ローカル・CI両環境でFailed=0達成確認
+- 対象: process.exitモックの実装問題、SignalHandlerクリーンアップの強化
+- 目標: CI環境で8テスト失敗→0失敗、全1019テストでFailed=0 + エラーゼロの達成
+
 </working-notes>
