@@ -163,7 +163,7 @@ export const createUniqueSocketPath = (
   const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
   const processId = process.pid.toString();
   const timestamp = Date.now().toString();
-  
+
   const testTempDir = path.join(
     os.tmpdir(),
     `procman-concurrent-test-${prefix}-${processId}-${timestamp}-${uniqueId}-${index}`
@@ -180,8 +180,11 @@ export const createUniqueHomeDir = (prefix: string, index: number): string => {
   const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
   const processId = process.pid.toString();
   const timestamp = Date.now().toString();
-  
-  return path.join(os.tmpdir(), `procman-home-${prefix}-${processId}-${timestamp}-${uniqueId}-${index}`);
+
+  return path.join(
+    os.tmpdir(),
+    `procman-home-${prefix}-${processId}-${timestamp}-${uniqueId}-${index}`
+  );
 };
 
 /**
@@ -191,35 +194,43 @@ export const createUniqueHomeDir = (prefix: string, index: number): string => {
 export class ParallelTestResourceManager {
   private static activeTests = new Set<string>();
   private static maxConcurrentTests = 4; // Increased for maxForks=2 parallel execution
-  
-  static async acquireTestSlot(testId: string, timeoutMs: number = 30000): Promise<void> {
+
+  static async acquireTestSlot(
+    testId: string,
+    timeoutMs: number = 30000
+  ): Promise<void> {
     const startTime = Date.now();
-    
+
     // Wait for available slot if all slots are occupied
     while (this.activeTests.size >= this.maxConcurrentTests) {
       // Check timeout
       if (Date.now() - startTime > timeoutMs) {
-        throw new Error(`Test slot acquisition timed out after ${timeoutMs}ms for ${testId}. Active tests: ${Array.from(this.activeTests).join(', ')}`);
+        throw new Error(
+          `Test slot acquisition timed out after ${timeoutMs}ms for ${testId}. Active tests: ${Array.from(this.activeTests).join(', ')}`
+        );
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    
+
     this.activeTests.add(testId);
   }
-  
+
   static releaseTestSlot(testId: string): void {
     this.activeTests.delete(testId);
   }
-  
+
   static getActiveTestCount(): number {
     return this.activeTests.size;
   }
-  
+
   /**
    * Smart cleanup with resource-aware timeout management
    */
-  static async smartCleanupDaemon(env: Record<string, string>, testId: string): Promise<void> {
+  static async smartCleanupDaemon(
+    env: Record<string, string>,
+    testId: string
+  ): Promise<void> {
     try {
       await cleanupDaemon(env);
     } finally {
@@ -732,13 +743,13 @@ export const setupTestEnvironment = async () => {
   const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
   const processId = process.pid.toString();
   const timestamp = Date.now().toString();
-  
+
   // Create unique directory path with multiple entropy sources
   const testTempDir = path.join(
-    os.tmpdir(), 
+    os.tmpdir(),
     `procman-e2e-test-${processId}-${timestamp}-${uniqueId}`
   );
-  
+
   await fs.mkdir(testTempDir, { recursive: true });
 
   const testSocketPath = path.join(testTempDir, 'procman.sock');
@@ -760,7 +771,7 @@ export const setupTestDirectory = async () => {
   const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
   const processId = process.pid.toString();
   const timestamp = Date.now().toString();
-  
+
   // Create unique directory path with multiple entropy sources
   const testDir = path.join(
     os.tmpdir(),
@@ -806,7 +817,9 @@ export const cleanupTestDirectory = async (testDir: string) => {
  * Enhanced test environment setup with resource management and collision prevention
  * Addresses socket path conflicts and system resource competition in parallel execution
  */
-export const setupParallelTestEnvironment = async (testId?: string): Promise<{
+export const setupParallelTestEnvironment = async (
+  testId?: string
+): Promise<{
   testTempDir: string;
   testSocketPath: string;
   testEnv: Record<string, string>;
@@ -814,13 +827,13 @@ export const setupParallelTestEnvironment = async (testId?: string): Promise<{
 }> => {
   // Generate globally unique test identifier
   const generatedTestId = testId || crypto.randomUUID();
-  
+
   // Acquire test slot for resource management
   await ParallelTestResourceManager.acquireTestSlot(generatedTestId);
-  
+
   // Setup environment with enhanced uniqueness
   const { testTempDir, testSocketPath, testEnv } = await setupTestEnvironment();
-  
+
   return { testTempDir, testSocketPath, testEnv, testId: generatedTestId };
 };
 
@@ -841,7 +854,7 @@ export const cleanupParallelTestEnvironment = async (
       // Just release the resource slot if env is invalid
       ParallelTestResourceManager.releaseTestSlot(testId);
     }
-    
+
     // Clean up temporary directory
     if (testTempDir) {
       await cleanupTestDirectory(testTempDir);
