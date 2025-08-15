@@ -204,14 +204,14 @@ describe('Lock Problem Resolution Verification', () => {
   describe('Resource Management Performance', () => {
     test('should handle resource slot contention gracefully', async () => {
       const startTime = Date.now();
-      const maxConcurrentTests = 2; // ParallelTestResourceManager limit
+      const maxConcurrentTests = 4; // ParallelTestResourceManager limit (increased for maxForks=2)
 
       // Try to acquire more slots than available
-      const overSubscribedTests = Array.from({ length: 4 }, (_, i) =>
+      const overSubscribedTests = Array.from({ length: 6 }, (_, i) =>
         ParallelTestResourceManager.acquireTestSlot(`oversubscribed-${i}`)
       );
 
-      // First 2 should acquire immediately, others should wait
+      // First 4 should acquire immediately, others should wait
       await Promise.all(overSubscribedTests.slice(0, maxConcurrentTests));
 
       expect(ParallelTestResourceManager.getActiveTestCount()).toBe(
@@ -221,8 +221,8 @@ describe('Lock Problem Resolution Verification', () => {
       // Release one slot
       ParallelTestResourceManager.releaseTestSlot('oversubscribed-0');
 
-      // Third test should now be able to proceed
-      await overSubscribedTests[2];
+      // Fifth test should now be able to proceed
+      await overSubscribedTests[4];
       expect(ParallelTestResourceManager.getActiveTestCount()).toBe(
         maxConcurrentTests
       );
@@ -230,12 +230,14 @@ describe('Lock Problem Resolution Verification', () => {
       // Cleanup remaining slots
       ParallelTestResourceManager.releaseTestSlot('oversubscribed-1');
       ParallelTestResourceManager.releaseTestSlot('oversubscribed-2');
+      ParallelTestResourceManager.releaseTestSlot('oversubscribed-3');
+      ParallelTestResourceManager.releaseTestSlot('oversubscribed-4');
 
-      // Fourth test should now proceed
-      await overSubscribedTests[3];
+      // Sixth test should now proceed
+      await overSubscribedTests[5];
 
       // Final cleanup
-      ParallelTestResourceManager.releaseTestSlot('oversubscribed-3');
+      ParallelTestResourceManager.releaseTestSlot('oversubscribed-5');
 
       const duration = Date.now() - startTime;
       console.log(`Resource contention test completed in ${duration}ms`);

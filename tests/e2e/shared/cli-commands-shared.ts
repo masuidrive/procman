@@ -190,11 +190,18 @@ export const createUniqueHomeDir = (prefix: string, index: number): string => {
  */
 export class ParallelTestResourceManager {
   private static activeTests = new Set<string>();
-  private static maxConcurrentTests = 2; // Match vitest maxForks setting
+  private static maxConcurrentTests = 4; // Increased for maxForks=2 parallel execution
   
-  static async acquireTestSlot(testId: string): Promise<void> {
+  static async acquireTestSlot(testId: string, timeoutMs: number = 30000): Promise<void> {
+    const startTime = Date.now();
+    
     // Wait for available slot if all slots are occupied
     while (this.activeTests.size >= this.maxConcurrentTests) {
+      // Check timeout
+      if (Date.now() - startTime > timeoutMs) {
+        throw new Error(`Test slot acquisition timed out after ${timeoutMs}ms for ${testId}. Active tests: ${Array.from(this.activeTests).join(', ')}`);
+      }
+      
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     

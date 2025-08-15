@@ -21,6 +21,23 @@ if [ ! -d "dist" ] || [ ! -f "dist/src/cli/index.js" ]; then
     npm run build
 fi
 
+# C言語テストユーティリティのビルド
+if [ ! -f "tests/e2e/fixtures/memory-eater" ]; then
+    echo "🔨 Building C test utilities..."
+    if command -v gcc >/dev/null 2>&1; then
+        cd tests/e2e/fixtures
+        make clean >/dev/null 2>&1 || true
+        if make memory-eater; then
+            echo "  ✅ memory-eater built successfully"
+        else
+            echo "  ⚠️  Failed to build memory-eater, related tests may fail"
+        fi
+        cd - >/dev/null
+    else
+        echo "  ⚠️  gcc not found, C test utilities will not be available"
+    fi
+fi
+
 # Vitest E2Eテスト
 echo ""
 echo "🏃 Running E2E tests with Vitest..."
