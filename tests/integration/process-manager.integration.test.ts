@@ -219,7 +219,8 @@ describe('ProcessManager Integration Tests', () => {
       // Verify configuration was updated through ProcessManager API
       const updatedConfig = processManager.getProcessConfig('web-server');
       // max_memory_restart is stored as parsed bytes, not original string
-      expect(updatedConfig?.max_memory_restart).toBe(TEST_MEMORY_SIZES.HUGE);
+      // '1G' = 1024 * 1024 * 1024 = 1073741824 bytes
+      expect(updatedConfig?.max_memory_restart).toBe(1024 * 1024 * 1024);
       expect(updatedConfig?.note).toBe('Updated main web server');
       expect(updatedConfig?.env?.DEBUG).toBe('true');
       expect(updatedConfig?.name).toBe('web-server'); // Name should remain unchanged
