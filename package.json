@@ -1,6 +1,6 @@
 {
   "name": "@masuidrive/procman",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A lightweight process management daemon tool for development environments",
   "type": "module",
   "main": "dist/src/cli/index.js",

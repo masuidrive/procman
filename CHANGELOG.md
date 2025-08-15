@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2025-08-15
+
+### Changed
+
+- **Enhanced CI/CD Pipeline**: Complete GitHub Actions workflow optimization
+  - Added Node.js 18.x/20.x matrix testing for better compatibility
+  - Upgraded to modern `softprops/action-gh-release@v2` for reliable releases
+  - Implemented full test suite execution (1019 tests) before npm publishing
+  - Enhanced test-stages workflow for comprehensive CI across all branches
+- **Repository Cleanup**: Removed development artifacts for cleaner npm package
+- **CI Environment Fixes**: Resolved all test failures in GitHub Actions environment
+  - Fixed process.exit mock issues causing Unhandled Rejections
+  - Optimized vitest configuration for CI stability
+  - Achieved 100% test success rate (1019/1019 tests passing)
+
+### Fixed
+
+- **Test Stability**: Fixed graceful-shutdown-integration test Unhandled Rejection errors
+- **TypeScript Compatibility**: Resolved process.exit type definition issues
+- **ESLint Compliance**: Fixed all formatting errors for consistent code style
+
 ## [0.1.0] - 2025-08-12
 
 ### Added
