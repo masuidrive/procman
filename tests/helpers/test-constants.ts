@@ -6,10 +6,11 @@
  */
 
 // CI environment detection and timeout multipliers
-const IS_CI = process.env.CI === 'true' || 
-               process.env.GITHUB_ACTIONS === 'true' || 
-               process.env.RUNNER_OS !== undefined ||
-               process.env.ACTIONS_RUNNER_DEBUG !== undefined;
+const IS_CI =
+  process.env.CI === 'true' ||
+  process.env.GITHUB_ACTIONS === 'true' ||
+  process.env.RUNNER_OS !== undefined ||
+  process.env.ACTIONS_RUNNER_DEBUG !== undefined;
 const CI_TIMEOUT_MULTIPLIER = IS_CI ? 3 : 1; // 3x longer timeouts in CI
 const CI_MEMORY_MULTIPLIER = IS_CI ? 2 : 1; // 2x larger memory sizes in CI
 
@@ -22,7 +23,7 @@ if (process.env.DEBUG_TEST_CONSTANTS === 'true') {
     NODE_VERSION: process.version,
     IS_CI,
     CI_MEMORY_MULTIPLIER,
-    VERY_LARGE: 512 * 1024 * 1024 * CI_MEMORY_MULTIPLIER
+    VERY_LARGE: 512 * 1024 * 1024 * CI_MEMORY_MULTIPLIER,
   });
 }
 
