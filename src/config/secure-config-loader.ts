@@ -212,9 +212,17 @@ export class SecureConfigLoader extends ConfigLoader {
         },
       },
 
-      // Limited process object
+      // Limited process object - only expose safe environment variables
       process: {
-        env: { ...process.env },
+        env: {
+          NODE_ENV: process.env.NODE_ENV,
+          HOME: process.env.HOME,
+          PATH: process.env.PATH,
+          USER: process.env.USER,
+          SHELL: process.env.SHELL,
+          LANG: process.env.LANG,
+          TERM: process.env.TERM,
+        },
         platform: process.platform,
         arch: process.arch,
         version: process.version,

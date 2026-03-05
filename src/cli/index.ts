@@ -1,9 +1,13 @@
 #!/usr/bin/env node
+import { createRequire } from 'module';
 import { CommandParser } from './parser.js';
 import {
   setupGlobalCLISignalHandling,
   cleanupGlobalCLISignalHandling,
 } from './signal-handler.js';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../../../package.json') as { version: string };
 
 async function main(): Promise<void> {
   // Setup global signal handling for CLI
@@ -15,7 +19,7 @@ async function main(): Promise<void> {
   const parser = new CommandParser({
     name: 'procman',
     description: 'Process Manager CLI Tool',
-    version: '0.1.0',
+    version: pkg.version,
   });
 
   try {

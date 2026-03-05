@@ -473,14 +473,9 @@ export class ProcessGroupManagerImpl
       independent,
       dependent,
       circular,
-      // Add properties expected by tests
       startupOrder,
       circularDependencies: circular,
       unresolvedProcesses: [],
-    } as DependencyResolutionResult & {
-      startupOrder: string[][];
-      circularDependencies: string[];
-      unresolvedProcesses: string[];
     };
   }
 

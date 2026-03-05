@@ -14,63 +14,45 @@ import { createIPCServer } from './ipc-factory.js';
 import { IPCServerBase } from './ipc-server-base.js';
 import { IPCCommandHandler } from './ipc-command-handler.js';
 import { DataDirectory } from './data-directory.js';
-import { CommandType } from '../shared/ipc.js';
 import {
-  LOG_STREAM_EVENTS,
-  STREAM_CONFIG,
-  STREAM_MESSAGE_TYPES,
-} from '../shared/constants-streaming.js';
+  Component,
+  ComponentManagerEvents,
+} from './component-manager-types.js';
+import {
+  ComponentInitializationError,
+  ComponentCleanupError,
+} from './component-manager-errors.js';
+import { StreamingSessionManager } from './component-streaming.js';
+import { performHealthChecks, HealthCheckResult } from './component-health.js';
+import { createComponentWrapper } from './component-registration.js';
+import { createDaemonInterface } from './component-daemon-interface.js';
+import { wireCommandHandlers } from './component-command-wiring.js';
 
-/**
- * Component initialization error
- */
-export class ComponentInitializationError extends Error {
-  constructor(
-    public componentName: string,
-    public originalError: Error
-  ) {
-    super(
-      `Failed to initialize component '${componentName}': ${originalError.message}`
-    );
-    this.name = 'ComponentInitializationError';
-  }
-}
-
-/**
- * Component cleanup error
- */
-export class ComponentCleanupError extends Error {
-  constructor(
-    public componentName: string,
-    public originalError: Error
-  ) {
-    super(
-      `Failed to cleanup component '${componentName}': ${originalError.message}`
-    );
-    this.name = 'ComponentCleanupError';
-  }
-}
-
-/**
- * Events emitted by ComponentManager
- */
-export interface ComponentManagerEvents {
-  componentStarted: (componentName: string) => void;
-  componentStopped: (componentName: string) => void;
-  componentError: (componentName: string, error: Error) => void;
-  allComponentsStarted: () => void;
-  allComponentsStopped: () => void;
-}
-
-/**
- * Component manager interface
- */
-export interface Component {
-  name: string;
-  initialize(): Promise<void>;
-  cleanup(): Promise<void>;
-  isInitialized(): boolean;
-}
+// Re-export everything for backward compatibility
+export {
+  Component,
+  ComponentManagerEvents,
+} from './component-manager-types.js';
+export {
+  ComponentInitializationError,
+  ComponentCleanupError,
+} from './component-manager-errors.js';
+export { StreamingSessionManager } from './component-streaming.js';
+export {
+  performHealthChecks,
+  ComponentHealthStatus,
+  HealthCheckResult,
+  HealthCheckTargets,
+} from './component-health.js';
+export {
+  createComponentWrapper,
+  convertAppConfigToProcessConfig,
+} from './component-registration.js';
+export {
+  createDaemonInterface,
+  DaemonInterfaceDeps,
+} from './component-daemon-interface.js';
+export { wireCommandHandlers } from './component-command-wiring.js';
 
 /**
  * Component manager class
@@ -94,10 +76,11 @@ export class ComponentManager extends EventEmitter {
   // Add EventCleanupHelper for proper listener cleanup
   private readonly listenerCleanup = new EventCleanupHelper();
 
+  // Streaming session manager
+  private readonly streamingManager = new StreamingSessionManager();
+
   constructor(private dataDirectory: DataDirectory) {
     super();
-
-    // No initialization needed for EventCleanupHelper
   }
 
   /**
@@ -118,29 +101,22 @@ export class ComponentManager extends EventEmitter {
     this.initializationErrors = [];
     const startTime = Date.now();
 
+    const steps: [string, () => Promise<void>][] = [
+      ['ConfigLoader', () => this.initializeConfigLoader()],
+      ['ProcessManager', () => this.initializeProcessManager()],
+      ['LogManager', () => this.initializeLogManager()],
+      ['IPCServer', () => this.initializeIPCServer()],
+      ['CommandHandler', () => this.initializeCommandHandler()],
+    ];
+
     try {
       console.log('Starting daemon component initialization...');
 
-      // Initialize components in order with progress logging
-      console.log('Initializing ConfigLoader...');
-      await this.initializeConfigLoader();
-      console.log('ConfigLoader initialized successfully');
-
-      console.log('Initializing ProcessManager...');
-      await this.initializeProcessManager();
-      console.log('ProcessManager initialized successfully');
-
-      console.log('Initializing LogManager...');
-      await this.initializeLogManager();
-      console.log('LogManager initialized successfully');
-
-      console.log('Initializing IPCServer...');
-      await this.initializeIPCServer();
-      console.log('IPCServer initialized successfully');
-
-      console.log('Initializing CommandHandler...');
-      await this.initializeCommandHandler();
-      console.log('CommandHandler initialized successfully');
+      for (const [name, initFn] of steps) {
+        console.log(`Initializing ${name}...`);
+        await initFn();
+        console.log(`${name} initialized successfully`);
+      }
 
       const totalTime = Date.now() - startTime;
       console.log(
@@ -155,7 +131,6 @@ export class ComponentManager extends EventEmitter {
         error
       );
 
-      // Rollback any initialized components
       await this.rollbackInitialization();
       throw error;
     }
@@ -168,7 +143,7 @@ export class ComponentManager extends EventEmitter {
     const errors: ComponentCleanupError[] = [];
 
     // Cleanup all streaming sessions first
-    this.cleanupAllStreamingSessions();
+    this.streamingManager.cleanupAllStreamingSessions();
 
     // Cleanup in reverse order of initialization
     const componentsToCleanup = [...this.cleanupOrder].reverse();
@@ -193,12 +168,11 @@ export class ComponentManager extends EventEmitter {
     // Clear component references
     this.clearComponents();
 
-    // Clean up listener management (after streaming sessions are already cleaned up)
+    // Clean up listener management
     await this.cleanupListeners();
 
     this.emit('allComponentsStopped');
 
-    // Throw aggregated errors if any occurred
     if (errors.length > 0) {
       const errorMessage = `Component cleanup failed: ${errors.map((e) => e.message).join('; ')}`;
       throw new Error(errorMessage);
@@ -236,153 +210,15 @@ export class ComponentManager extends EventEmitter {
 
   /**
    * Perform comprehensive health checks on all components
-   * Verifies each component is not just initialized but actually functional
    */
-  async performHealthChecks(): Promise<{
-    healthy: boolean;
-    details: Record<
-      string,
-      { status: 'healthy' | 'unhealthy' | 'unknown'; message: string }
-    >;
-  }> {
-    const details: Record<
-      string,
-      { status: 'healthy' | 'unhealthy' | 'unknown'; message: string }
-    > = {};
-    let allHealthy = true;
-
-    // Check ConfigLoader health
-    if (this.configLoader) {
-      try {
-        // ConfigLoader is healthy if it exists and can load configuration
-        // Since there's no isInitialized method, assume healthy if instance exists
-        const isReady = true;
-        details.configLoader = {
-          status: isReady ? 'healthy' : 'unhealthy',
-          message: isReady
-            ? 'ConfigLoader is ready'
-            : 'ConfigLoader not initialized',
-        };
-        if (!isReady) allHealthy = false;
-      } catch (error) {
-        details.configLoader = {
-          status: 'unhealthy',
-          message: `ConfigLoader error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        };
-        allHealthy = false;
-      }
-    } else {
-      details.configLoader = {
-        status: 'unhealthy',
-        message: 'ConfigLoader not available',
-      };
-      allHealthy = false;
-    }
-
-    // Check ProcessManager health
-    if (this.processManager) {
-      try {
-        // ProcessManager is healthy if it exists and is properly initialized
-        // Since there's no isRunning method, assume healthy if instance exists
-        const isReady = true;
-        details.processManager = {
-          status: isReady ? 'healthy' : 'unhealthy',
-          message: isReady
-            ? 'ProcessManager is running'
-            : 'ProcessManager not running',
-        };
-        if (!isReady) allHealthy = false;
-      } catch (error) {
-        details.processManager = {
-          status: 'unhealthy',
-          message: `ProcessManager error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        };
-        allHealthy = false;
-      }
-    } else {
-      details.processManager = {
-        status: 'unhealthy',
-        message: 'ProcessManager not available',
-      };
-      allHealthy = false;
-    }
-
-    // Check LogManager health
-    if (this.logManager) {
-      try {
-        // LogManager is healthy if it exists and is properly initialized
-        // Since there's no isRunning method, assume healthy if instance exists
-        const isReady = true;
-        details.logManager = {
-          status: isReady ? 'healthy' : 'unhealthy',
-          message: isReady ? 'LogManager is running' : 'LogManager not running',
-        };
-        if (!isReady) allHealthy = false;
-      } catch (error) {
-        details.logManager = {
-          status: 'unhealthy',
-          message: `LogManager error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        };
-        allHealthy = false;
-      }
-    } else {
-      details.logManager = {
-        status: 'unhealthy',
-        message: 'LogManager not available',
-      };
-      allHealthy = false;
-    }
-
-    // Check IPCServer health - most critical for readiness
-    if (this.ipcServer) {
-      try {
-        const isListening = this.ipcServer.isServerListening?.();
-        details.ipcServer = {
-          status: isListening ? 'healthy' : 'unhealthy',
-          message: isListening
-            ? 'IPC Server is listening and ready'
-            : 'IPC Server not listening',
-        };
-        if (!isListening) allHealthy = false;
-      } catch (error) {
-        details.ipcServer = {
-          status: 'unhealthy',
-          message: `IPCServer error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        };
-        allHealthy = false;
-      }
-    } else {
-      details.ipcServer = {
-        status: 'unhealthy',
-        message: 'IPC Server not available',
-      };
-      allHealthy = false;
-    }
-
-    // Check CommandHandler health
-    if (this.commandHandler) {
-      try {
-        // CommandHandler is healthy if it exists (no specific health check method)
-        details.commandHandler = {
-          status: 'healthy',
-          message: 'CommandHandler is ready',
-        };
-      } catch (error) {
-        details.commandHandler = {
-          status: 'unhealthy',
-          message: `CommandHandler error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        };
-        allHealthy = false;
-      }
-    } else {
-      details.commandHandler = {
-        status: 'unhealthy',
-        message: 'CommandHandler not available',
-      };
-      allHealthy = false;
-    }
-
-    return { healthy: allHealthy, details };
+  async performHealthChecks(): Promise<HealthCheckResult> {
+    return performHealthChecks({
+      configLoader: this.configLoader,
+      processManager: this.processManager,
+      logManager: this.logManager,
+      ipcServer: this.ipcServer,
+      commandHandler: this.commandHandler,
+    });
   }
 
   /**
@@ -393,68 +229,65 @@ export class ComponentManager extends EventEmitter {
   }
 
   /**
-   * Initialize config loader
+   * Helper to initialize a component with standard error handling
    */
-  private async initializeConfigLoader(): Promise<void> {
+  private async initializeWithErrorHandling(
+    componentName: string,
+    initFn: () => Promise<void>
+  ): Promise<void> {
     try {
-      this.configLoader = new ConfigLoader();
-      await this.registerComponent('configLoader', this.configLoader);
-      this.emit('componentStarted', 'configLoader');
+      await initFn();
+      this.emit('componentStarted', componentName);
     } catch (error) {
+      if (componentName === 'ipcServer') {
+        console.error('IPC server initialization failed:', error);
+      }
       const initError = new ComponentInitializationError(
-        'configLoader',
+        componentName,
         error as Error
       );
       this.initializationErrors.push(initError);
-      this.emit('componentError', 'configLoader', initError);
+      this.emit('componentError', componentName, initError);
       throw initError;
     }
+  }
+
+  /**
+   * Initialize config loader
+   */
+  private async initializeConfigLoader(): Promise<void> {
+    await this.initializeWithErrorHandling('configLoader', async () => {
+      this.configLoader = new ConfigLoader();
+      await this.registerComponent('configLoader', this.configLoader);
+    });
   }
 
   /**
    * Initialize process manager
    */
   private async initializeProcessManager(): Promise<void> {
-    try {
+    await this.initializeWithErrorHandling('processManager', async () => {
       this.processManager = ProcessManager.create();
       await this.registerComponent('processManager', this.processManager);
-      this.emit('componentStarted', 'processManager');
-    } catch (error) {
-      const initError = new ComponentInitializationError(
-        'processManager',
-        error as Error
-      );
-      this.initializationErrors.push(initError);
-      this.emit('componentError', 'processManager', initError);
-      throw initError;
-    }
+    });
   }
 
   /**
    * Initialize log manager
    */
   private async initializeLogManager(): Promise<void> {
-    try {
+    await this.initializeWithErrorHandling('logManager', async () => {
       const logDir = await this.dataDirectory.getLogDirectory();
       this.logManager = new LogManager(logDir);
       await this.registerComponent('logManager', this.logManager);
-      this.emit('componentStarted', 'logManager');
-    } catch (error) {
-      const initError = new ComponentInitializationError(
-        'logManager',
-        error as Error
-      );
-      this.initializationErrors.push(initError);
-      this.emit('componentError', 'logManager', initError);
-      throw initError;
-    }
+    });
   }
 
   /**
    * Initialize IPC server
    */
   private async initializeIPCServer(): Promise<void> {
-    try {
+    await this.initializeWithErrorHandling('ipcServer', async () => {
       const startTime = Date.now();
       console.log('Getting socket path...');
       const socketPath = await this.dataDirectory.getSocketPath();
@@ -468,24 +301,14 @@ export class ComponentManager extends EventEmitter {
 
       const totalTime = Date.now() - startTime;
       console.log(`IPC server initialized in ${totalTime}ms`);
-      this.emit('componentStarted', 'ipcServer');
-    } catch (error) {
-      console.error('IPC server initialization failed:', error);
-      const initError = new ComponentInitializationError(
-        'ipcServer',
-        error as Error
-      );
-      this.initializationErrors.push(initError);
-      this.emit('componentError', 'ipcServer', initError);
-      throw initError;
-    }
+    });
   }
 
   /**
    * Initialize command handler
    */
   private async initializeCommandHandler(): Promise<void> {
-    try {
+    await this.initializeWithErrorHandling('commandHandler', async () => {
       if (
         !this.configLoader ||
         !this.processManager ||
@@ -495,25 +318,13 @@ export class ComponentManager extends EventEmitter {
         throw new Error('Required components not initialized');
       }
 
-      // Create a mock daemon object for the command handler
       const daemonInterface = this.createDaemonInterface();
-
       this.commandHandler = new IPCCommandHandler(daemonInterface);
       await this.registerComponent('commandHandler', this.commandHandler);
 
       // Register command handlers with IPC server
       this.registerCommandHandlers();
-
-      this.emit('componentStarted', 'commandHandler');
-    } catch (error) {
-      const initError = new ComponentInitializationError(
-        'commandHandler',
-        error as Error
-      );
-      this.initializationErrors.push(initError);
-      this.emit('componentError', 'commandHandler', initError);
-      throw initError;
-    }
+    });
   }
 
   /**
@@ -521,81 +332,12 @@ export class ComponentManager extends EventEmitter {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   private createDaemonInterface() {
-    return {
+    return createDaemonInterface({
       getConfigLoader: () => this.configLoader!,
       getProcessManager: () => this.processManager!,
       getLogManager: () => this.logManager!,
-      getAllProcessStatuses: async () => {
-        // Implementation moved from ProcmanDaemon
-        const processInfos = this.processManager!.getAllProcessInfo();
-
-        const statusPromises = processInfos.map(async (processInfo) => {
-          const info = processInfo;
-          if (!info) return null;
-
-          // Get process stats from monitor
-          const stats = await this.processManager!.monitor.getProcessStats(
-            info.name
-          );
-
-          return {
-            name: info.name,
-            namespace: info.namespace || 'default',
-            pid: info.pid,
-            status: info.status,
-            uptime: info.uptime,
-            memory: stats?.memory || 0,
-            cpu: stats?.cpu || 0,
-            restarts: info.restarts,
-          };
-        });
-
-        const results = await Promise.all(statusPromises);
-        return results.filter((result) => result !== null);
-      },
-      getConfig: () => {
-        // This will be set by the calling code
-        return undefined;
-      },
-      loadConfig: async (configFilePath: string) => {
-        const config = await this.configLoader!.load(configFilePath);
-
-        // Stop all existing processes
-        const allProcesses = this.processManager!.getAllProcessInfo();
-        if (allProcesses.length > 0) {
-          const processNames = allProcesses
-            .map((processInfo) => {
-              const info = processInfo;
-              return info?.name || '';
-            })
-            .filter((name) => name !== '');
-          await this.processManager!.stopProcesses(processNames);
-        }
-
-        // Configure new processes
-        for (const app of config.apps) {
-          this.processManager!.configureProcess(app);
-
-          // Setup log manager for this app if log files are configured
-          if (
-            this.logManager &&
-            (app.log_file || app.out_file || app.error_file)
-          ) {
-            await this.logManager.setupAppLogs(app.name, {
-              logFile: app.log_file,
-              outFile: app.out_file,
-              errorFile: app.error_file,
-              namespace: app.namespace,
-            });
-          }
-        }
-
-        return config.apps;
-      },
-      stop: async () => {
-        await this.cleanupAll();
-      },
-    };
+      cleanupAll: () => this.cleanupAll(),
+    });
   }
 
   /**
@@ -606,171 +348,20 @@ export class ComponentManager extends EventEmitter {
       return;
     }
 
-    const commandTypes: CommandType[] = [
-      'load',
-      'start',
-      'stop',
-      'restart',
-      'list',
-      'log',
-      'clear-log',
-      'exit',
-    ];
-
-    for (const commandType of commandTypes) {
-      this.ipcServer.registerHandler(
-        commandType,
-        async (message, connection) => {
-          // Pass connection info to command handler for log streaming
-          return this.commandHandler!.handleMessage(message, connection);
-        }
-      );
-    }
-
-    // ログストリーミングのセットアップ
-    this.setupLogStreaming();
-  }
-
-  // ストリーミングセッション管理用のマップ
-  // Map to track active streaming sessions with connection info
-  private streamingSessions: Map<
-    string,
-    { cleanup: () => void; connectionId: string; messageId: string }
-  > = new Map();
-
-  /**
-   * Setup log streaming functionality
-   */
-  private setupLogStreaming(): void {
-    if (!this.commandHandler || !this.ipcServer || !this.logManager) {
-      return;
-    }
-
-    // コマンドハンドラーからのログストリーミング開始イベントをリッスン
-    // Note: We need connectionId to send logs to specific client only
-    // This requires passing connectionId from IPCServer through IPCCommandHandler
-
-    this.registerListener(
-      this.commandHandler,
-      LOG_STREAM_EVENTS.START_LOG_STREAM,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (streamConfig: any) => {
-        const { messageId, target, connectionId } = streamConfig;
-        const sessionId = `${STREAM_CONFIG.SESSION_PREFIX}-${messageId}-${Date.now()}`;
-
-        // 既存のセッションがあれば停止
-        this.stopLogStream(sessionId);
-
-        // Get specific connection instead of all connections
-        const connection = connectionId
-          ? this.ipcServer!.getConnection(connectionId)
-          : null;
-
-        if (!connection) {
-          console.error(
-            `Cannot start log streaming: connection ${connectionId} not found`
-          );
-          return;
-        }
-
-        // ログマネージャーでストリーミングを開始
-        const cleanup = this.logManager!.startLogStream(target, (logEntry) => {
-          // 新しいログエントリを受信したら特定のIPCクライアントに送信
-          const streamMessage = {
-            id: `${STREAM_CONFIG.SESSION_PREFIX}-${Date.now()}`,
-            type: STREAM_MESSAGE_TYPES.LOG_STREAM,
-            payload: {
-              entry: logEntry,
-              app: logEntry.app,
-              namespace: logEntry.namespace || 'default',
-            },
-            timestamp: Date.now(),
-            sessionId, // セッションIDを追加
-          };
-
-          // 特定の接続にのみメッセージを送信
-          try {
-            // IPCサーバーの送信メソッドを使用
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (connection as any).send(JSON.stringify(streamMessage) + '\n');
-          } catch (error) {
-            console.error('Failed to send log stream message:', error);
-            // エラーが発生した接続のストリーミングを停止
-            this.stopLogStream(sessionId);
-          }
-        });
-
-        // クリーンアップ関数とconnection情報を保存
-        this.streamingSessions.set(sessionId, {
-          cleanup,
-          connectionId: connectionId || '',
-          messageId,
-        });
-
-        // 接続が切断された時にストリーミングを停止
-        this.setupStreamCleanupOnDisconnect(sessionId);
-      }
-    );
-
-    // stop-log-streamイベントのリスナーを追加
-
-    this.registerListener(
-      this.commandHandler,
-      LOG_STREAM_EVENTS.STOP_LOG_STREAM,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (config: any) => {
-        const { sessionId } = config;
-        this.stopLogStream(sessionId);
-      }
-    );
-  }
-
-  /**
-   * Stop log streaming for a specific session
-   */
-  private stopLogStream(sessionId: string): void {
-    const sessionInfo = this.streamingSessions.get(sessionId);
-    if (sessionInfo) {
-      sessionInfo.cleanup();
-      this.streamingSessions.delete(sessionId);
-    }
-  }
-
-  /**
-   * Setup cleanup when connection disconnects
-   */
-  private setupStreamCleanupOnDisconnect(sessionId: string): void {
-    // IPCサーバーの切断イベントを監視
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    const disconnectHandler = () => {
-      // 該当するセッションのストリーミングを停止
-      this.stopLogStream(sessionId);
-    };
-
-    // 一度だけ実行されるようにする
-    // Note: IPCServerBase doesn't extend EventEmitter, so we can't use EventCleanupHelper for it
-    // This is acceptable as IPCServerBase has its own cleanup mechanisms
-    this.ipcServer?.once('disconnect', disconnectHandler);
-  }
-
-  /**
-   * Cleanup all streaming sessions
-   */
-  private cleanupAllStreamingSessions(): void {
-    for (const [, sessionInfo] of this.streamingSessions) {
-      sessionInfo.cleanup();
-    }
-    this.streamingSessions.clear();
+    wireCommandHandlers({
+      ipcServer: this.ipcServer,
+      commandHandler: this.commandHandler,
+      logManager: this.logManager!,
+      streamingManager: this.streamingManager,
+      registerListener: this.registerListener.bind(this),
+    });
   }
 
   /**
    * Clean up all managed listeners and components
    */
   public async cleanup(): Promise<void> {
-    // Clean up streaming sessions first
-    this.cleanupAllStreamingSessions();
-
-    // Clean up listeners
+    this.streamingManager.cleanupAllStreamingSessions();
     await this.cleanupListeners();
   }
 
@@ -778,13 +369,8 @@ export class ComponentManager extends EventEmitter {
    * Clean up only listeners (without streaming sessions)
    */
   private async cleanupListeners(): Promise<void> {
-    // Clean up all tracked listeners
     await this.listenerCleanup.dispose();
-
-    // Clean up our own listeners
     this.removeAllListeners();
-
-    // Listeners cleaned up by EventCleanupHelper
   }
 
   /**
@@ -815,73 +401,7 @@ export class ComponentManager extends EventEmitter {
     const startTime = Date.now();
     console.log(`Registering component: ${name}`);
 
-    const component: Component = {
-      name,
-      initialize: async () => {
-        console.log(`Initializing component: ${name}`);
-        if (instance == null) {
-          throw new Error(`Component ${name} instance is null or undefined`);
-        }
-        // Handle component-specific initialization methods
-        let startMethod = null;
-        if (
-          name === 'processManager' &&
-          instance.startMonitoring &&
-          typeof instance.startMonitoring === 'function'
-        ) {
-          startMethod = instance.startMonitoring.bind(instance);
-        } else if (instance.start && typeof instance.start === 'function') {
-          startMethod = instance.start.bind(instance);
-        }
-
-        if (startMethod) {
-          const initStartTime = Date.now();
-
-          // Add timeout for component initialization
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => {
-              reject(
-                new Error(
-                  `Component ${name} initialization timed out after 30 seconds`
-                )
-              );
-            }, 30000); // 30 second timeout
-          });
-
-          try {
-            // Handle both async and sync start methods
-            const startPromise = Promise.resolve(startMethod());
-            await Promise.race([startPromise, timeoutPromise]);
-            const initTime = Date.now() - initStartTime;
-            console.log(
-              `Component ${name} initialization completed in ${initTime}ms`
-            );
-          } catch (error) {
-            console.error(`Component ${name} initialization failed:`, error);
-            throw error;
-          }
-        } else {
-          console.log(
-            `Component ${name} has no start() method - assuming ready`
-          );
-        }
-      },
-      cleanup: async () => {
-        console.log(`Cleaning up component: ${name}`);
-        if (instance.stop && typeof instance.stop === 'function') {
-          await instance.stop();
-        } else if (instance.cleanup && typeof instance.cleanup === 'function') {
-          await instance.cleanup();
-        }
-        console.log(`Component ${name} cleanup completed`);
-      },
-      isInitialized: () => {
-        if (instance.isRunning && typeof instance.isRunning === 'function') {
-          return instance.isRunning();
-        }
-        return true; // Assume initialized if no status method
-      },
-    };
+    const component = createComponentWrapper(name, instance);
 
     this.components.set(name, component);
     this.initializationOrder.push(name);
@@ -927,33 +447,6 @@ export class ComponentManager extends EventEmitter {
     this.logManager = undefined;
     this.ipcServer = undefined;
     this.commandHandler = undefined;
-  }
-
-  /**
-   * Convert AppConfig to ProcessConfig format
-   */
-  private convertAppConfigToProcessConfig(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    appConfig: any,
-    appName: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): any {
-    return {
-      name: appName,
-      script: appConfig.script || appConfig.exec || 'node',
-      namespace: appConfig.namespace || 'default',
-      args: appConfig.args || [],
-      cwd: appConfig.cwd || process.cwd(),
-      env: { ...process.env, ...appConfig.env },
-      instances: appConfig.instances || 1,
-      autorestart: appConfig.autorestart ?? true,
-      watch: appConfig.watch ?? false,
-      max_memory_restart: appConfig.max_memory_restart || undefined,
-      max_restarts: appConfig.max_restarts || 15,
-      min_uptime: appConfig.min_uptime || 1000,
-      restart_delay: appConfig.restart_delay || 0,
-      note: appConfig.note || undefined,
-    };
   }
 
   /**

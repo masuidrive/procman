@@ -6,8 +6,14 @@
  */
 
 import { EventEmitter } from 'events';
-import { ProcessManager } from '../process-manager/process-manager.js';
 import { LogManager } from './log-manager.js';
+
+/**
+ * Interface for process manager dependency (avoids layer violation)
+ */
+export interface IProcessManagerForLogging extends EventEmitter {
+  lifecycle: unknown;
+}
 
 /**
  * ProcessLogIntegrator - プロセス管理とログ管理の統合クラス
@@ -16,7 +22,7 @@ export class ProcessLogIntegrator extends EventEmitter {
   private isSetup = false;
 
   constructor(
-    private processManager: ProcessManager,
+    private processManager: IProcessManagerForLogging,
     private logManager: LogManager
   ) {
     super();

@@ -5,44 +5,31 @@
  * Provides comprehensive validation with detailed error reporting and suggestions.
  */
 
-import * as path from 'path';
 import { ProcmanConfig, parseMemorySize } from '../shared/config.js';
-import { ProcmanError, createError } from '../shared/errors.js';
+import { createError } from '../shared/errors.js';
+import type {
+  ValidationIssue,
+  ConfigValidatorOptions,
+} from './validation-types.js';
+import {
+  validateScriptPathSecurity as _validateScriptPathSecurity,
+  validatePathSecurity as _validatePathSecurity,
+} from './path-security-validator.js';
+import { generateSuggestions as _generateSuggestions } from './validation-suggestions.js';
 
-/**
- * Validation issue severity levels
- */
-export type ValidationSeverity = 'error' | 'warning' | 'info';
-
-/**
- * Validation issue details
- */
-export interface ValidationIssue {
-  /** Issue severity level */
-  severity: ValidationSeverity;
-  /** Issue category */
-  category: 'structure' | 'security' | 'performance' | 'compatibility';
-  /** Issue message */
-  message: string;
-  /** Location of the issue */
-  location?: {
-    appIndex?: number;
-    field?: string;
-    value?: string;
-  };
-  /** Suggested fix */
-  suggestion?: string;
-}
-
-/**
- * Configuration validator options
- */
-export interface ConfigValidatorOptions {
-  /** Project root path for security validation */
-  projectRoot?: string;
-  /** Whether to collect validation issues for reporting (default: false) */
-  collectIssues?: boolean;
-}
+// Re-export types and functions from extracted modules
+export type {
+  ValidationSeverity,
+  ValidationIssue,
+  ConfigValidatorOptions,
+} from './validation-types.js';
+export {
+  sanitizeFilePath,
+  validatePathWithinProject,
+  validateScriptPathSecurity,
+  validatePathSecurity,
+} from './path-security-validator.js';
+export { generateSuggestions } from './validation-suggestions.js';
 
 /**
  * Configuration validator class
@@ -345,7 +332,7 @@ export class ConfigValidator {
   }
 
   /**
-   * Validate script path for security issues
+   * Validate script path for security issues (instance method delegating to standalone function)
    * @param scriptPath Script path to validate
    * @param appIndex App index for error reporting
    */
@@ -353,31 +340,14 @@ export class ConfigValidator {
     scriptPath: string,
     appIndex: number
   ): void {
-    // Check for potentially dangerous script patterns
-    const dangerousPatterns = [
-      /^\s*sudo\s+/i, // sudo commands
-      /^\s*su\s+/i, // su commands
-      /[|&;`$(){}]/, // Shell injection characters
-      /\beval\b/i, // eval functions
-      /\bexec\b/i, // exec functions
-    ];
-
-    for (const pattern of dangerousPatterns) {
-      if (pattern.test(scriptPath)) {
-        this.addValidationIssue({
-          severity: 'warning',
-          category: 'security',
-          message: `Script "${scriptPath}" contains potentially dangerous patterns`,
-          location: { appIndex, field: 'script', value: scriptPath },
-          suggestion: 'Review script for security implications',
-        });
-        break;
-      }
+    const issue = _validateScriptPathSecurity(scriptPath, appIndex);
+    if (issue) {
+      this.addValidationIssue(issue);
     }
   }
 
   /**
-   * Validate file path for security issues
+   * Validate file path for security issues (instance method delegating to standalone function)
    * @param filePath File path to validate
    * @param appIndex App index for error reporting
    * @param fieldName Field name for error reporting
@@ -387,25 +357,7 @@ export class ConfigValidator {
     appIndex: number,
     fieldName: string
   ): void {
-    try {
-      this.sanitizeFilePath(filePath);
-
-      // For relative paths, ensure they don't escape project boundaries
-      if (!path.isAbsolute(filePath)) {
-        this.validatePathWithinProject(filePath, this.projectRoot);
-      }
-    } catch (error) {
-      if (
-        error instanceof ProcmanError &&
-        error.code === 'CONFIG_SECURITY_ERROR'
-      ) {
-        throw createError('CONFIG_VALIDATION_ERROR', {
-          message: `App configuration at index ${appIndex}: ${error.message}`,
-          details: { appIndex, field: fieldName, value: filePath },
-        });
-      }
-      throw error;
-    }
+    _validatePathSecurity(filePath, appIndex, fieldName, this.projectRoot);
   }
 
   /**
@@ -434,128 +386,13 @@ export class ConfigValidator {
   }
 
   /**
-   * Sanitize file path to prevent path traversal attacks
-   * @param filePath File path to sanitize
-   * @returns Sanitized file path
-   * @throws ProcmanError if path is potentially malicious
-   */
-  private sanitizeFilePath(filePath: string): string {
-    if (typeof filePath !== 'string') {
-      throw createError('CONFIG_SECURITY_ERROR', {
-        message: 'File path must be a string',
-      });
-    }
-
-    const trimmedPath = filePath.trim();
-
-    if (trimmedPath === '') {
-      throw createError('CONFIG_SECURITY_ERROR', {
-        message: 'File path cannot be empty',
-      });
-    }
-
-    // Check for null bytes (directory traversal attack)
-    if (trimmedPath.includes('\0')) {
-      throw createError('CONFIG_SECURITY_ERROR', {
-        message: 'File path contains null bytes',
-      });
-    }
-
-    // Check for suspicious characters
-    const suspiciousChars = ['<', '>', '|', '*', '?'];
-    for (const char of suspiciousChars) {
-      if (trimmedPath.includes(char)) {
-        throw createError('CONFIG_SECURITY_ERROR', {
-          message: `File path contains suspicious character: ${char}`,
-        });
-      }
-    }
-
-    // Normalize the path to resolve . and .. segments
-    const normalizedPath = path.normalize(trimmedPath);
-
-    // Additional check after normalization
-    if (normalizedPath !== trimmedPath && normalizedPath.includes('..')) {
-      throw createError('CONFIG_SECURITY_ERROR', {
-        message: 'Normalized path contains directory traversal patterns',
-      });
-    }
-
-    return normalizedPath;
-  }
-
-  /**
-   * Validate that a path stays within the project boundaries
-   * @param filePath File path to validate (relative)
-   * @param basePath Base path to resolve against
-   * @returns Resolved absolute path
-   * @throws ProcmanError if path escapes project boundaries
-   */
-  private validatePathWithinProject(
-    filePath: string,
-    basePath: string
-  ): string {
-    // Only validate relative paths - absolute paths are allowed as explicit admin choice
-    if (path.isAbsolute(filePath)) {
-      return filePath;
-    }
-
-    // Block relative paths with .. that could escape project
-    if (filePath.includes('..')) {
-      throw createError('CONFIG_SECURITY_ERROR', {
-        message: `Path traversal attack detected: ${filePath}`,
-      });
-    }
-
-    const resolvedPath = path.resolve(basePath, filePath);
-    const normalizedRoot = path.normalize(basePath);
-
-    if (!path.normalize(resolvedPath).startsWith(normalizedRoot)) {
-      throw createError('CONFIG_SECURITY_ERROR', {
-        message: `Path traversal attack detected - path is outside of the project root: ${filePath}`,
-      });
-    }
-
-    return resolvedPath;
-  }
-
-  /**
    * Generate suggestions for validation errors
    * @param errorCode Error code
    * @param field Field name (optional)
    * @returns Array of suggestions
    */
   generateSuggestions(errorCode: string, field?: string): string[] {
-    const suggestions: string[] = [];
-
-    switch (errorCode) {
-      case 'CONFIG_VALIDATION_ERROR':
-        if (field === 'name') {
-          suggestions.push(
-            'Use only alphanumeric characters, dashes, and underscores'
-          );
-          suggestions.push('Ensure the name is unique across all apps');
-        } else if (field === 'script') {
-          suggestions.push('Provide the full command to execute');
-          suggestions.push('Use absolute paths for executables if needed');
-        } else if (field === 'max_memory_restart') {
-          suggestions.push('Use format like "300M", "1G", or "512000K"');
-          suggestions.push('Ensure the unit (K/M/G) is specified');
-        }
-        break;
-
-      case 'CONFIG_SECURITY_ERROR':
-        suggestions.push('Use relative paths within the project directory');
-        suggestions.push('Avoid ".." in paths to prevent directory traversal');
-        suggestions.push('Use absolute paths only when explicitly needed');
-        break;
-
-      default:
-        suggestions.push('Check the configuration documentation');
-        suggestions.push('Verify all required fields are present');
-    }
-
-    return suggestions;
+    return _generateSuggestions(errorCode, field);
   }
 
   /**
@@ -566,16 +403,7 @@ export class ConfigValidator {
   private isValidConfigObject(
     config: unknown
   ): config is Record<string, unknown> {
-    return (
-      config !== null &&
-      config !== undefined &&
-      typeof config === 'object' &&
-      !Array.isArray(config) &&
-      // Check for common invalid objects
-      !(config instanceof Date) &&
-      !(config instanceof RegExp) &&
-      !(config instanceof Error)
-    );
+    return isValidConfigObject(config);
   }
 
   /**
@@ -584,36 +412,65 @@ export class ConfigValidator {
    * @returns Descriptive error message
    */
   private getConfigTypeErrorMessage(config: unknown): string {
-    if (config === null) {
-      return 'Configuration cannot be null. Expected an object with an "apps" array.';
-    }
-    if (config === undefined) {
-      return 'Configuration is undefined. Expected an object with an "apps" array.';
-    }
-    if (Array.isArray(config)) {
-      return 'Configuration cannot be an array. Expected an object with an "apps" property.';
-    }
-    if (typeof config === 'string') {
-      return `Configuration cannot be a string ('${config.slice(0, 50)}${config.length > 50 ? '...' : ''}'). Expected an object.`;
-    }
-    if (typeof config === 'number') {
-      return `Configuration cannot be a number (${config}). Expected an object.`;
-    }
-    if (typeof config === 'boolean') {
-      return `Configuration cannot be a boolean (${config}). Expected an object.`;
-    }
-    if (config instanceof Date) {
-      return `Configuration cannot be a Date object (${config.toISOString()}). Expected a plain object.`;
-    }
-    if (config instanceof Error) {
-      return `Configuration cannot be an Error object (${config.message}). Expected a plain object.`;
-    }
-    if (typeof config === 'function') {
-      return 'Configuration cannot be a function. Expected an object.';
-    }
-
-    return `Configuration must be a plain object, got ${typeof config}.`;
+    return getConfigTypeErrorMessage(config);
   }
+}
+
+/**
+ * Enhanced type guard for configuration objects
+ * @param config Unknown input to validate
+ * @returns Type predicate indicating if config is a valid object
+ */
+export function isValidConfigObject(
+  config: unknown
+): config is Record<string, unknown> {
+  return (
+    config !== null &&
+    config !== undefined &&
+    typeof config === 'object' &&
+    !Array.isArray(config) &&
+    // Check for common invalid objects
+    !(config instanceof Date) &&
+    !(config instanceof RegExp) &&
+    !(config instanceof Error)
+  );
+}
+
+/**
+ * Generate detailed error message for invalid config types
+ * @param config Invalid config to analyze
+ * @returns Descriptive error message
+ */
+export function getConfigTypeErrorMessage(config: unknown): string {
+  if (config === null) {
+    return 'Configuration cannot be null. Expected an object with an "apps" array.';
+  }
+  if (config === undefined) {
+    return 'Configuration is undefined. Expected an object with an "apps" array.';
+  }
+  if (Array.isArray(config)) {
+    return 'Configuration cannot be an array. Expected an object with an "apps" property.';
+  }
+  if (typeof config === 'string') {
+    return `Configuration cannot be a string ('${config.slice(0, 50)}${config.length > 50 ? '...' : ''}'). Expected an object.`;
+  }
+  if (typeof config === 'number') {
+    return `Configuration cannot be a number (${config}). Expected an object.`;
+  }
+  if (typeof config === 'boolean') {
+    return `Configuration cannot be a boolean (${config}). Expected an object.`;
+  }
+  if (config instanceof Date) {
+    return `Configuration cannot be a Date object (${config.toISOString()}). Expected a plain object.`;
+  }
+  if (config instanceof Error) {
+    return `Configuration cannot be an Error object (${config.message}). Expected a plain object.`;
+  }
+  if (typeof config === 'function') {
+    return 'Configuration cannot be a function. Expected an object.';
+  }
+
+  return `Configuration must be a plain object, got ${typeof config}.`;
 }
 
 /**

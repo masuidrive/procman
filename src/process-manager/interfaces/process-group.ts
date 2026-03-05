@@ -70,6 +70,12 @@ export interface DependencyResolutionResult {
   dependent: string[][];
   /** Processes with circular dependencies */
   circular: string[];
+  /** Ordered startup groups (independent + dependent combined) */
+  startupOrder: string[][];
+  /** Alias for circular (for backward compatibility) */
+  circularDependencies: string[];
+  /** Processes that could not be resolved */
+  unresolvedProcesses: string[];
 }
 
 /**

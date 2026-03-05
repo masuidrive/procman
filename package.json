@@ -3,8 +3,6 @@
   "version": "0.1.2",
   "description": "A lightweight process management daemon tool for development environments",
   "type": "module",
-  "main": "dist/src/cli/index.js",
-  "types": "dist/src/cli/index.d.ts",
   "bin": {
     "procman": "dist/src/cli/index.js"
   },
@@ -14,8 +12,8 @@
     "clean": "rm -rf dist",
     "test": "NODE_OPTIONS='--max-old-space-size=1024' vitest",
     "test:run": "NODE_OPTIONS='--max-old-space-size=1024' vitest run",
-    "test:essential": "vitest run tests/shared tests/utils tests/example.test.ts tests/cli.test.ts tests/config/secure-config-loader.test.ts tests/services/app-logger.test.ts tests/daemon/data-directory.test.ts tests/daemon/pid-manager.test.ts tests/daemon/message-protocol.test.ts tests/process-manager/dependencies.test.ts --reporter=verbose --no-coverage",
-    "test:core": "vitest run tests/shared tests/utils tests/example.test.ts tests/cli.test.ts tests/config tests/services tests/daemon tests/process-manager tests/unit --reporter=verbose --no-coverage",
+    "test:essential": "vitest run tests/shared tests/utils tests/cli.test.ts tests/config/secure-config-loader.test.ts tests/services/app-logger.test.ts tests/daemon/data-directory.test.ts tests/daemon/pid-manager.test.ts tests/daemon/message-protocol.test.ts tests/process-manager/dependencies.test.ts --reporter=verbose --no-coverage",
+    "test:core": "vitest run tests/shared tests/utils tests/cli.test.ts tests/config tests/services tests/daemon tests/process-manager tests/unit --reporter=verbose --no-coverage",
     "test:full": "vitest run tests --reporter=verbose --no-coverage",
     "test:limited": "./bin/test-with-memory-limit.sh run",
     "test:coverage": "vitest run --coverage",
@@ -54,6 +52,8 @@
   ],
   "devDependencies": {
     "@types/node": "^24.1.0",
+    "@types/pidusage": "^2.0.5",
+    "@types/yaml": "^1.9.6",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "@vitest/coverage-v8": "^3.2.4",
@@ -66,8 +66,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@types/pidusage": "^2.0.5",
-    "@types/yaml": "^1.9.6",
     "chalk": "^5.3.0",
     "commander": "^13.1.0",
     "pidusage": "^4.0.1",

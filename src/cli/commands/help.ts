@@ -5,6 +5,10 @@
  */
 
 import chalk from 'chalk';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../../../../package.json') as { version: string };
 
 export interface HelpCommandOptions {
   format?: 'markdown' | 'text';
@@ -15,7 +19,7 @@ const HELP_CONTENT = {
     title: '@masuidrive/procman - Process Manager',
     description:
       'A powerful process manager for managing multiple applications with advanced features like memory monitoring, auto-restart, and detailed logging.',
-    version: '0.1.0',
+    version: pkg.version,
   },
   commands: [
     {

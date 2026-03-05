@@ -3,6 +3,9 @@
  *
  * This class manages the information and statistics for a single process,
  * including uptime tracking, restart counting, and state change recording.
+ *
+ * Restart logic is delegated to RestartManager.
+ * Monitoring data is delegated to ProcessMonitoringData.
  */
 
 import { EventEmitter } from 'events';
@@ -14,71 +17,27 @@ import {
   CPUSample,
   PersistedManagedProcessInfo,
 } from '../shared/process.js';
-import { ProcessConfig } from './process-manager.js';
+import { ProcessConfig } from './process-config.js';
 import {
   RESTART_BACKOFF_BASE_DELAY,
-  RESTART_BACKOFF_MAX_DELAY,
-  RESTART_BACKOFF_MULTIPLIER,
-  RESTART_WINDOW_TIME,
-  MAX_RESTART_COUNT,
   MAX_HISTORY_LENGTH,
 } from '../shared/constants.js';
 
-// =============================================================================
-// Process Statistics Interface
-// =============================================================================
+// Re-export types from extracted modules
+export {
+  ProcessStatistics,
+  createDefaultStatistics,
+} from './process-statistics.js';
+export { ManagedProcessEvents } from './managed-process-events.js';
+export { RestartManager } from './restart-manager.js';
+export { ProcessMonitoringData } from './process-monitoring.js';
 
-/**
- * Process statistics for tracking performance and behavior
- */
-export interface ProcessStatistics {
-  /** Start time timestamp */
-  startedAt: number | null;
-  /** Last status change timestamp */
-  lastStatusChange: number;
-  /** Total restart count */
-  restarts: number;
-  /** Last restart timestamp */
-  lastRestart: number | null;
-  /** Memory usage history (last 10 measurements) - DEPRECATED: use memoryHistory instead */
-  memoryHistory: number[];
-  /** CPU usage history (last 10 measurements) - DEPRECATED: use cpuHistory instead */
-  cpuHistory: number[];
-  /** Current memory usage in bytes */
-  currentMemory: number;
-  /** Current CPU usage percentage */
-  currentCpu: number;
-  /** Consecutive failure count for restart control */
-  consecutiveFailures: number;
-  /** Timestamp of first failure in current window */
-  firstFailureTime: number | null;
-  /** Flag to indicate auto-restart is enabled */
-  autoRestartEnabled: boolean;
-  /** Next restart delay in milliseconds */
-  nextRestartDelay: number;
-}
-
-// =============================================================================
-// Process Events Interface
-// =============================================================================
-
-/**
- * Events emitted by ManagedProcessInfo
- */
-export interface ManagedProcessEvents {
-  /** Process status changed */
-  'status-change': (newStatus: ProcessStatus, oldStatus: ProcessStatus) => void;
-  /** Process started */
-  start: (pid: number) => void;
-  /** Process stopped */
-  stop: (exitCode: number | null) => void;
-  /** Process restarted */
-  restart: (restartCount: number) => void;
-  /** Process memory limit exceeded */
-  'memory-limit': (memoryUsage: number, limit: number) => void;
-  /** Process error occurred */
-  error: (error: Error) => void;
-}
+import {
+  ProcessStatistics,
+  createDefaultStatistics,
+} from './process-statistics.js';
+import { RestartManager } from './restart-manager.js';
+import { ProcessMonitoringData } from './process-monitoring.js';
 
 // =============================================================================
 // ManagedProcessInfo Class
@@ -93,10 +52,12 @@ export class ManagedProcessInfo extends EventEmitter {
   private pid: number | null = null;
   private statistics: ProcessStatistics;
 
-  // New properties for detailed history tracking
+  // Composed managers
+  private readonly restartManager: RestartManager;
+  private readonly monitoringData: ProcessMonitoringData;
+
+  // State history tracking
   private stateHistory: ProcessStateChange[] = [];
-  private memoryHistoryDetailed: MemorySample[] = [];
-  private cpuHistoryDetailed: CPUSample[] = [];
   private lastCrashTime: number | null = null;
 
   constructor(config: ProcessConfig) {
@@ -104,21 +65,11 @@ export class ManagedProcessInfo extends EventEmitter {
     this.config = { ...config }; // Create a copy to avoid external mutations
 
     // Initialize statistics
-    const now = Date.now();
-    this.statistics = {
-      startedAt: null,
-      lastStatusChange: now,
-      restarts: 0,
-      lastRestart: null,
-      memoryHistory: [],
-      cpuHistory: [],
-      currentMemory: 0,
-      currentCpu: 0,
-      consecutiveFailures: 0,
-      firstFailureTime: null,
-      autoRestartEnabled: true,
-      nextRestartDelay: RESTART_BACKOFF_BASE_DELAY,
-    };
+    this.statistics = createDefaultStatistics();
+
+    // Initialize composed managers
+    this.restartManager = new RestartManager(config.name);
+    this.monitoringData = new ProcessMonitoringData();
   }
 
   // ---------------------------------------------------------------------------
@@ -289,7 +240,7 @@ export class ManagedProcessInfo extends EventEmitter {
   }
 
   // ---------------------------------------------------------------------------
-  // Statistics and Monitoring
+  // Statistics and Monitoring (delegated to ProcessMonitoringData)
   // ---------------------------------------------------------------------------
 
   /**
@@ -308,20 +259,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @param memoryUsage Memory usage in bytes
    */
   public updateMemoryUsage(memoryUsage: number): void {
-    this.statistics.currentMemory = memoryUsage;
-    const now = Date.now();
-
-    // Add to simple history (keep for backward compatibility)
-    this.statistics.memoryHistory.push(memoryUsage);
-    if (this.statistics.memoryHistory.length > 10) {
-      this.statistics.memoryHistory.shift();
-    }
-
-    // Add to detailed history with timestamp
-    this.memoryHistoryDetailed.push({ timestamp: now, usage: memoryUsage });
-    if (this.memoryHistoryDetailed.length > MAX_HISTORY_LENGTH) {
-      this.memoryHistoryDetailed.shift();
-    }
+    this.monitoringData.updateMemoryUsage(memoryUsage, this.statistics);
 
     // Check memory limit if configured
     if (
@@ -337,20 +275,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @param cpuUsage CPU usage percentage
    */
   public updateCpuUsage(cpuUsage: number): void {
-    this.statistics.currentCpu = cpuUsage;
-    const now = Date.now();
-
-    // Add to simple history (keep for backward compatibility)
-    this.statistics.cpuHistory.push(cpuUsage);
-    if (this.statistics.cpuHistory.length > 10) {
-      this.statistics.cpuHistory.shift();
-    }
-
-    // Add to detailed history with timestamp
-    this.cpuHistoryDetailed.push({ timestamp: now, usage: cpuUsage });
-    if (this.cpuHistoryDetailed.length > MAX_HISTORY_LENGTH) {
-      this.cpuHistoryDetailed.shift();
-    }
+    this.monitoringData.updateCpuUsage(cpuUsage, this.statistics);
   }
 
   /**
@@ -358,14 +283,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns Average memory usage in bytes
    */
   public getAverageMemoryUsage(): number {
-    if (this.statistics.memoryHistory.length === 0) {
-      return 0;
-    }
-    const sum = this.statistics.memoryHistory.reduce(
-      (acc, val) => acc + val,
-      0
-    );
-    return sum / this.statistics.memoryHistory.length;
+    return this.monitoringData.getAverageMemoryUsage(this.statistics);
   }
 
   /**
@@ -373,11 +291,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns Average CPU usage percentage
    */
   public getAverageCpuUsage(): number {
-    if (this.statistics.cpuHistory.length === 0) {
-      return 0;
-    }
-    const sum = this.statistics.cpuHistory.reduce((acc, val) => acc + val, 0);
-    return sum / this.statistics.cpuHistory.length;
+    return this.monitoringData.getAverageCpuUsage(this.statistics);
   }
 
   /**
@@ -385,20 +299,19 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns Current memory usage in bytes
    */
   public getMemoryUsage(): number {
-    return this.statistics.currentMemory;
+    return this.monitoringData.getMemoryUsage(this.statistics);
   }
 
   // ---------------------------------------------------------------------------
-  // Restart Management
+  // Restart Management (delegated to RestartManager)
   // ---------------------------------------------------------------------------
 
   /**
    * Record a restart
    */
   public recordRestart(): void {
-    this.statistics.restarts++;
-    this.statistics.lastRestart = Date.now();
-    this.emit('restart', this.statistics.restarts);
+    const count = this.restartManager.recordRestart(this.statistics);
+    this.emit('restart', count);
   }
 
   /**
@@ -412,8 +325,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * Reset restart count
    */
   public resetRestartCount(): void {
-    this.statistics.restarts = 0;
-    this.statistics.lastRestart = null;
+    this.restartManager.resetRestartCount(this.statistics);
   }
 
   /**
@@ -421,10 +333,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns Time since last restart in milliseconds, or null if never restarted
    */
   public getTimeSinceLastRestart(): number | null {
-    if (!this.statistics.lastRestart) {
-      return null;
-    }
-    return Date.now() - this.statistics.lastRestart;
+    return this.restartManager.getTimeSinceLastRestart(this.statistics);
   }
 
   // ---------------------------------------------------------------------------
@@ -501,7 +410,7 @@ export class ManagedProcessInfo extends EventEmitter {
   }
 
   // ---------------------------------------------------------------------------
-  // Auto-restart Control
+  // Auto-restart Control (delegated to RestartManager)
   // ---------------------------------------------------------------------------
 
   /**
@@ -528,49 +437,21 @@ export class ManagedProcessInfo extends EventEmitter {
    * Record a restart failure
    */
   public recordRestartFailure(): void {
-    const now = Date.now();
-
-    // Reset failure window if enough time has passed
-    if (
-      this.statistics.firstFailureTime &&
-      now - this.statistics.firstFailureTime > RESTART_WINDOW_TIME
-    ) {
-      this.resetRestartFailures();
-    }
-
-    // Initialize failure window if this is the first failure
-    if (this.statistics.firstFailureTime === null) {
-      this.statistics.firstFailureTime = now;
-    }
-
-    this.statistics.consecutiveFailures++;
-
-    // Disable auto-restart if too many failures
-    if (this.statistics.consecutiveFailures >= MAX_RESTART_COUNT) {
-      this.statistics.autoRestartEnabled = false;
-      console.warn(
-        `Process '${this.config.name}' auto-restart disabled after ${MAX_RESTART_COUNT} consecutive failures`
-      );
-    }
-
-    // Calculate next restart delay with exponential backoff
-    this.calculateNextRestartDelay();
+    this.restartManager.recordRestartFailure(this.statistics);
   }
 
   /**
    * Record a successful restart (reset failure counters)
    */
   public recordRestartSuccess(): void {
-    this.resetRestartFailures();
+    this.restartManager.recordRestartSuccess(this.statistics);
   }
 
   /**
    * Reset restart failure counters
    */
   public resetRestartFailures(): void {
-    this.statistics.consecutiveFailures = 0;
-    this.statistics.firstFailureTime = null;
-    this.statistics.nextRestartDelay = RESTART_BACKOFF_BASE_DELAY;
+    this.restartManager.resetRestartFailures(this.statistics);
   }
 
   /**
@@ -578,7 +459,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns Number of consecutive failures
    */
   public getConsecutiveFailures(): number {
-    return this.statistics.consecutiveFailures;
+    return this.restartManager.getConsecutiveFailures(this.statistics);
   }
 
   /**
@@ -586,24 +467,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns Next restart delay in milliseconds
    */
   public getNextRestartDelay(): number {
-    return this.statistics.nextRestartDelay;
-  }
-
-  /**
-   * Calculate next restart delay using exponential backoff
-   */
-  private calculateNextRestartDelay(): void {
-    const baseDelay = RESTART_BACKOFF_BASE_DELAY;
-    const multiplier = Math.pow(
-      RESTART_BACKOFF_MULTIPLIER,
-      this.statistics.consecutiveFailures - 1
-    );
-    const calculatedDelay = baseDelay * multiplier;
-
-    this.statistics.nextRestartDelay = Math.min(
-      calculatedDelay,
-      RESTART_BACKOFF_MAX_DELAY
-    );
+    return this.restartManager.getNextRestartDelay(this.statistics);
   }
 
   /**
@@ -611,10 +475,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns True if restart should be attempted
    */
   public shouldRestart(): boolean {
-    return (
-      this.statistics.autoRestartEnabled &&
-      this.statistics.consecutiveFailures < MAX_RESTART_COUNT
-    );
+    return this.restartManager.shouldRestart(this.statistics);
   }
 
   /**
@@ -627,25 +488,7 @@ export class ManagedProcessInfo extends EventEmitter {
     exitCode: number | null,
     signal: string | null
   ): boolean {
-    // Expected exits:
-    // - Normal exit with code 0
-    // - Graceful shutdown via SIGTERM
-    // - Process was in stopping state (intentional shutdown)
-
-    if (this.status === 'stopping') {
-      return false; // Intentional shutdown
-    }
-
-    if (exitCode === 0) {
-      return false; // Normal exit
-    }
-
-    if (signal === 'SIGTERM') {
-      return false; // Graceful shutdown
-    }
-
-    // All other exits are considered unexpected
-    return true;
+    return this.restartManager.isUnexpectedExit(exitCode, signal, this.status);
   }
 
   // ---------------------------------------------------------------------------
@@ -705,8 +548,7 @@ export class ManagedProcessInfo extends EventEmitter {
 
     // Clear all historical data for memory leak prevention
     this.stateHistory.length = 0;
-    this.memoryHistoryDetailed.length = 0;
-    this.cpuHistoryDetailed.length = 0;
+    this.monitoringData.clear();
 
     // Clear crash tracking
     this.lastCrashTime = null;
@@ -759,7 +601,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns Array of memory samples
    */
   public getMemoryHistory(): Readonly<MemorySample[]> {
-    return [...this.memoryHistoryDetailed];
+    return this.monitoringData.getMemoryHistory();
   }
 
   /**
@@ -767,7 +609,7 @@ export class ManagedProcessInfo extends EventEmitter {
    * @returns Array of CPU samples
    */
   public getCpuHistory(): Readonly<CPUSample[]> {
-    return [...this.cpuHistoryDetailed];
+    return this.monitoringData.getCpuHistory();
   }
 
   /**
@@ -795,8 +637,8 @@ export class ManagedProcessInfo extends EventEmitter {
       autoRestartEnabled: this.statistics.autoRestartEnabled,
       lastStartTime: this.statistics.startedAt,
       stateHistory: this.stateHistory,
-      memoryHistory: this.memoryHistoryDetailed,
-      cpuHistory: this.cpuHistoryDetailed,
+      memoryHistory: this.monitoringData.getMemoryHistory() as MemorySample[],
+      cpuHistory: this.monitoringData.getCpuHistory() as CPUSample[],
       consecutiveRestarts: this.statistics.consecutiveFailures,
       lastRestartTime: this.statistics.lastRestart,
       lastCrashTime: this.lastCrashTime,
@@ -843,21 +685,13 @@ export class ManagedProcessInfo extends EventEmitter {
 
     // Restore history data
     this.stateHistory = persistedState.stateHistory || [];
-    this.memoryHistoryDetailed = persistedState.memoryHistory || [];
-    this.cpuHistoryDetailed = persistedState.cpuHistory || [];
+    this.monitoringData.setMemoryHistory(persistedState.memoryHistory || []);
+    this.monitoringData.setCpuHistory(persistedState.cpuHistory || []);
     this.lastCrashTime = persistedState.lastCrashTime || null;
 
-    // Trim history to max length if needed
+    // Trim state history to max length if needed
     if (this.stateHistory.length > MAX_HISTORY_LENGTH) {
       this.stateHistory = this.stateHistory.slice(-MAX_HISTORY_LENGTH);
-    }
-    if (this.memoryHistoryDetailed.length > MAX_HISTORY_LENGTH) {
-      this.memoryHistoryDetailed =
-        this.memoryHistoryDetailed.slice(-MAX_HISTORY_LENGTH);
-    }
-    if (this.cpuHistoryDetailed.length > MAX_HISTORY_LENGTH) {
-      this.cpuHistoryDetailed =
-        this.cpuHistoryDetailed.slice(-MAX_HISTORY_LENGTH);
     }
   }
 }

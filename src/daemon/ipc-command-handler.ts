@@ -3,6 +3,9 @@
  *
  * ProcmanDaemonで受信したIPCコマンドを処理する責務を持つ。
  * 各コマンドの実装を提供し、適切なレスポンスを生成する。
+ *
+ * Process-related handlers are in ./process-command-handlers.ts
+ * Log-related handlers are in ./log-command-handlers.ts
  */
 
 import { EventEmitter } from 'events';
@@ -23,17 +26,22 @@ import {
   LogCommandPayload,
   ClearLogCommandPayload,
   ExitCommandPayload,
-  LoadResponseData,
-  StartResponseData,
-  StopResponseData,
-  RestartResponseData,
-  ListResponseData,
-  LogResponseData,
-  ClearLogResponseData,
-  ExitResponseData,
 } from '../shared/ipc.js';
-import { LogOptions } from '../shared/logs.js';
+import type { LogOptions } from '../shared/logs.js';
 import { LOG_STREAM_EVENTS } from '../shared/constants-streaming.js';
+
+import {
+  handleLoadCommand,
+  handleStartCommand,
+  handleStopCommand,
+  handleRestartCommand,
+  handleListCommand,
+  handleExitCommand,
+} from './process-command-handlers.js';
+import {
+  handleLogCommand,
+  handleClearLogCommand,
+} from './log-command-handlers.js';
 
 /**
  * Command type constants
@@ -48,13 +56,6 @@ const COMMAND_TYPES = {
   CLEAR_LOG: 'clear-log' as CommandType,
   EXIT: 'exit' as CommandType,
 };
-
-/**
- * Timing constants
- */
-const TIMING_CONSTANTS = {
-  EXIT_SHUTDOWN_DELAY_MS: 100,
-} as const;
 
 /**
  * Daemon interface for command handler
@@ -80,8 +81,7 @@ export interface CommandHandlerEvents {
   [LOG_STREAM_EVENTS.START_LOG_STREAM]: (config: {
     messageId: string;
     target: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    options: any;
+    options?: LogOptions;
     connectionId?: string;
   }) => void;
   [LOG_STREAM_EVENTS.STOP_LOG_STREAM]: (config: { sessionId: string }) => void;
@@ -106,7 +106,7 @@ export class IPCCommandHandler extends EventEmitter {
   private registerListener<T extends EventEmitter>(
     emitter: T,
     event: string | symbol,
-    listener: (...args: any[]) => void
+    listener: (...args: unknown[]) => void
   ): void {
     this.listenerCleanup.track(emitter, event, listener);
   }
@@ -116,8 +116,7 @@ export class IPCCommandHandler extends EventEmitter {
    */
   async handleMessage(
     message: IPCMessage,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    connection?: any
+    connection?: { id?: string }
   ): Promise<IPCResponse> {
     this.emit('command:received', message.type, message.id);
 
@@ -126,50 +125,59 @@ export class IPCCommandHandler extends EventEmitter {
 
       switch (message.type) {
         case COMMAND_TYPES.LOAD:
-          response = await this.handleLoadCommand(
+          response = await handleLoadCommand(
+            this.daemon,
             message as IPCMessage<LoadCommandPayload>
           );
           break;
 
         case COMMAND_TYPES.START:
-          response = await this.handleStartCommand(
+          response = await handleStartCommand(
+            this.daemon,
             message as IPCMessage<StartCommandPayload>
           );
           break;
 
         case COMMAND_TYPES.STOP:
-          response = await this.handleStopCommand(
+          response = await handleStopCommand(
+            this.daemon,
             message as IPCMessage<StopCommandPayload>
           );
           break;
 
         case COMMAND_TYPES.RESTART:
-          response = await this.handleRestartCommand(
+          response = await handleRestartCommand(
+            this.daemon,
             message as IPCMessage<RestartCommandPayload>
           );
           break;
 
         case COMMAND_TYPES.LIST:
-          response = await this.handleListCommand(
+          response = await handleListCommand(
+            this.daemon,
             message as IPCMessage<ListCommandPayload>
           );
           break;
 
         case COMMAND_TYPES.LOG:
-          response = await this.handleLogCommand(
+          response = await handleLogCommand(
+            this.daemon,
+            this,
             message as IPCMessage<LogCommandPayload>,
             connection
           );
           break;
 
         case COMMAND_TYPES.CLEAR_LOG:
-          response = await this.handleClearLogCommand(
+          response = await handleClearLogCommand(
+            this.daemon,
             message as IPCMessage<ClearLogCommandPayload>
           );
           break;
 
         case COMMAND_TYPES.EXIT:
-          response = await this.handleExitCommand(
+          response = await handleExitCommand(
+            this.daemon,
             message as IPCMessage<ExitCommandPayload>
           );
           break;
@@ -197,415 +205,6 @@ export class IPCCommandHandler extends EventEmitter {
         },
       };
     }
-  }
-
-  /**
-   * Handle LOAD command
-   */
-  private async handleLoadCommand(
-    message: IPCMessage<LoadCommandPayload>
-  ): Promise<IPCResponse<LoadResponseData>> {
-    const { configPath } = message.payload;
-
-    await this.daemon.loadConfig(configPath);
-
-    const config = this.daemon.getConfig();
-    const response: LoadResponseData = {
-      config: { apps: config || [] },
-      appsCount: config?.length || 0,
-    };
-
-    return {
-      id: message.id,
-      requestId: message.id,
-      type: COMMAND_TYPES.LOAD,
-      timestamp: Date.now(),
-      success: true,
-      data: response,
-    };
-  }
-
-  /**
-   * Handle START command
-   */
-  private async handleStartCommand(
-    message: IPCMessage<StartCommandPayload>
-  ): Promise<IPCResponse<StartResponseData>> {
-    const { targets } = message.payload;
-    const processManager = this.daemon.getProcessManager();
-
-    if (!processManager) {
-      throw new Error('Process manager not initialized');
-    }
-
-    // Determine which processes to start
-    let targetProcesses: string[] = [];
-    if (targets && targets.length > 0) {
-      // Check if targets are namespace patterns (e.g., "namespace:*")
-      targetProcesses = targets.flatMap((target) => {
-        if (target.includes(':')) {
-          const [namespace] = target.split(':');
-          return processManager.getProcessNamesByNamespace(namespace);
-        }
-        return target;
-      });
-    } else {
-      // Start all processes
-      targetProcesses = processManager.getProcessNames();
-    }
-
-    if (targetProcesses.length === 0) {
-      throw new Error('No processes found to start');
-    }
-
-    // Start processes
-    const batchResults = await processManager.startProcesses(targetProcesses);
-
-    // Count successes and failures
-    const started = batchResults
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((r: any) => r.success)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((r: any) => r.name);
-    const alreadyRunning: string[] = [];
-    const failed = batchResults
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((r: any) => !r.success)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((r: any) => ({
-        name: r.name,
-        error: r.error || 'Unknown error',
-      }));
-
-    const response: StartResponseData = {
-      started,
-      alreadyRunning,
-      failed,
-    };
-
-    return {
-      id: message.id,
-      requestId: message.id,
-      type: COMMAND_TYPES.START,
-      timestamp: Date.now(),
-      success: true,
-      data: response,
-    };
-  }
-
-  /**
-   * Handle STOP command
-   */
-  private async handleStopCommand(
-    message: IPCMessage<StopCommandPayload>
-  ): Promise<IPCResponse<StopResponseData>> {
-    const { targets } = message.payload;
-    const processManager = this.daemon.getProcessManager();
-
-    if (!processManager) {
-      throw new Error('Process manager not initialized');
-    }
-
-    // Determine which processes to stop
-    let targetProcesses: string[] = [];
-    if (targets && targets.length > 0) {
-      targetProcesses = targets.flatMap((target) => {
-        if (target.includes(':')) {
-          const [namespace] = target.split(':');
-          return processManager.getProcessNamesByNamespace(namespace);
-        }
-        return target;
-      });
-    } else {
-      // Stop all processes
-      targetProcesses = processManager.getProcessNames();
-    }
-
-    if (targetProcesses.length === 0) {
-      throw new Error('No processes found to stop');
-    }
-
-    // Stop processes
-    const batchResults = await processManager.stopProcesses(targetProcesses);
-
-    // Count successes and failures
-    const stopped = batchResults
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((r: any) => r.success)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((r: any) => r.name);
-    const alreadyStopped: string[] = [];
-    const failed = batchResults
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((r: any) => !r.success)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((r: any) => ({
-        name: r.name,
-        error: r.error || 'Unknown error',
-      }));
-
-    const response: StopResponseData = {
-      stopped,
-      alreadyStopped,
-      failed,
-    };
-
-    return {
-      id: message.id,
-      requestId: message.id,
-      type: COMMAND_TYPES.STOP,
-      timestamp: Date.now(),
-      success: true,
-      data: response,
-    };
-  }
-
-  /**
-   * Handle RESTART command
-   */
-  private async handleRestartCommand(
-    message: IPCMessage<RestartCommandPayload>
-  ): Promise<IPCResponse<RestartResponseData>> {
-    const { targets } = message.payload;
-    const processManager = this.daemon.getProcessManager();
-
-    if (!processManager) {
-      throw new Error('Process manager not initialized');
-    }
-
-    // Determine which processes to restart
-    let targetProcesses: string[] = [];
-    if (targets && targets.length > 0) {
-      targetProcesses = targets.flatMap((target) => {
-        if (target.includes(':')) {
-          const [namespace] = target.split(':');
-          return processManager.getProcessNamesByNamespace(namespace);
-        }
-        return target;
-      });
-    } else {
-      // Restart all processes
-      targetProcesses = processManager.getProcessNames();
-    }
-
-    if (targetProcesses.length === 0) {
-      throw new Error('No processes found to restart');
-    }
-
-    // Restart processes
-    const batchResults = await processManager.restartProcesses(targetProcesses);
-
-    // Count successes and failures
-    const restarted = batchResults
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((r: any) => r.success)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((r: any) => r.name);
-    const failed = batchResults
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((r: any) => !r.success)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((r: any) => ({
-        name: r.name,
-        error: r.error || 'Unknown error',
-      }));
-
-    const response: RestartResponseData = {
-      restarted,
-      failed,
-    };
-
-    return {
-      id: message.id,
-      requestId: message.id,
-      type: COMMAND_TYPES.RESTART,
-      timestamp: Date.now(),
-      success: true,
-      data: response,
-    };
-  }
-
-  /**
-   * Handle LIST command
-   */
-  private async handleListCommand(
-    message: IPCMessage<ListCommandPayload>
-  ): Promise<IPCResponse<ListResponseData>> {
-    const processes = await this.daemon.getAllProcessStatuses();
-
-    const response: ListResponseData = {
-      configFile: '<unknown>',
-      daemonUptime: process.uptime(),
-      processes,
-    };
-
-    return {
-      id: message.id,
-      requestId: message.id,
-      type: COMMAND_TYPES.LIST,
-      timestamp: Date.now(),
-      success: true,
-      data: response,
-    };
-  }
-
-  /**
-   * Handle LOG command
-   */
-  private async handleLogCommand(
-    message: IPCMessage<LogCommandPayload>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    connection?: any
-  ): Promise<IPCResponse<LogResponseData>> {
-    const { target, options } = message.payload;
-    const logManager = this.daemon.getLogManager();
-
-    if (!logManager) {
-      throw new Error('Log manager not initialized');
-    }
-
-    // Check if streaming is requested
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const follow = (options as any)?.follow;
-
-    if (follow) {
-      // ストリーミングモードの場合、接続情報を保存してストリーミングを開始
-      // 注: 実際のストリーミングはIPCサーバー側で処理する必要がある
-      // ここでは通常のレスポンスを返し、別途ストリーミングイベントを送信する
-
-      // ストリーミング開始のマーカーを含むレスポンスを返す
-      const response: LogResponseData = {
-        entries: [],
-        total: 0,
-        streaming: true, // ストリーミングモードであることを示すフラグ
-      };
-
-      // ストリーミングの設定をイベントとして発行
-      // これにより、IPCサーバーがストリーミングを開始できる
-      this.emit(LOG_STREAM_EVENTS.START_LOG_STREAM, {
-        messageId: message.id,
-        target,
-        options,
-        connectionId: connection?.id, // Pass connection ID for specific client streaming
-      });
-
-      return {
-        id: message.id,
-        requestId: message.id,
-        type: COMMAND_TYPES.LOG,
-        timestamp: Date.now(),
-        success: true,
-        data: response,
-      };
-    }
-
-    // 通常モード（非ストリーミング）
-    const logOptions: LogOptions = {
-      lines: options?.lines || 100,
-    };
-
-    const logs = await logManager.readLogs(target, logOptions);
-
-    const response: LogResponseData = {
-      entries: logs,
-      total: logs.length,
-    };
-
-    return {
-      id: message.id,
-      requestId: message.id,
-      type: COMMAND_TYPES.LOG,
-      timestamp: Date.now(),
-      success: true,
-      data: response,
-    };
-  }
-
-  /**
-   * Handle CLEAR_LOG command
-   */
-  private async handleClearLogCommand(
-    message: IPCMessage<ClearLogCommandPayload>
-  ): Promise<IPCResponse<ClearLogResponseData>> {
-    const { target } = message.payload;
-    const logManager = this.daemon.getLogManager();
-    const processManager = this.daemon.getProcessManager();
-
-    if (!logManager) {
-      throw new Error('Log manager not initialized');
-    }
-
-    // Determine which logs to clear
-    let targetProcesses: string[] = [];
-    if (target) {
-      if (target.includes(':')) {
-        const [namespace] = target.split(':');
-        targetProcesses =
-          processManager?.getProcessNamesByNamespace(namespace) || [];
-      } else {
-        targetProcesses = [target];
-      }
-    } else {
-      targetProcesses = processManager?.getProcessNames() || [];
-    }
-
-    if (targetProcesses.length === 0) {
-      throw new Error('No processes found to clear logs');
-    }
-
-    // Clear logs for each process
-    for (const processName of targetProcesses) {
-      await logManager.clearLogs(processName);
-    }
-
-    const response: ClearLogResponseData = {
-      cleared: targetProcesses,
-    };
-
-    return {
-      id: message.id,
-      requestId: message.id,
-      type: COMMAND_TYPES.CLEAR_LOG,
-      timestamp: Date.now(),
-      success: true,
-      data: response,
-    };
-  }
-
-  /**
-   * Handle EXIT command
-   */
-  private async handleExitCommand(
-    message: IPCMessage<ExitCommandPayload>
-  ): Promise<IPCResponse<ExitResponseData>> {
-    const processManager = this.daemon.getProcessManager();
-    const processCount = processManager?.getProcessNames().length || 0;
-
-    const response: ExitResponseData = {
-      processCount,
-    };
-
-    // Schedule daemon shutdown after sending response
-    setTimeout(() => {
-      this.daemon
-        .stop()
-        .then(() => {
-          process.exit(0);
-        })
-        .catch((error) => {
-          console.error('Error during daemon shutdown:', error);
-          process.exit(1);
-        });
-    }, TIMING_CONSTANTS.EXIT_SHUTDOWN_DELAY_MS);
-
-    return {
-      id: message.id,
-      requestId: message.id,
-      type: COMMAND_TYPES.EXIT,
-      timestamp: Date.now(),
-      success: true,
-      data: response,
-    };
   }
 
   /**
