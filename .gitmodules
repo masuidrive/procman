@@ -1,3 +1,0 @@
-[submodule "prompts"]
-	path = prompts
-	url = https://github.com/bloom-and-co/claude-code-prompts.git
