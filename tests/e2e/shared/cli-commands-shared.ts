@@ -160,13 +160,13 @@ export const createUniqueSocketPath = (
   index: number
 ): string => {
   // Generate truly unique identifier combining multiple entropy sources
-  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+  // IMPORTANT: Keep path short for Unix socket limit (104 chars on macOS)
+  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
   const processId = process.pid.toString();
-  const timestamp = Date.now().toString();
 
   const testTempDir = path.join(
     os.tmpdir(),
-    `procman-concurrent-test-${prefix}-${processId}-${timestamp}-${uniqueId}-${index}`
+    `pm-ct-${prefix}-${processId}-${uniqueId}-${index}`
   );
   return path.join(testTempDir, 'procman.sock');
 };
@@ -177,13 +177,13 @@ export const createUniqueSocketPath = (
  */
 export const createUniqueHomeDir = (prefix: string, index: number): string => {
   // Generate truly unique identifier combining multiple entropy sources
-  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+  // IMPORTANT: Keep path short for Unix socket limit (104 chars on macOS)
+  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
   const processId = process.pid.toString();
-  const timestamp = Date.now().toString();
 
   return path.join(
     os.tmpdir(),
-    `procman-home-${prefix}-${processId}-${timestamp}-${uniqueId}-${index}`
+    `pm-home-${prefix}-${processId}-${uniqueId}-${index}`
   );
 };
 
@@ -248,13 +248,22 @@ export const cleanupDaemon = async (
 ): Promise<void> => {
   const socketPath = env.PROCMAN_SOCKET_PATH;
   const homeDir = env.HOME || os.homedir();
-  const pidFile = path.join(homeDir, '.masuidrive-procman', 'procman.pid');
+  // The daemon writes daemon.pid (not procman.pid) - check both locations
+  const pidFile = path.join(homeDir, '.masuidrive-procman', 'daemon.pid');
+  const legacyPidFile = path.join(homeDir, '.masuidrive-procman', 'procman.pid');
   const uniqueDir = socketPath ? path.dirname(socketPath) : '';
+  // Also check for PID file in the data directory derived from socket path
+  const dataDirPidFile = socketPath
+    ? path.join(path.dirname(socketPath), 'procman-data', 'daemon.pid')
+    : '';
 
   // For CI environments, use fast and reliable cleanup
   if (process.env.CI === 'true') {
     // Fast path for CI: Skip graceful exit, go straight to force cleanup
-    await forceCleanupDaemon(socketPath, pidFile, uniqueDir);
+    await forceCleanupDaemon(socketPath, pidFile, uniqueDir, [
+      legacyPidFile,
+      dataDirPidFile,
+    ]);
     return;
   }
 
@@ -276,11 +285,48 @@ export const cleanupDaemon = async (
     }
   } catch (error) {
     // Graceful exit failed, use force cleanup
-    await forceCleanupDaemon(socketPath, pidFile, uniqueDir);
+    await forceCleanupDaemon(socketPath, pidFile, uniqueDir, [
+      legacyPidFile,
+      dataDirPidFile,
+    ]);
   }
 
   // Brief pause for filesystem sync
   await sleep(100);
+};
+
+/**
+ * Kill daemon process by reading PID from a file
+ */
+const killDaemonFromPidFile = async (pidFile: string): Promise<void> => {
+  try {
+    if (
+      await fs
+        .access(pidFile)
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      const pidStr = await fs.readFile(pidFile, 'utf-8');
+      const pid = parseInt(pidStr.trim());
+      if (!isNaN(pid) && pid > 0) {
+        try {
+          process.kill(pid, 'SIGTERM');
+          await sleep(500);
+          try {
+            process.kill(pid, 0);
+            process.kill(pid, 'SIGKILL');
+          } catch {
+            // Process already gone
+          }
+        } catch {
+          // Process already gone or permission denied
+        }
+      }
+      await fs.unlink(pidFile).catch(() => {});
+    }
+  } catch {
+    // Ignore errors
+  }
 };
 
 /**
@@ -289,45 +335,18 @@ export const cleanupDaemon = async (
 const forceCleanupDaemon = async (
   socketPath: string | undefined,
   pidFile: string,
-  uniqueDir: string
+  uniqueDir: string,
+  extraPidFiles: string[] = []
 ): Promise<void> => {
   // Run all cleanup operations in parallel for speed
   await Promise.allSettled([
-    // Kill daemon process first (most important)
-    (async () => {
-      try {
-        if (
-          await fs
-            .access(pidFile)
-            .then(() => true)
-            .catch(() => false)
-        ) {
-          const pidStr = await fs.readFile(pidFile, 'utf-8');
-          const pid = parseInt(pidStr.trim());
-          if (!isNaN(pid) && pid > 0) {
-            // Try SIGTERM first, then SIGKILL if needed
-            try {
-              process.kill(pid, 'SIGTERM');
-              await sleep(500); // Give it time to exit gracefully
+    // Kill daemon process from primary PID file
+    killDaemonFromPidFile(pidFile),
 
-              // Check if still running
-              try {
-                process.kill(pid, 0); // Check if process exists
-                // Still running, force kill
-                process.kill(pid, 'SIGKILL');
-              } catch {
-                // Process already gone, good
-              }
-            } catch {
-              // Process already gone or permission denied
-            }
-          }
-          await fs.unlink(pidFile).catch(() => {});
-        }
-      } catch {
-        // Ignore errors in force cleanup
-      }
-    })(),
+    // Also check extra PID file locations (daemon.pid vs procman.pid, data dir)
+    ...extraPidFiles
+      .filter((f) => f)
+      .map((f) => killDaemonFromPidFile(f)),
 
     // Clean socket file
     socketPath ? fs.unlink(socketPath).catch(() => {}) : Promise.resolve(),
@@ -395,7 +414,10 @@ export const cleanupOldTempDirs = async (): Promise<void> => {
     for (const entry of entries) {
       if (
         entry.startsWith('procman-concurrent-test-') ||
-        entry.startsWith('procman-cli-e2e-')
+        entry.startsWith('procman-cli-e2e-') ||
+        entry.startsWith('pm-e2e-') ||
+        entry.startsWith('pm-ct-') ||
+        entry.startsWith('pm-home-')
       ) {
         const fullPath = path.join(tmpDir, entry);
         await fs.rm(fullPath, { recursive: true, force: true }).catch(() => {});
@@ -531,15 +553,24 @@ export const waitForDaemonReady = async (
       // Try multiple health checks to ensure daemon is fully ready
       const result = await execCLI(['list'], { timeout: 5000, env }); // Increased timeout for individual check
 
-      if (result.exitCode === 0) {
+      // Check both exit code AND output - list returns exitCode 0 even when daemon not running
+      if (
+        result.exitCode === 0 &&
+        !result.stdout.includes('daemon not running') &&
+        !result.stdout.includes('No processes found (daemon not running)')
+      ) {
         // Additional verification: try to get daemon status
         try {
           const statusResult = await execCLI(['list', '--format', 'json'], {
             timeout: 3000,
+            env,
           });
 
-          // If JSON parsing succeeds, daemon is definitely ready
-          if (statusResult.exitCode === 0) {
+          // If JSON parsing succeeds and daemon is actually running, daemon is definitely ready
+          if (
+            statusResult.exitCode === 0 &&
+            !statusResult.stdout.includes('daemon not running')
+          ) {
             console.log(`Daemon became ready in ${Date.now() - startTime}ms`);
             return;
           }
@@ -740,14 +771,15 @@ export const startDaemonWithCoordination = async (
  */
 export const setupTestEnvironment = async () => {
   // Generate truly unique identifier for parallel test isolation
-  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+  // IMPORTANT: Keep directory name short to stay within Unix socket path limit (104 chars on macOS)
+  // macOS TMPDIR is ~49 chars, so dirname must be <= ~41 chars (104 - 49 - 14 for "/procman.sock")
+  const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
   const processId = process.pid.toString();
-  const timestamp = Date.now().toString();
 
-  // Create unique directory path with multiple entropy sources
+  // Use shortened prefix "pm-e2e" instead of "procman-e2e-test" to stay within socket path limits
   const testTempDir = path.join(
     os.tmpdir(),
-    `procman-e2e-test-${processId}-${timestamp}-${uniqueId}`
+    `pm-e2e-${processId}-${uniqueId}`
   );
 
   await fs.mkdir(testTempDir, { recursive: true });

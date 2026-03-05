@@ -25,7 +25,7 @@ describe('Simple Lock Problem Verification', () => {
 
     // Verify crypto UUID pattern
     socketPaths.forEach((socketPath) => {
-      expect(socketPath).toMatch(/procman-e2e-test-\d+-\d+-[a-f0-9]{16}/);
+      expect(socketPath).toMatch(/pm-e2e-\d+-[a-f0-9]{8}/);
       expect(socketPath).toContain(process.pid.toString());
     });
   });

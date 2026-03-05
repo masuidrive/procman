@@ -65,7 +65,7 @@ describe('Lock Problem Resolution Verification', () => {
 
         // Verify paths contain process ID and UUID components
         socketPaths.forEach((socketPath) => {
-          expect(socketPath).toMatch(/procman-e2e-test-\d+-\d+-[a-f0-9]{16}/);
+          expect(socketPath).toMatch(/pm-e2e-\d+-[a-f0-9]{8}/);
           expect(socketPath).toContain(process.pid.toString());
         });
       } finally {
@@ -166,7 +166,7 @@ describe('Lock Problem Resolution Verification', () => {
 
       // Verify socket path uniqueness in environment
       expect(testEnv.PROCMAN_SOCKET_PATH).toMatch(
-        /procman-e2e-test-\d+-\d+-[a-f0-9]{16}/
+        /pm-e2e-\d+-[a-f0-9]{8}/
       );
       expect(testEnv.PROCMAN_SOCKET_PATH).toContain(process.pid.toString());
     });

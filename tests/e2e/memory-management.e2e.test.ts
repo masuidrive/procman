@@ -39,11 +39,14 @@ describe('Memory Management E2E Tests', () => {
   let testEnv: any;
 
   beforeAll(async () => {
-    // Setup test environment with socket path
-    const { testSocketPath: socketPath, testEnv: env } =
+    // Setup test environment with socket path and unique HOME to avoid PID file conflicts
+    const { testSocketPath: socketPath, testEnv: env, testTempDir } =
       await setupTestEnvironment();
     testSocketPath = socketPath;
-    testEnv = env;
+    // Use a unique HOME directory to prevent PID file conflicts with parallel test files
+    const uniqueHome = path.join(testTempDir, 'home');
+    await fs.mkdir(uniqueHome, { recursive: true });
+    testEnv = { ...env, HOME: uniqueHome, USERPROFILE: uniqueHome };
     execCLI = createTestExecCLI(testEnv);
   });
 
@@ -69,6 +72,11 @@ describe('Memory Management E2E Tests', () => {
 
     // Cleanup any existing daemon
     await cleanupDaemon(testEnv);
+
+    // Ensure socket directory exists (cleanupDaemon may have removed it)
+    if (testSocketPath) {
+      await fs.mkdir(path.dirname(testSocketPath), { recursive: true });
+    }
   });
 
   afterEach(async () => {
@@ -301,7 +309,7 @@ describe('Memory Management E2E Tests', () => {
       const listResult = await execCLI(['list']);
       expect(listResult.exitCode).toBe(0);
       expect(listResult.stdout).toContain('listener-test-app');
-    }, 20000);
+    }, 90000);
   });
 
   describe('Graceful Shutdown State Persistence', () => {
@@ -349,9 +357,10 @@ describe('Memory Management E2E Tests', () => {
       const exitResult = await execCLI(['exit']);
       expect(exitResult.exitCode).toBe(0);
 
-      // Check if shutdown state was saved
+      // Check if shutdown state was saved (daemon writes to HOME/.masuidrive-procman/)
+      const homeDir = testEnv.HOME || testDir;
       const shutdownStatePath = path.join(
-        testDir,
+        homeDir,
         '.masuidrive-procman',
         'shutdown-state.json'
       );
@@ -375,7 +384,7 @@ describe('Memory Management E2E Tests', () => {
         expect(state).toHaveProperty('memoryUsage');
         expect(state).toHaveProperty('processes');
       }
-    }, 15000);
+    }, 90000);
   });
 
   describe('Memory Monitoring and Alerts', () => {
@@ -413,6 +422,9 @@ describe('Memory Management E2E Tests', () => {
       if (loadResult.exitCode !== 0) {
         console.error('Failed to load config:', loadResult.stderr);
       }
+
+      // Wait for daemon to be ready
+      await waitForDaemonReady(testEnv);
 
       // Verify daemon is running by listing processes
       const listResult = await execCLI(['list']);

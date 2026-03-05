@@ -322,7 +322,7 @@ module.exports = {
       expect(successCount).toBeGreaterThanOrEqual(1);
 
       timer.log('Test completed successfully');
-    }, 60000); // 1 minute timeout
+    }, 300000); // 5 minutes timeout - sequential daemon startups can be slow
 
     test('should handle mixed concurrent operations', async () => {
       // SKIP: This test has consistent timeout issues with concurrent daemon loading

@@ -6,10 +6,8 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 import { ConfigLoader } from '../../src/config/config-loader';
 import { ProcessManager } from '../../src/process-manager/process-manager';
-import { PROCESSES_FILE } from '../../src/shared/constants';
 import { AppConfig } from '../../src/shared/config';
 import {
   TEST_TIMEOUTS,
@@ -70,15 +68,24 @@ describe('Process Manager E2E Tests', () => {
   let configLoader: ConfigLoader;
   let processManager: ProcessManager;
   let testDir: string;
+  let persistenceDir: string;
 
   beforeEach(async () => {
     // Create temporary directory for test files
     testDir = path.join(process.cwd(), 'tmp', 'e2e-test-' + Date.now());
     await fs.mkdir(testDir, { recursive: true });
 
+    // Create temporary directory for persistence files
+    persistenceDir = path.join(
+      testDir,
+      'persistence-' + Math.random().toString(36).slice(2)
+    );
+    await fs.mkdir(persistenceDir, { recursive: true });
+
     // Initialize components
     configLoader = new ConfigLoader();
-    processManager = new ProcessManager();
+    const persistencePath = path.join(persistenceDir, 'processes.json');
+    processManager = new ProcessManager(5000, 30000, persistencePath);
     await processManager.initialize();
   });
 
@@ -87,15 +94,7 @@ describe('Process Manager E2E Tests', () => {
     try {
       await processManager.cleanup();
 
-      // Remove processes.json if it exists
-      const processesFile = path.join(process.cwd(), PROCESSES_FILE);
-      try {
-        await fs.unlink(processesFile);
-      } catch (error) {
-        // Ignore if file doesn't exist
-      }
-
-      // Clean up test directory
+      // Clean up test directory (includes persistence files)
       await fs.rm(testDir, { recursive: true, force: true });
     } catch (error) {
       console.warn('Cleanup error:', error);
@@ -261,22 +260,12 @@ describe('Process Manager E2E Tests', () => {
 
   describe('Memory Limit Auto-Restart', () => {
     test('should automatically restart process when memory limit is exceeded', async () => {
-      // Now using C-based memory-eater for predictable memory consumption
-      // C version: 3 second delay + 25MB consumption vs 20MB limit
-
-      // Ensure C memory-eater is built
-      try {
-        await fs.access(
-          path.join(process.cwd(), 'tests/e2e/fixtures/memory-eater')
-        );
-      } catch {
-        throw new Error(
-          'C memory-eater not built. Run "make" in tests/e2e/fixtures/ directory'
-        );
-      }
+      // Use JS-based memory-eater for cross-platform compatibility
+      // JS version: rapidly allocates 5MB chunks every 200ms
 
       // Create ProcessManager with much faster memory check interval for testing
-      const fastProcessManager = new ProcessManager(500, 500); // 500ms monitor, 500ms memory check
+      const fastPersistencePath = path.join(persistenceDir, 'fast-processes.json');
+      const fastProcessManager = new ProcessManager(500, 500, fastPersistencePath); // 500ms monitor, 500ms memory check
       await fastProcessManager.initialize();
 
       // Load config and configure memory-eater process
@@ -286,15 +275,22 @@ describe('Process Manager E2E Tests', () => {
       );
       const loadedConfig = { config: await configLoader.load(configPath) };
 
-      // Find and configure the memory-eater process
+      // Find and configure the memory-eater process using JS version for cross-platform support
       const memoryEaterConfig = loadedConfig.config.apps.find(
         (app) => app.name === 'memory-eater'
       );
       expect(memoryEaterConfig).toBeDefined();
       expect(memoryEaterConfig!.max_memory_restart).toBe('20M');
 
-      fastProcessManager.configureProcess(memoryEaterConfig!);
-      fastProcessManager.initializeProcess(memoryEaterConfig!.name);
+      // Override to use the JS memory-eater (the C binary may not be compatible with this OS)
+      const jsMemoryEaterConfig = {
+        ...memoryEaterConfig!,
+        script: process.execPath,
+        args: path.join(process.cwd(), 'tests/e2e/fixtures/memory-eater.js'),
+      };
+
+      fastProcessManager.configureProcess(jsMemoryEaterConfig);
+      fastProcessManager.initializeProcess(jsMemoryEaterConfig.name);
 
       // Enable auto-restart for this process
       fastProcessManager.enableAutoRestart('memory-eater');
@@ -552,12 +548,7 @@ describe('Process Manager E2E Tests', () => {
       await processManager.forceSaveState();
 
       // Verify processes.json exists and contains our data
-      const homeDir = os.homedir();
-      const processesFile = path.join(
-        homeDir,
-        '.masuidrive-procman',
-        'processes.json'
-      );
+      const processesFile = processManager.getPersistenceFilePath();
       const persistedData = JSON.parse(
         await fs.readFile(processesFile, 'utf-8')
       );
@@ -596,13 +587,12 @@ describe('Process Manager E2E Tests', () => {
       // Stop monitoring and cleanup current manager
       await processManager.cleanup();
 
-      // Create new ProcessManager instance (simulating system restart)
-      const newProcessManager = new ProcessManager();
+      // Create new ProcessManager instance (simulating system restart) with same persistence path
+      const newProcessManager = new ProcessManager(5000, 30000, processesFile);
 
       // Need to reconfigure processes before they can be restored
       for (const app of loadedConfig.config.apps) {
         newProcessManager.configureProcess(app);
-        newProcessManager.initializeProcess(app.name);
       }
 
       await newProcessManager.initialize(); // This should load persisted state
@@ -633,7 +623,6 @@ describe('Process Manager E2E Tests', () => {
       // Reconfigure processes since they're not automatically restarted
       for (const app of loadedConfig.config.apps) {
         newProcessManager.configureProcess(app);
-        newProcessManager.initializeProcess(app.name);
       }
 
       await newProcessManager.startProcess('persistent-app-1');
@@ -657,18 +646,24 @@ describe('Process Manager E2E Tests', () => {
     }, 30000);
 
     test('should handle corrupted persistence file gracefully', async () => {
-      // Create a corrupted persistence file
-      const homeDir = os.homedir();
-      const processesFile = path.join(
-        homeDir,
-        '.masuidrive-procman',
+      // Create a corrupted persistence file in a temp directory
+      const corruptedPersistenceDir = path.join(
+        testDir,
+        'corrupted-persistence'
+      );
+      await fs.mkdir(corruptedPersistenceDir, { recursive: true });
+      const corruptedFile = path.join(
+        corruptedPersistenceDir,
         'processes.json'
       );
-      await fs.mkdir(path.dirname(processesFile), { recursive: true });
-      await fs.writeFile(processesFile, '{ invalid json content }');
+      await fs.writeFile(corruptedFile, '{ invalid json content }');
 
       // ProcessManager should handle corruption gracefully
-      const newProcessManager = new ProcessManager();
+      const newProcessManager = new ProcessManager(
+        5000,
+        30000,
+        corruptedFile
+      );
       await expect(newProcessManager.initialize()).resolves.not.toThrow();
 
       // Should start with clean state
@@ -704,13 +699,17 @@ describe('Process Manager E2E Tests', () => {
 
       // Force save and restart ProcessManager
       await processManager.forceSaveState();
+      const persistencePath = processManager.getPersistenceFilePath();
       await processManager.cleanup();
 
-      const newProcessManager = new ProcessManager();
+      const newProcessManager = new ProcessManager(
+        5000,
+        30000,
+        persistencePath
+      );
 
       // Need to reconfigure process before it can be restored
       newProcessManager.configureProcess(loadedConfig.config.apps[0]);
-      newProcessManager.initializeProcess(loadedConfig.config.apps[0].name);
 
       await newProcessManager.initialize();
 

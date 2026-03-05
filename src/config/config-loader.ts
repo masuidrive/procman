@@ -48,13 +48,13 @@ export class ConfigLoader extends EventEmitter {
   private normalizer: ConfigNormalizer;
   private watcher: ConfigWatcher;
   private reporter: ConfigReporter;
+  private requireInstance = createRequire(import.meta.url);
 
   /**
    * Dynamic require replacement for ES modules
    */
   private dynamicRequire(modulePath: string): unknown {
-    const require = createRequire(import.meta.url);
-    return require(modulePath);
+    return this.requireInstance(modulePath);
   }
 
   constructor(options: ConfigLoaderOptions = {}) {
@@ -97,9 +97,19 @@ export class ConfigLoader extends EventEmitter {
       return this.loadedConfigs.get(absolutePath)!.config;
     }
     try {
-      // Clear module cache for ES modules
-      const require = createRequire(import.meta.url);
-      if (require.cache[absolutePath]) delete require.cache[absolutePath];
+      // Clear module cache for ES modules to ensure fresh reads
+      try {
+        const resolvedPath = this.requireInstance.resolve(absolutePath);
+        if (this.requireInstance.cache[resolvedPath]) {
+          delete this.requireInstance.cache[resolvedPath];
+        }
+      } catch {
+        // Module may not be cached yet, ignore resolve errors
+      }
+      // Also try with the absolute path directly
+      if (this.requireInstance.cache[absolutePath]) {
+        delete this.requireInstance.cache[absolutePath];
+      }
       const config = this.moduleLoader(absolutePath);
       this.validator.validateConfig(config);
       if (this.options.enableCache) {
