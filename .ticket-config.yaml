@@ -34,6 +34,12 @@ restore_success_message: |
 close_success_message: |
   Ticket closed. Verify all acceptance criteria and tests have passed.
 
+# Testing policy
+# MANDATORY: Before closing any ticket, `npm run test:run` (full test suite)
+# must be executed and pass. Partial test runs (e.g., test:core, test:essential)
+# are NOT sufficient for ticket closure.
+test_command: 'npm run test:run'
+
 # The `default_content` below is expanded into every new ticket file.
 # You fills all placeholders before assignment.
 default_content: |
