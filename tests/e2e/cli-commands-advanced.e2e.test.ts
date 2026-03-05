@@ -42,8 +42,11 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('CLI Advanced Scenarios E2E Tests', () => {
-  // Set default timeout for all tests in this suite
-  vi.setConfig({ testTimeout: 90000 });
+  // Set timeout for tests and hooks - critical for CI stability
+  vi.setConfig({
+    testTimeout: 90000, // 90 seconds for test execution
+    hookTimeout: 60000, // 60 seconds for setup/teardown hooks
+  });
 
   let testDir: string;
   let testConfigPath: string;
@@ -54,7 +57,7 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
   beforeAll(async () => {
     // Ensure CLI is built
     try {
-      await fs.access('./bin/procman');
+      await fs.access(path.join(process.cwd(), 'bin', 'procman'));
     } catch {
       throw new Error(
         'CLI is not built. Run "npm run build" before running E2E tests.'
@@ -416,7 +419,10 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
           'rapid-restart',
           Date.now() + i
         );
-        const cycleEnv = { ...testEnv, PROCMAN_SOCKET_PATH: uniqueSocketPath };
+        const cycleEnv = {
+          ...testEnv,
+          PROCMAN_SOCKET_PATH: uniqueSocketPath,
+        };
         const cycleExecCLI = createTestExecCLI(cycleEnv);
 
         try {
@@ -438,14 +444,18 @@ describe('CLI Advanced Scenarios E2E Tests', () => {
             timer.log(`Daemon ready in cycle ${i + 1}`);
 
             // Quick operation
-            const listResult = await cycleExecCLI(['list'], { timeout: 5000 });
+            const listResult = await cycleExecCLI(['list'], {
+              timeout: 5000,
+            });
             expect([0, 1]).toContain(listResult.exitCode);
             timer.log(`List result cycle ${i + 1}:`, {
               exitCode: listResult.exitCode,
             });
 
             // Exit daemon
-            const exitResult = await cycleExecCLI(['exit'], { timeout: 5000 });
+            const exitResult = await cycleExecCLI(['exit'], {
+              timeout: 5000,
+            });
             timer.log(`Exit result cycle ${i + 1}:`, {
               exitCode: exitResult.exitCode,
             });

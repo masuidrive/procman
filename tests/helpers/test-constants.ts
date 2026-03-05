@@ -6,9 +6,26 @@
  */
 
 // CI environment detection and timeout multipliers
-const IS_CI = process.env.CI === 'true';
+const IS_CI =
+  process.env.CI === 'true' ||
+  process.env.GITHUB_ACTIONS === 'true' ||
+  process.env.RUNNER_OS !== undefined ||
+  process.env.ACTIONS_RUNNER_DEBUG !== undefined;
 const CI_TIMEOUT_MULTIPLIER = IS_CI ? 3 : 1; // 3x longer timeouts in CI
 const CI_MEMORY_MULTIPLIER = IS_CI ? 2 : 1; // 2x larger memory sizes in CI
+
+// Debug log for CI environment detection (only once per process)
+if (process.env.DEBUG_TEST_CONSTANTS === 'true') {
+  console.log('[TEST_CONSTANTS] Environment detection:', {
+    CI: process.env.CI,
+    GITHUB_ACTIONS: process.env.GITHUB_ACTIONS,
+    RUNNER_OS: process.env.RUNNER_OS,
+    NODE_VERSION: process.version,
+    IS_CI,
+    CI_MEMORY_MULTIPLIER,
+    VERY_LARGE: 512 * 1024 * 1024 * CI_MEMORY_MULTIPLIER,
+  });
+}
 
 // Base timeout values (will be multiplied by CI_TIMEOUT_MULTIPLIER)
 const BASE_TIMEOUTS = {
@@ -39,13 +56,13 @@ export const TEST_TIMEOUTS = {
   MONITOR_INTERVAL: 5000 * CI_TIMEOUT_MULTIPLIER,
 } as const;
 
-// Sleep/delay constants
+// Sleep/delay constants (optimized for faster test execution)
 export const TEST_DELAYS = {
-  TINY: 50, // 50ms - very short delay
-  SHORT: 100, // 100ms - short delay
-  MEDIUM: 500, // 500ms - medium delay
-  LONG: 1000, // 1000ms - long delay
-  VERY_LONG: 2000, // 2000ms - very long delay
+  TINY: 10, // 10ms - very short delay (was 50ms)
+  SHORT: 25, // 25ms - short delay (was 100ms)
+  MEDIUM: 50, // 50ms - medium delay (was 500ms)
+  LONG: 100, // 100ms - long delay (was 1000ms)
+  VERY_LONG: 200, // 200ms - very long delay (was 2000ms)
 } as const;
 
 // Memory size constants (automatically adjusted for CI)

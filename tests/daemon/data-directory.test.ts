@@ -19,11 +19,20 @@ describe('DataDirectory', () => {
     // Create temporary test directory
     tempTestDir = await fs.mkdtemp(path.join(os.tmpdir(), 'procman-test-'));
 
+    // Store and clear PROCMAN_SOCKET_PATH to ensure test isolation
+    const originalSocketPath = process.env.PROCMAN_SOCKET_PATH;
+    delete process.env.PROCMAN_SOCKET_PATH;
+
     // Set temporary HOME environment variable
     originalHome = process.env.HOME;
     process.env.HOME = tempTestDir;
 
     dataDirectory = new DataDirectory();
+
+    // Restore PROCMAN_SOCKET_PATH after DataDirectory construction
+    if (originalSocketPath) {
+      process.env.PROCMAN_SOCKET_PATH = originalSocketPath;
+    }
   });
 
   afterEach(async () => {
@@ -151,14 +160,14 @@ describe('DataDirectory', () => {
   describe('getSubPath', () => {
     test('should return correct subpath within data directory', () => {
       const subPath = dataDirectory.getSubPath('daemon.pid');
-      const expected = path.join(dataDirectory.resolveDataDir(), 'daemon.pid');
+      const expected = path.join(dataDirectory.getDataDir(), 'daemon.pid');
       expect(subPath).toBe(expected);
     });
 
     test('should handle nested paths', () => {
       const subPath = dataDirectory.getSubPath('app-logs', 'test.log');
       const expected = path.join(
-        dataDirectory.resolveDataDir(),
+        dataDirectory.getDataDir(),
         'app-logs',
         'test.log'
       );

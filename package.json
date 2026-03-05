@@ -1,9 +1,10 @@
 {
   "name": "@masuidrive/procman",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "A lightweight process management daemon tool for development environments",
   "type": "module",
   "main": "dist/src/cli/index.js",
+  "types": "dist/src/cli/index.d.ts",
   "bin": {
     "procman": "dist/src/cli/index.js"
   },
@@ -13,13 +14,18 @@
     "clean": "rm -rf dist",
     "test": "NODE_OPTIONS='--max-old-space-size=1024' vitest",
     "test:run": "NODE_OPTIONS='--max-old-space-size=1024' vitest run",
+    "test:essential": "vitest run tests/shared tests/utils tests/example.test.ts tests/cli.test.ts tests/config/secure-config-loader.test.ts tests/services/app-logger.test.ts tests/daemon/data-directory.test.ts tests/daemon/pid-manager.test.ts tests/daemon/message-protocol.test.ts tests/process-manager/dependencies.test.ts --reporter=verbose --no-coverage",
+    "test:core": "vitest run tests/shared tests/utils tests/example.test.ts tests/cli.test.ts tests/config tests/services tests/daemon tests/process-manager tests/unit --reporter=verbose --no-coverage",
+    "test:full": "vitest run tests --reporter=verbose --no-coverage",
     "test:limited": "./bin/test-with-memory-limit.sh run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --watch",
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "lint:fix": "eslint src/**/*.ts tests/**/*.ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\""
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "prepublishOnly": "npm run clean && npm run build && npm run lint",
+    "prepack": "npm run build"
   },
   "keywords": [
     "process-manager",
@@ -42,7 +48,7 @@
   },
   "homepage": "https://github.com/masuidrive/procman#readme",
   "files": [
-    "dist",
+    "dist/src",
     "README.md",
     "LICENSE"
   ],

@@ -30,9 +30,12 @@ describe('Graceful Shutdown Integration', () => {
     process.env.NODE_ENV = 'test';
 
     // Mock process.exit to prevent actual exit during tests
-    vi.spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
+    vi.spyOn(process, 'exit').mockImplementation(
+      (code?: string | number | null | undefined) => {
+        // Record the call but don't throw error to prevent Unhandled Rejection
+        return undefined as never;
+      }
+    );
 
     // Create daemon instance
     daemon = new ProcmanDaemon();
@@ -101,7 +104,11 @@ describe('Graceful Shutdown Integration', () => {
       await daemon.shutdown('signal');
 
       // Check if shutdown state file exists (saved in procman-data subdirectory)
-      const statePath = path.join(testDataDir, 'procman-data', 'shutdown-state.json');
+      const statePath = path.join(
+        testDataDir,
+        'procman-data',
+        'shutdown-state.json'
+      );
       const stateExists = await fs
         .access(statePath)
         .then(() => true)
@@ -168,7 +175,6 @@ describe('Graceful Shutdown Integration', () => {
     }, 15000);
   });
 
-
   describe('Shutdown State Persistence', () => {
     it('should persist comprehensive shutdown state', async () => {
       await daemon.start();
@@ -201,7 +207,11 @@ describe('Graceful Shutdown Integration', () => {
 
       await daemon.shutdown('error');
 
-      const statePath = path.join(testDataDir, 'procman-data', 'shutdown-state.json');
+      const statePath = path.join(
+        testDataDir,
+        'procman-data',
+        'shutdown-state.json'
+      );
       const stateContent = await fs.readFile(statePath, 'utf-8');
       const state = JSON.parse(stateContent);
 

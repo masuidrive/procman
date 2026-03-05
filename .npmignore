@@ -1,0 +1,62 @@
+# Source files (TypeScript)
+src/
+
+# Test files and directories
+tests/
+test-tmp/
+tmp/
+coverage/
+*.test.ts
+*.spec.ts
+
+# Development configuration files
+vitest.config.ts
+tsconfig.json
+tsconfig.tsbuildinfo
+eslint.config.js
+.prettierrc*
+.eslintrc*
+
+# Development scripts and utilities
+bin/
+fix-imports.sh
+test-*.sh
+test-*.js
+test-*.cjs
+debug-*.js
+
+# Documentation (keep README.md but exclude development docs)
+docs/
+CLAUDE.md
+memo.md
+prompts/
+
+# Build artifacts and logs
+log/
+*.log
+
+# Git and GitHub
+.git
+.gitignore
+.github/
+
+# Development dependencies
+node_modules/
+
+# Temporary files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Proof of concept files
+poc/
+
+# Ticket system
+tickets/
+current-ticket.md
+
+# Dev containers
+.devcontainer/

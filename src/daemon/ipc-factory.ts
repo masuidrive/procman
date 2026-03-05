@@ -91,26 +91,30 @@ export class IPCFactory {
    * Get default IPC path for the current platform
    */
   static getDefaultIPCPath(): string {
-    console.error('[DEBUG-IPC-FACTORY] Getting default IPC path...');
-    console.error(
-      '[DEBUG-IPC-FACTORY] Environment check:',
-      JSON.stringify(
-        {
-          PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
-          HOME: process.env.HOME,
-          USERPROFILE: process.env.USERPROFILE,
-          platform: this.getCurrentPlatform(),
-          processId: process.pid,
-        },
-        null,
-        2
-      )
-    );
+    // Debug logging only when DEBUG_IPC environment variable is set
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const debug = (message: string, data?: any): void => {
+      if (process.env.DEBUG_IPC) {
+        console.error(
+          `[DEBUG-IPC-FACTORY] ${message}`,
+          data ? JSON.stringify(data, null, 2) : ''
+        );
+      }
+    };
+
+    debug('Getting default IPC path...');
+    debug('Environment check:', {
+      PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
+      HOME: process.env.HOME,
+      USERPROFILE: process.env.USERPROFILE,
+      platform: this.getCurrentPlatform(),
+      processId: process.pid,
+    });
 
     // Check for environment variable first
     if (process.env.PROCMAN_SOCKET_PATH) {
-      console.error(
-        '[DEBUG-IPC-FACTORY] Using PROCMAN_SOCKET_PATH from environment:',
+      debug(
+        'Using PROCMAN_SOCKET_PATH from environment:',
         process.env.PROCMAN_SOCKET_PATH
       );
       return process.env.PROCMAN_SOCKET_PATH;
@@ -118,10 +122,7 @@ export class IPCFactory {
 
     const platform = this.getCurrentPlatform();
     const defaultPath = this.getDefaultIPCPathForPlatform(platform);
-    console.error(
-      '[DEBUG-IPC-FACTORY] Using default platform path:',
-      defaultPath
-    );
+    debug('Using default platform path:', defaultPath);
     return defaultPath;
   }
 
@@ -175,7 +176,18 @@ export class IPCFactory {
    * Expand tilde in file paths
    */
   private static expandPath(filePath: string): string {
-    console.error('[DEBUG-IPC-FACTORY] Expanding path:', filePath);
+    // Debug logging only when DEBUG_IPC environment variable is set
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const debug = (message: string, data?: any): void => {
+      if (process.env.DEBUG_IPC) {
+        console.error(
+          `[DEBUG-IPC-FACTORY] ${message}`,
+          data ? JSON.stringify(data, null, 2) : ''
+        );
+      }
+    };
+
+    debug('Expanding path:', filePath);
 
     if (filePath.startsWith('~/')) {
       // Enhanced HOME detection: process.env.HOME || os.homedir()
@@ -183,40 +195,25 @@ export class IPCFactory {
       const osHome = os.homedir();
       const homeDir = envHome || osHome;
 
-      console.error(
-        '[DEBUG-IPC-FACTORY] Home directory resolution:',
-        JSON.stringify(
-          {
-            originalPath: filePath,
-            envHome: envHome,
-            osHome: osHome,
-            selectedHome: homeDir,
-            processId: process.pid,
-          },
-          null,
-          2
-        )
-      );
+      debug('Home directory resolution:', {
+        originalPath: filePath,
+        envHome: envHome,
+        osHome: osHome,
+        selectedHome: homeDir,
+        processId: process.pid,
+      });
 
       if (!homeDir) {
-        console.error(
-          '[DEBUG-IPC-FACTORY] ❌ Unable to resolve home directory'
-        );
+        debug('❌ Unable to resolve home directory');
         throw new Error('Unable to resolve home directory for path expansion');
       }
 
       const expandedPath = path.join(homeDir, filePath.slice(2));
-      console.error(
-        '[DEBUG-IPC-FACTORY] Path expanded successfully:',
-        expandedPath
-      );
+      debug('Path expanded successfully:', expandedPath);
       return expandedPath;
     }
 
-    console.error(
-      '[DEBUG-IPC-FACTORY] Path does not need expansion:',
-      filePath
-    );
+    debug('Path does not need expansion:', filePath);
     return filePath;
   }
 

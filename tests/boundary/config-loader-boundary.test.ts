@@ -182,11 +182,7 @@ describe('ConfigLoader Boundary Tests', () => {
 
   describe('File Watching Boundary', () => {
     test('should emit event when watched configuration file changes', async (context) => {
-      // Skip if test is flaky in CI environment
-      if (process.env.CI) {
-        context.skip();
-        return;
-      }
+      // File watching test that should work in all environments
 
       // Arrange: Create initial config with valid app
       const configPath = path.join(tempDir, 'watched.config.js');

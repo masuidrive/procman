@@ -145,7 +145,9 @@ describe('ProcmanDaemon Integration Tests', () => {
       const { ProcessManager } = await import(
         '../../src/process-manager/process-manager'
       );
-      vi.mocked(ProcessManager).mockImplementationOnce(() => {
+
+      // Mock the static create method to throw an error
+      vi.mocked(ProcessManager).create = vi.fn().mockImplementationOnce(() => {
         throw new Error('ProcessManager init failed');
       });
 
@@ -156,9 +158,7 @@ describe('ProcmanDaemon Integration Tests', () => {
       expect(daemon.getState()).toBe(DaemonState.ERROR);
 
       // Reset implementation for other tests
-      vi.mocked(ProcessManager).mockImplementation(
-        () => mockProcessManager as any
-      );
+      vi.mocked(ProcessManager).create = vi.fn(() => mockProcessManager as any);
     });
 
     it('should cleanup components in reverse order', async () => {

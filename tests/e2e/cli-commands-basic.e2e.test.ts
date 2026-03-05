@@ -21,6 +21,7 @@ import {
   afterEach,
   beforeAll,
   afterAll,
+  vi,
 } from 'vitest';
 import * as fs from 'fs/promises';
 import * as os from 'os';
@@ -34,6 +35,12 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('Basic CLI Commands E2E Tests', () => {
+  // Set timeout for tests and hooks - critical for CI stability
+  vi.setConfig({
+    testTimeout: 90000, // 90 seconds for test execution
+    hookTimeout: 60000, // 60 seconds for setup/teardown hooks
+  });
+
   let testDir: string;
   let testSocketPath: string;
   let testEnv: Record<string, string>;
@@ -42,7 +49,7 @@ describe('Basic CLI Commands E2E Tests', () => {
   beforeAll(async () => {
     // Ensure CLI is built
     try {
-      await fs.access('./bin/procman');
+      await fs.access(path.join(process.cwd(), 'bin', 'procman'));
     } catch {
       throw new Error(
         'CLI is not built. Run "npm run build" before running E2E tests.'
@@ -74,13 +81,13 @@ describe('Basic CLI Commands E2E Tests', () => {
 
     // Cleanup any existing daemon
     await cleanupDaemon(testEnv);
-  });
+  }, 30000); // Increase timeout for CI environment
 
   afterEach(async () => {
     // Cleanup daemon and test directory
     await cleanupDaemon(testEnv);
     await cleanupTestDirectory(testDir);
-  });
+  }, 30000); // Increase timeout for CI environment
 
   describe('Help and Version Commands', () => {
     test('should display comprehensive help information', async () => {

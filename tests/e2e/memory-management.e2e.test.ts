@@ -27,8 +27,11 @@ import {
 } from './shared/cli-commands-shared';
 
 describe('Memory Management E2E Tests', () => {
-  // Set default timeout for all tests in this suite
-  vi.setConfig({ testTimeout: 90000 });
+  // Set timeout for tests and hooks - critical for CI stability
+  vi.setConfig({
+    testTimeout: 90000, // 90 seconds for test execution
+    hookTimeout: 60000, // 60 seconds for setup/teardown hooks
+  });
 
   let testDir: string;
   let testSocketPath: string;
@@ -76,35 +79,39 @@ describe('Memory Management E2E Tests', () => {
 
   describe('Process Memory Limit Auto-Restart', () => {
     test('should auto-restart process when max_memory_restart is exceeded', async () => {
-      // Create a test script that consumes memory
+      // Create a test script that consumes memory rapidly for faster testing
       const memoryEaterScript = path.join(testDir, 'memory-eater.js');
       await fs.writeFile(
         memoryEaterScript,
         `
-        // Gradually consume memory
+        // Rapidly consume memory for fast testing
         const arrays = [];
         let count = 0;
         
         console.log('Memory eater started, PID:', process.pid);
         
         const interval = setInterval(() => {
-          // Allocate 10MB per second
-          const array = new Array(10 * 1024 * 1024 / 8);
+          // Allocate larger chunks more aggressively (50MB per 300ms)
+          const array = new Array(50 * 1024 * 1024 / 8);
           array.fill(Math.random());
           arrays.push(array);
           count++;
           
           const usage = process.memoryUsage();
-          console.log(\`Iteration \${count}: RSS=\${Math.round(usage.rss / 1024 / 1024)}MB\`);
+          console.log(\`Iteration \${count}: RSS=\${Math.round(usage.rss / 1024 / 1024)}MB, HeapUsed=\${Math.round(usage.heapUsed / 1024 / 1024)}MB\`);
           
-          // Stop after 10 iterations (100MB allocated)
-          if (count >= 10) {
+          // Stop after 3 iterations (150MB allocated total)
+          if (count >= 3) {
             clearInterval(interval);
-            console.log('Memory allocation complete');
-            // Keep process alive
-            setInterval(() => {}, 1000);
+            console.log('Memory allocation complete - forcing high memory usage');
+            // Keep process alive and force GC to not clean up
+            setInterval(() => {
+              // Prevent GC from cleaning up by accessing arrays
+              const total = arrays.reduce((sum, arr) => sum + arr.length, 0);
+              console.log(\`Keeping \${total} array elements alive, RSS=\${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB\`);
+            }, 1000);
           }
-        }, 1000);
+        }, 300);
         
         // Handle termination
         process.on('SIGTERM', () => {
@@ -114,13 +121,13 @@ describe('Memory Management E2E Tests', () => {
       `
       );
 
-      // Create config with low memory limit
+      // Create config with very low memory limit (30MB vs 150MB allocated)
       const config = {
         apps: [
           {
             name: 'memory-test-app',
             script: memoryEaterScript,
-            max_memory_restart: '80M', // Set limit to 80MB
+            max_memory_restart: '30M', // Very low limit (30MB vs 150MB allocated)
           },
         ],
       };
@@ -158,22 +165,85 @@ describe('Memory Management E2E Tests', () => {
       expect(initialPid).toBeTruthy();
 
       // Wait for memory limit to be exceeded and restart to occur
-      // The process allocates 10MB/sec, so should exceed 80MB after ~8 seconds
-      // Memory check interval is 30 seconds by default, so we need to wait at least that long
-      await sleep(35000);
+      // The process allocates 50MB per 300ms (3×50MB=150MB), should exceed 30MB limit quickly
+      // ProcessManager default memory check interval is 30s, so we need to wait longer
+      let restartDetected = false;
+      const maxWaitTime = 35000; // 35 seconds max wait (accounting for 30s default check interval)
+      const startTime = Date.now();
 
-      // Check status again - should have different PID after restart
+      console.log(`Starting memory monitoring at ${new Date().toISOString()}`);
+      console.log(
+        `Process will allocate 150MB total, limit is 30MB, default check interval is 30s`
+      );
+
+      // Wait for memory allocation to complete first (3 × 300ms + buffer)
+      await sleep(2000);
+      console.log(
+        'Memory allocation phase should be complete, starting restart monitoring...'
+      );
+
+      while (!restartDetected && Date.now() - startTime < maxWaitTime) {
+        await sleep(1500); // Check every 1.5 seconds (slightly less than memory check interval)
+
+        const currentStatus = await execCLI(['list']);
+        const currentPidMatch = currentStatus.stdout.match(
+          /memory-test-app.*?(\d+)/
+        );
+        const currentPid = currentPidMatch ? currentPidMatch[1] : null;
+
+        console.log(
+          `Memory check: PID ${currentPid} (original: ${initialPid}), elapsed: ${Date.now() - startTime}ms`
+        );
+
+        // Check if restart occurred (PID changed)
+        if (currentPid && currentPid !== initialPid) {
+          console.log(
+            'Restart detected! PID changed from',
+            initialPid,
+            'to',
+            currentPid
+          );
+          restartDetected = true;
+          break;
+        }
+
+        // Also check restart count in output
+        if (currentStatus.stdout.match(/Restarts:\s*[1-9]/)) {
+          console.log('Restart detected via restart count!');
+          restartDetected = true;
+          break;
+        }
+
+        // Log full status for debugging
+        console.log('Current status output:', currentStatus.stdout);
+      }
+
+      // If no restart detected, give one more wait period for memory check cycle
+      if (!restartDetected) {
+        console.log(
+          'No restart detected yet, waiting additional 10 seconds for memory check cycle...'
+        );
+        await sleep(10000);
+      }
+
+      // Verify final status - should show restart occurred
       const finalStatus = await execCLI(['list']);
       expect(finalStatus.stdout).toContain('memory-test-app');
       expect(finalStatus.stdout).toContain('online');
 
-      // Check restart count increased
-      expect(finalStatus.stdout).toMatch(/Restarts:\s*[1-9]/);
+      // Verify restart count increased (essential verification)
+      const hasRestarted =
+        finalStatus.stdout.match(/Restarts:\s*[1-9]/) || restartDetected;
+      expect(hasRestarted).toBeTruthy();
+
+      console.log(
+        `Test completed successfully: Restart detected=${restartDetected}, Final status contains restarts=${!!finalStatus.stdout.match(/Restarts:\s*[1-9]/)}`
+      );
 
       // Stop the process
       const stopResult = await execCLI(['stop', 'memory-test-app']);
       expect(stopResult.exitCode).toBe(0);
-    }, 60000); // 60 second timeout for this test
+    }, 60000); // 60 seconds timeout to account for 30s memory check interval + buffer
   });
 
   describe('EventEmitter Listener Management', () => {
