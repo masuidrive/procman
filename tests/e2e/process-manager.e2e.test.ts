@@ -264,8 +264,15 @@ describe('Process Manager E2E Tests', () => {
       // JS version: rapidly allocates 5MB chunks every 200ms
 
       // Create ProcessManager with much faster memory check interval for testing
-      const fastPersistencePath = path.join(persistenceDir, 'fast-processes.json');
-      const fastProcessManager = new ProcessManager(500, 500, fastPersistencePath); // 500ms monitor, 500ms memory check
+      const fastPersistencePath = path.join(
+        persistenceDir,
+        'fast-processes.json'
+      );
+      const fastProcessManager = new ProcessManager(
+        500,
+        500,
+        fastPersistencePath
+      ); // 500ms monitor, 500ms memory check
       await fastProcessManager.initialize();
 
       // Load config and configure memory-eater process
@@ -659,11 +666,7 @@ describe('Process Manager E2E Tests', () => {
       await fs.writeFile(corruptedFile, '{ invalid json content }');
 
       // ProcessManager should handle corruption gracefully
-      const newProcessManager = new ProcessManager(
-        5000,
-        30000,
-        corruptedFile
-      );
+      const newProcessManager = new ProcessManager(5000, 30000, corruptedFile);
       await expect(newProcessManager.initialize()).resolves.not.toThrow();
 
       // Should start with clean state

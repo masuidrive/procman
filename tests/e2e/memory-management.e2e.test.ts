@@ -40,8 +40,11 @@ describe('Memory Management E2E Tests', () => {
 
   beforeAll(async () => {
     // Setup test environment with socket path and unique HOME to avoid PID file conflicts
-    const { testSocketPath: socketPath, testEnv: env, testTempDir } =
-      await setupTestEnvironment();
+    const {
+      testSocketPath: socketPath,
+      testEnv: env,
+      testTempDir,
+    } = await setupTestEnvironment();
     testSocketPath = socketPath;
     // Use a unique HOME directory to prevent PID file conflicts with parallel test files
     const uniqueHome = path.join(testTempDir, 'home');

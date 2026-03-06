@@ -165,9 +165,7 @@ describe('Lock Problem Resolution Verification', () => {
       expect(listResult.exitCode).toBe(0);
 
       // Verify socket path uniqueness in environment
-      expect(testEnv.PROCMAN_SOCKET_PATH).toMatch(
-        /pm-e2e-\d+-[a-f0-9]{8}/
-      );
+      expect(testEnv.PROCMAN_SOCKET_PATH).toMatch(/pm-e2e-\d+-[a-f0-9]{8}/);
       expect(testEnv.PROCMAN_SOCKET_PATH).toContain(process.pid.toString());
     });
 

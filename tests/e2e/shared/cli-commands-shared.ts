@@ -250,7 +250,11 @@ export const cleanupDaemon = async (
   const homeDir = env.HOME || os.homedir();
   // The daemon writes daemon.pid (not procman.pid) - check both locations
   const pidFile = path.join(homeDir, '.masuidrive-procman', 'daemon.pid');
-  const legacyPidFile = path.join(homeDir, '.masuidrive-procman', 'procman.pid');
+  const legacyPidFile = path.join(
+    homeDir,
+    '.masuidrive-procman',
+    'procman.pid'
+  );
   const uniqueDir = socketPath ? path.dirname(socketPath) : '';
   // Also check for PID file in the data directory derived from socket path
   const dataDirPidFile = socketPath
@@ -344,9 +348,7 @@ const forceCleanupDaemon = async (
     killDaemonFromPidFile(pidFile),
 
     // Also check extra PID file locations (daemon.pid vs procman.pid, data dir)
-    ...extraPidFiles
-      .filter((f) => f)
-      .map((f) => killDaemonFromPidFile(f)),
+    ...extraPidFiles.filter((f) => f).map((f) => killDaemonFromPidFile(f)),
 
     // Clean socket file
     socketPath ? fs.unlink(socketPath).catch(() => {}) : Promise.resolve(),
@@ -777,10 +779,7 @@ export const setupTestEnvironment = async () => {
   const processId = process.pid.toString();
 
   // Use shortened prefix "pm-e2e" instead of "procman-e2e-test" to stay within socket path limits
-  const testTempDir = path.join(
-    os.tmpdir(),
-    `pm-e2e-${processId}-${uniqueId}`
-  );
+  const testTempDir = path.join(os.tmpdir(), `pm-e2e-${processId}-${uniqueId}`);
 
   await fs.mkdir(testTempDir, { recursive: true });
 
