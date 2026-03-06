@@ -83,7 +83,14 @@ export async function execute(
                 ? chalk.cyan(`[${proc.namespace}]`)
                 : '';
 
-              console.log(`  ${status}  ${name} ${namespace} ${pid}`);
+              const ports =
+                proc.ports && proc.ports.length > 0
+                  ? chalk.magenta(
+                      proc.ports.map((p: number) => `:${p}`).join(', ')
+                    )
+                  : '';
+
+              console.log(`  ${status}  ${name} ${namespace} ${pid} ${ports}`);
 
               // Command info not available in ProcessInfo type
               if (proc.uptime && proc.status === 'online') {

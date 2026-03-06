@@ -3,8 +3,8 @@ priority: 2
 tags: ['cli', 'feature']
 description: 'listコマンドで各プロセスのLISTENポートを自動検出・表示'
 created_at: "2026-03-06T05:23:14Z"
-started_at: null  # Do not modify manually
-closed_at: null   # Do not modify manually
+started_at: 2026-03-06T06:07:48Z # Do not modify manually
+closed_at: 2026-03-06T07:14:10Z # Do not modify manually
 ---
 
 <ticket-info>

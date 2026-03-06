@@ -43,6 +43,8 @@ export interface ProcessInfo {
   cpu: number;
   /** Number of restarts */
   restarts: number;
+  /** Listening TCP ports (auto-detected) */
+  ports?: number[];
   /** Optional note */
   note?: string;
 }

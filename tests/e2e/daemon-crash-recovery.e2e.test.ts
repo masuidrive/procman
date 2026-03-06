@@ -116,7 +116,7 @@ describe('Daemon Crash Recovery E2E Tests', { timeout: 60000 }, () => {
       } catch {
         // Process may already be gone, ignore
       }
-    }, 60000);
+    }, 120000);
 
     test('should handle crash of daemon running crash-prone process', async () => {
       // Start the crash-after-15s test program

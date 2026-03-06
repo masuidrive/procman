@@ -11,6 +11,7 @@ import { LogManager } from '../services/log-manager.js';
 import { IPCServerBase } from './ipc-server-base.js';
 import { AppConfig } from '../shared/config.js';
 import type { DaemonContext } from './daemon-types.js';
+import { detectListeningPorts } from '../utils/port-detector.js';
 
 /**
  * Check if daemon is ready to handle requests.
@@ -139,6 +140,12 @@ export async function queryAllProcessStatuses(ctx: DaemonContext) {
     // Get process stats from monitor
     const stats = await processManager.monitor.getProcessStats(info.name);
 
+    // Detect listening ports for online processes
+    const ports =
+      info.status === 'online' && info.pid
+        ? await detectListeningPorts(info.pid)
+        : [];
+
     return {
       name: info.name,
       namespace: info.namespace || 'default',
@@ -148,6 +155,7 @@ export async function queryAllProcessStatuses(ctx: DaemonContext) {
       memory: stats?.memory || 0,
       cpu: stats?.cpu || 0,
       restarts: info.restarts,
+      ...(ports.length > 0 ? { ports } : {}),
     };
   });
 
