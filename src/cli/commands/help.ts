@@ -5,10 +5,9 @@
  */
 
 import chalk from 'chalk';
-import { createRequire } from 'module';
+import { findPackageJson } from '../utils/find-package-json.js';
 
-const require = createRequire(import.meta.url);
-const pkg = require('../../../../package.json') as { version: string };
+const pkg = findPackageJson();
 
 export interface HelpCommandOptions {
   format?: 'markdown' | 'text';

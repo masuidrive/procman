@@ -3,8 +3,8 @@ priority: 3
 tags: ['cli', 'ux']
 description: 'CLI引数なし・-h実行時にアプリの説明を表示'
 created_at: "2026-03-05T15:18:07Z"
-started_at: null  # Do not modify manually
-closed_at: null   # Do not modify manually
+started_at: 2026-03-05T22:19:41Z # Do not modify manually
+closed_at: 2026-03-06T02:53:49Z # Do not modify manually
 ---
 
 <ticket-info>
@@ -38,36 +38,36 @@ procmanを引数なしまたは`-h`で起動した際に、アプリの役割・
 
 ### Prepare: Context Alignment
 
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] `src/cli/index.ts`, `src/cli/parser.ts`, `src/cli/commands/help.ts` を確認
-- [ ] `npx tsx src/cli/index.ts` と `npx tsx src/cli/index.ts -h` の現状出力を確認
-- [ ] package.jsonパス問題（tsx vs dist）を確認
+- [x] Carefully read the `current-ticket.md` file and understand the content of the task.
+- [x] `src/cli/index.ts`, `src/cli/parser.ts`, `src/cli/commands/help.ts` を確認
+- [x] `npx tsx src/cli/index.ts` と `npx tsx src/cli/index.ts -h` の現状出力を確認
+- [x] package.jsonパス問題（tsx vs dist）を確認
 
 ### Phase 1: commander description改善と引数なし時の出力
 
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] `src/cli/index.ts` の description をアプリの役割がわかる文言に変更
-- [ ] 引数なし実行時にアプリ概要 + Quick Start + コマンド一覧が表示されるようにする
-- [ ] `-h`/`--help` で同様の情報が表示されることを確認
-- [ ] Run full tests → All executed, 0 failed
-- [ ] `git commit`
+- [x] Carefully read the `current-ticket.md` file and understand the content of the task.
+- [x] `src/cli/index.ts` の description をアプリの役割がわかる文言に変更
+- [x] 引数なし実行時にアプリ概要 + Quick Start + コマンド一覧が表示されるようにする
+- [x] `-h`/`--help` で同様の情報が表示されることを確認
+- [x] Run full tests → All executed, 0 failed
+- [x] `git commit`
 
 ### Phase 2: help コマンドの package.json パス修正
 
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] `src/cli/commands/help.ts` の `createRequire` パスを tsx/dist 両対応にする
-- [ ] `npx tsx src/cli/index.ts help` で正常動作を確認
-- [ ] `npm run build && node dist/src/cli/index.js help` でも正常動作を確認
-- [ ] Run full tests → All executed, 0 failed
-- [ ] `git commit`
+- [x] Carefully read the `current-ticket.md` file and understand the content of the task.
+- [x] `src/cli/commands/help.ts` の `createRequire` パスを tsx/dist 両対応にする
+- [x] `npx tsx src/cli/index.ts help` で正常動作を確認
+- [x] `npm run build && node dist/src/cli/index.js help` でも正常動作を確認
+- [x] Run full tests → All executed, 0 failed
+- [x] `git commit`
 
 ### QA Phase: Quality Assurance
 
-- [ ] Run full tests: `npm run test:run` → All executed, 0 failed
-- [ ] Run linter: `npx eslint src/**/*.ts` → 0 errors
-- [ ] `npx tsx src/cli/index.ts` の出力を確認
-- [ ] `npx tsx src/cli/index.ts -h` の出力を確認
-- [ ] `npx tsx src/cli/index.ts help` の出力を確認
+- [x] Run full tests: `npm run test:run` → All executed, 0 failed (786/786)
+- [x] Run linter: `npx eslint src/**/*.ts` → 0 errors
+- [x] `npx tsx src/cli/index.ts` の出力を確認
+- [x] `npx tsx src/cli/index.ts -h` の出力を確認
+- [x] `npx tsx src/cli/index.ts help` の出力を確認
 - [ ] User final approval before closing
 
 ## Unit and integration test cases
@@ -87,11 +87,11 @@ procmanを引数なしまたは`-h`で起動した際に、アプリの役割・
 
 ## Acceptance Criteria
 
-- [ ] 引数なし実行でアプリの役割・使い方がわかる
-- [ ] `-h` で同様の情報が表示される
-- [ ] `help`コマンドがtsx/dist両方で動作する
-- [ ] All tests executed with 0 failed
-- [ ] Linter: 0 errors
+- [x] 引数なし実行でアプリの役割・使い方がわかる
+- [x] `-h` で同様の情報が表示される
+- [x] `help`コマンドがtsx/dist両方で動作する
+- [x] All tests executed with 0 failed
+- [x] Linter: 0 errors
 - [ ] User has approved completion
 
 ## References

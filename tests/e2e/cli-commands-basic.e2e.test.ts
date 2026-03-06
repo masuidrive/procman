@@ -135,7 +135,7 @@ describe('Basic CLI Commands E2E Tests', () => {
       const result = await testExecCLI(['--help']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Process Manager CLI Tool');
+      expect(result.stdout).toContain('Run multiple servers');
       expect(result.stdout).toContain('Commands:');
     });
   });

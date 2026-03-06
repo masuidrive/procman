@@ -209,7 +209,7 @@ module.exports = {
       const result = await execCLI(['--help']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Process Manager CLI Tool');
+      expect(result.stdout).toContain('Run multiple servers');
       expect(result.stdout).toContain('Usage:');
       expect(result.stdout).toContain('list');
       expect(result.stdout).toContain('start');

@@ -31,6 +31,24 @@ export class CommandParser {
       .version(config.version)
       .option('--verbose', 'Enable verbose error output for debugging');
 
+    this.program.addHelpText(
+      'after',
+      '\nQuick Start:\n' +
+        '  1. Create a config file (e.g. procman.config.js):\n' +
+        '     module.exports = { apps: [\n' +
+        "       { name: 'api',    script: 'node server.js' },\n" +
+        "       { name: 'worker', script: 'node worker.js' },\n" +
+        '     ] };\n' +
+        '\n' +
+        '  2. Run:\n' +
+        '     $ procman load ./procman.config.js   Load config and start daemon\n' +
+        '     $ procman list                       Show process status\n' +
+        '     $ procman log api --stream            Stream logs in real-time\n' +
+        '     $ procman restart worker              Restart a process\n' +
+        '     $ procman exit                        Stop all and shutdown\n' +
+        '\n  Run "procman help" for full documentation and examples.'
+    );
+
     // Set up global verbose flag before command execution
     this.program.hook('preAction', (thisCommand) => {
       const opts = thisCommand.opts();
@@ -153,6 +171,12 @@ export class CommandParser {
   }
 
   public async parseAsync(argv?: string[]): Promise<void> {
+    const args = argv || process.argv;
+    // Show help when no command is provided (only program name + script)
+    if (args.length <= 2) {
+      this.program.outputHelp();
+      return;
+    }
     await this.program.parseAsync(argv);
   }
 
