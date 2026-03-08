@@ -3,8 +3,8 @@ priority: 1
 tags: ['bug', 'cli']
 description: 'npx実行時にdaemon-main.jsのパス解決がprocess.cwd()ベースで失敗する'
 created_at: "2026-03-06T08:08:46Z"
-started_at: null  # Do not modify manually
-closed_at: null   # Do not modify manually
+started_at: 2026-03-06T08:39:14Z # Do not modify manually
+closed_at: 2026-03-08T00:37:10Z # Do not modify manually
 ---
 
 <ticket-info>
@@ -51,19 +51,19 @@ const daemonMainPath = path.resolve(__dirname, '../../daemon/daemon-main.js');
 
 ### Phase 1: daemon-main.jsパス解決修正
 
-- [ ] Carefully read the `current-ticket.md` file and understand the content of the task.
-- [ ] `src/cli/commands/load.ts` の `process.cwd()` ベースのパスを `import.meta.url` ベースに修正
-- [ ] DEBUGログをクリーンアップ（本番不要なものを削除）
-- [ ] `npm run build` で正常ビルド確認
-- [ ] `npx tsx src/cli/index.ts load` でtsx実行確認
-- [ ] `node dist/src/cli/index.js load` でdist実行確認
-- [ ] Run tests → All executed, 0 failed
-- [ ] `git commit`
+- [x] Carefully read the `current-ticket.md` file and understand the content of the task.
+- [x] `src/cli/commands/load.ts` の `process.cwd()` ベースのパスを `import.meta.url` ベースに修正
+- [x] DEBUGログをクリーンアップ（本番不要なものを削除）
+- [x] `npm run build` で正常ビルド確認
+- [x] `npx tsx src/cli/index.ts load` でtsx実行確認
+- [x] `node dist/src/cli/index.js load` でdist実行確認
+- [x] Run tests → All executed, 0 failed (800 tests passed)
+- [x] `git commit`
 
 ### QA Phase: Quality Assurance
 
-- [ ] Run full tests: `npm run test:run` → All executed, 0 failed
-- [ ] Run linter → 0 errors
+- [x] Run full tests: `npm run test:run` → All executed, 0 failed (800 tests passed)
+- [x] Run linter → 0 errors
 - [ ] User final approval before closing
 
 ## Unit and integration test cases

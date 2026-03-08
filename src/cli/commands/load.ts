@@ -6,7 +6,8 @@
 
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { executeCommand, createCLIClient } from '../utils/ipc-client.js';
 import { handleCLIError } from '../utils/error-utils.js';
@@ -133,238 +134,82 @@ export async function execute(
 }
 
 /**
+ * Resolve the path to daemon-main.js relative to this file's location.
+ * Works both with tsx (source) and compiled dist.
+ */
+function resolveDaemonMainPath(): string {
+  // This file: src/cli/commands/load.ts → dist/src/cli/commands/load.js
+  // Target:    src/daemon/daemon-main.ts → dist/src/daemon/daemon-main.js
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  return resolve(__dirname, '../../daemon/daemon-main.js');
+}
+
+/**
  * Start daemon as detached process
  */
 async function startDaemonDetached(configPath: string): Promise<void> {
-  console.error('[DEBUG-DAEMON-START] Starting daemon spawn process...');
-  console.error(
-    '[DEBUG-DAEMON-START] Variables:',
-    JSON.stringify(
-      {
-        configPath,
-        cwd: process.cwd(),
-        daemonMainPath: resolve(
-          process.cwd(),
-          'dist/src/daemon/daemon-main.js'
-        ),
-        processEnv: {
-          HOME: process.env.HOME,
-          PROCMAN_SOCKET_PATH: process.env.PROCMAN_SOCKET_PATH,
-          USER: process.env.USER,
-          PATH: process.env.PATH
-            ? `${process.env.PATH.substring(0, 100)}...`
-            : 'undefined',
-        },
-        processId: process.pid,
-      },
-      null,
-      2
-    )
+  const daemonMainPath = resolveDaemonMainPath();
+
+  if (!existsSync(daemonMainPath)) {
+    throw new Error(
+      `daemon-main.js not found at ${daemonMainPath}. Package may be corrupted.`
+    );
+  }
+
+  const daemonProcess = spawn(
+    'node',
+    [daemonMainPath, '--daemon', '--config', configPath],
+    {
+      detached: true,
+      stdio: 'ignore',
+      env: process.env,
+    }
   );
 
-  try {
-    const daemonProcess = spawn(
-      'node',
-      [
-        resolve(process.cwd(), 'dist/src/daemon/daemon-main.js'),
-        '--daemon',
-        '--config',
-        configPath,
-      ],
-      {
-        detached: true,
-        stdio: 'ignore',
-        env: process.env, // Inherit environment including PROCMAN_SOCKET_PATH
-      }
-    );
+  daemonProcess.on('error', (error) => {
+    console.error('Failed to start daemon:', error.message);
+  });
 
-    console.error('[DEBUG-DAEMON-START] Daemon process spawned successfully');
-    console.error(
-      '[DEBUG-DAEMON-START] Daemon process info:',
-      JSON.stringify(
-        {
-          pid: daemonProcess.pid,
-          spawnfile: daemonProcess.spawnfile,
-          spawnargs: daemonProcess.spawnargs,
-          killed: daemonProcess.killed,
-          exitCode: daemonProcess.exitCode,
-          signalCode: daemonProcess.signalCode,
-        },
-        null,
-        2
-      )
-    );
+  daemonProcess.unref();
 
-    // Set up error handlers for debugging
-    daemonProcess.on('error', (error) => {
-      console.error('[DEBUG-DAEMON-START] Daemon spawn error:', error);
-    });
-
-    daemonProcess.on('exit', (code, signal) => {
-      console.error('[DEBUG-DAEMON-START] Daemon process exited:', {
-        code,
-        signal,
-      });
-    });
-
-    daemonProcess.unref();
-
-    console.error(
-      '[DEBUG-DAEMON-START] Process unref() called, waiting 500ms for daemon to initialize...'
-    );
-    // Give daemon a moment to start
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    console.error('[DEBUG-DAEMON-START] Daemon startup delay completed');
-  } catch (error) {
-    console.error(
-      '[DEBUG-DAEMON-START] Failed to spawn daemon process:',
-      error
-    );
-    throw error;
-  }
+  // Give daemon a moment to start
+  await new Promise((resolve) => setTimeout(resolve, 500));
 }
 
 /**
  * Wait for daemon to be ready with retries
  */
 async function waitForDaemonReady(
-  maxAttempts = 60, // Increased from 20 to 60 (30s timeout at 500ms intervals)
+  maxAttempts = 60,
   intervalMs = 500
 ): Promise<void> {
-  console.error('[DEBUG-DAEMON-READY] Starting daemon readiness check...');
-  console.error(
-    '[DEBUG-DAEMON-READY] Parameters:',
-    JSON.stringify(
-      {
-        maxAttempts,
-        intervalMs,
-        totalTimeoutMs: maxAttempts * intervalMs,
-        processId: process.pid,
-        timestamp: new Date().toISOString(),
-      },
-      null,
-      2
-    )
-  );
-
   const startTime = Date.now();
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const attemptStartTime = Date.now();
-    console.error(
-      `[DEBUG-DAEMON-READY] Attempt ${attempt}/${maxAttempts} starting...`
-    );
-
     try {
-      console.error('[DEBUG-DAEMON-READY] Creating CLI client...');
       const client = createCLIClient();
+      await client.connect(2000);
 
-      console.error(
-        '[DEBUG-DAEMON-READY] Attempting to connect with 2000ms timeout...'
-      );
-      await client.connect(2000); // Increased timeout for connection check
-
-      console.error(
-        '[DEBUG-DAEMON-READY] Connection successful! Performing health check...'
-      );
-
-      // Additional health check: try to send a simple command
       try {
-        console.error(
-          '[DEBUG-DAEMON-READY] Sending list command for health check...'
-        );
         await client.sendCommand('list', {});
         await client.disconnect();
-
-        const totalTime = Date.now() - startTime;
-        console.error('[DEBUG-DAEMON-READY] ✓ SUCCESS! Daemon is fully ready');
-        console.error(
-          '[DEBUG-DAEMON-READY] Success stats:',
-          JSON.stringify(
-            {
-              totalTimeMs: totalTime,
-              attempts: attempt,
-              averageAttemptTime: totalTime / attempt,
-            },
-            null,
-            2
-          )
-        );
-        console.log(
-          `Daemon became ready after ${Date.now() - startTime}ms (attempt ${attempt})`
-        );
-        return; // Success - daemon is fully operational
+        return;
       } catch (cmdError) {
-        console.error('[DEBUG-DAEMON-READY] Health check failed:', cmdError);
         await client.disconnect();
-        throw cmdError; // Command failed, daemon not ready
+        throw cmdError;
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      const attemptDuration = Date.now() - attemptStartTime;
-
-      console.error(
-        `[DEBUG-DAEMON-READY] Attempt ${attempt} failed after ${attemptDuration}ms:`,
-        {
-          errorMessage: lastError.message,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          errorCode: (lastError as any)?.code,
-          errorStack: lastError.stack?.split('\n')[0], // First line of stack trace only
-        }
-      );
 
       if (attempt === maxAttempts) {
         const totalTime = maxAttempts * intervalMs;
         const actualTime = Date.now() - startTime;
-        console.error(
-          '[DEBUG-DAEMON-READY] ❌ TIMEOUT REACHED - All attempts exhausted'
-        );
-        console.error(
-          '[DEBUG-DAEMON-READY] Final failure stats:',
-          JSON.stringify(
-            {
-              expectedTimeMs: totalTime,
-              actualTimeMs: actualTime,
-              attemptsMade: attempt,
-              lastErrorMessage: lastError.message,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              lastErrorCode: (lastError as any)?.code,
-            },
-            null,
-            2
-          )
-        );
-
         throw new Error(
           `Daemon did not become ready within ${totalTime}ms (actual: ${actualTime}ms). Last error: ${lastError.message}`
         );
       }
 
-      // Log progress every 5 seconds for debugging
-      const elapsed = Date.now() - startTime;
-      if (elapsed % 5000 < intervalMs) {
-        console.error(
-          '[DEBUG-DAEMON-READY] Progress update:',
-          JSON.stringify(
-            {
-              elapsedMs: elapsed,
-              attempt: `${attempt}/${maxAttempts}`,
-              progress: `${((attempt / maxAttempts) * 100).toFixed(1)}%`,
-              lastError: lastError.message,
-            },
-            null,
-            2
-          )
-        );
-        console.log(
-          `Waiting for daemon readiness... ${elapsed}ms elapsed (attempt ${attempt}/${maxAttempts})`
-        );
-      }
-
-      console.error(
-        `[DEBUG-DAEMON-READY] Waiting ${intervalMs}ms before next attempt...`
-      );
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
   }
