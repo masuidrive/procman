@@ -10,6 +10,8 @@ import * as listCommand from './commands/list.js';
 import * as logCommand from './commands/log.js';
 import * as clearLogCommand from './commands/clear-log.js';
 import * as helpCommand from './commands/help.js';
+import * as runCommand from './commands/run.js';
+import * as taskCommand from './commands/task.js';
 
 // Error handling utilities
 import { setVerboseMode } from './utils/error-handler.js';
@@ -29,7 +31,11 @@ export class CommandParser {
       .name(config.name)
       .description(config.description)
       .version(config.version)
-      .option('--verbose', 'Enable verbose error output for debugging');
+      .option('--verbose', 'Enable verbose error output for debugging')
+      .option(
+        '--socket <path>',
+        'Socket path for daemon communication (default: ./.procman.sock, env: PROCMAN_SOCKET_PATH)'
+      );
 
     this.program.addHelpText(
       'after',
@@ -46,14 +52,28 @@ export class CommandParser {
         '     $ procman log api --stream            Stream logs in real-time\n' +
         '     $ procman restart worker              Restart a process\n' +
         '     $ procman exit                        Stop all and shutdown\n' +
+        '\n' +
+        '  3. Run background tasks (for AI agents):\n' +
+        '     $ procman run "npm test" --json       Run a one-shot task\n' +
+        '     $ procman task list --json             List running tasks\n' +
+        '     $ procman task log <id> --wait-exit --timeout 60s --json\n' +
+        '     $ procman task kill <id>               Kill a task\n' +
+        '\n' +
+        'Socket:\n' +
+        '  Default socket path: ./.procman.sock (relative to working directory)\n' +
+        '  Override with: --socket <path> or PROCMAN_SOCKET_PATH env var\n' +
+        '  Tip: Add ".procman.sock" to .gitignore\n' +
         '\n  Run "procman help" for full documentation and examples.'
     );
 
-    // Set up global verbose flag before command execution
+    // Set up global options before command execution
     this.program.hook('preAction', (thisCommand) => {
       const opts = thisCommand.opts();
       if (opts.verbose) {
         setVerboseMode(true);
+      }
+      if (opts.socket) {
+        process.env.PROCMAN_SOCKET_PATH = opts.socket;
       }
     });
 
@@ -148,6 +168,58 @@ export class CommandParser {
       .option('-n, --namespace <name>', 'Target namespace')
       .action(async (targets: string[] = [], options) => {
         await clearLogCommand.execute(targets, options);
+      });
+
+    // Run command - one-shot task execution
+    this.program
+      .command('run <command...>')
+      .description('Run a command as a background task')
+      .option('--json', 'Output in JSON format')
+      .option('--name <name>', 'Task name')
+      .action(async (command: string[], options) => {
+        await runCommand.execute(command, options);
+      });
+
+    // Task command - task management
+    const taskCmd = this.program
+      .command('task')
+      .description('Manage background tasks');
+
+    taskCmd
+      .command('status <id>')
+      .description('Get task status')
+      .option('--json', 'Output in JSON format')
+      .action(async (id: string, options) => {
+        await taskCommand.executeStatus(id, options);
+      });
+
+    taskCmd
+      .command('list')
+      .description('List all tasks')
+      .option('--json', 'Output in JSON format')
+      .action(async (options) => {
+        await taskCommand.executeList(options);
+      });
+
+    taskCmd
+      .command('kill <id>')
+      .description('Kill a running task')
+      .option('--json', 'Output in JSON format')
+      .option('-s, --signal <signal>', 'Signal to send', 'SIGTERM')
+      .action(async (id: string, options) => {
+        await taskCommand.executeKill(id, options);
+      });
+
+    taskCmd
+      .command('log <id>')
+      .description('Get task output')
+      .option('--json', 'Output in JSON format')
+      .option('--wait-lines <n>', 'Wait for N lines of output', parseInt)
+      .option('--wait-match <pattern>', 'Wait for regex pattern match')
+      .option('--wait-exit', 'Wait for task to exit')
+      .option('--timeout <duration>', 'Timeout (e.g. 30s, 5m)')
+      .action(async (id: string, options) => {
+        await taskCommand.executeLog(id, options);
       });
 
     // Help command - help display

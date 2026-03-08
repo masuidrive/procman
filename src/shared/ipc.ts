@@ -9,6 +9,18 @@ import type { LogEntry, LogOptions } from './logs.js';
 import type { ProcessInfo } from './process.js';
 import type { ErrorCode } from './errors.js';
 import type { ProcmanConfig } from './config.js';
+import type {
+  RunTaskCommandPayload,
+  TaskStatusCommandPayload,
+  TaskListCommandPayload,
+  TaskKillCommandPayload,
+  TaskLogCommandPayload,
+  RunTaskResponseData,
+  TaskStatusResponseData,
+  TaskListResponseData,
+  TaskKillResponseData,
+  TaskLogResponseData,
+} from './task.js';
 
 // =============================================================================
 // Command Payload Types
@@ -91,7 +103,12 @@ export type CommandPayload =
   | ListCommandPayload
   | LogCommandPayload
   | ClearLogCommandPayload
-  | ExitCommandPayload;
+  | ExitCommandPayload
+  | RunTaskCommandPayload
+  | TaskStatusCommandPayload
+  | TaskListCommandPayload
+  | TaskKillCommandPayload
+  | TaskLogCommandPayload;
 
 // =============================================================================
 // Basic IPC Message Interface
@@ -214,7 +231,12 @@ export type CommandType =
   | 'log'
   | 'clear-log'
   | 'exit'
-  | 'ping';
+  | 'ping'
+  | 'run-task'
+  | 'task-status'
+  | 'task-list'
+  | 'task-kill'
+  | 'task-log';
 
 // =============================================================================
 // Response Data Types
@@ -315,7 +337,12 @@ export type ResponseData =
   | ListResponseData
   | LogResponseData
   | ClearLogResponseData
-  | ExitResponseData;
+  | ExitResponseData
+  | RunTaskResponseData
+  | TaskStatusResponseData
+  | TaskListResponseData
+  | TaskKillResponseData
+  | TaskLogResponseData;
 
 // =============================================================================
 // Response Interface
@@ -472,6 +499,11 @@ export interface IPCCommandPayloadMap {
   'clear-log': ClearLogCommandPayload;
   exit: ExitCommandPayload;
   ping: { timestamp: number };
+  'run-task': RunTaskCommandPayload;
+  'task-status': TaskStatusCommandPayload;
+  'task-list': TaskListCommandPayload;
+  'task-kill': TaskKillCommandPayload;
+  'task-log': TaskLogCommandPayload;
 }
 
 // =============================================================================
@@ -511,6 +543,11 @@ export function isValidCommandType(type: string): type is CommandType {
     'clear-log',
     'exit',
     'ping',
+    'run-task',
+    'task-status',
+    'task-list',
+    'task-kill',
+    'task-log',
   ];
   return validCommands.includes(type as CommandType);
 }

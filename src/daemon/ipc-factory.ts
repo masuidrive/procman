@@ -120,10 +120,10 @@ export class IPCFactory {
       return process.env.PROCMAN_SOCKET_PATH;
     }
 
-    const platform = this.getCurrentPlatform();
-    const defaultPath = this.getDefaultIPCPathForPlatform(platform);
-    debug('Using default platform path:', defaultPath);
-    return defaultPath;
+    // Default: .procman.sock in current working directory
+    const cwdDefault = `${process.cwd()}/.procman.sock`;
+    debug('Using CWD-based default path:', cwdDefault);
+    return cwdDefault;
   }
 
   /**

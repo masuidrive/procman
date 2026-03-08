@@ -12,6 +12,7 @@ import chalk from 'chalk';
 import { executeCommand, createCLIClient } from '../utils/ipc-client.js';
 import { handleCLIError } from '../utils/error-utils.js';
 import { ERROR_MESSAGES } from '../../shared/errors.js';
+import { IPCFactory } from '../../daemon/ipc-factory.js';
 import type { LoadResponseData } from '../../shared/ipc.js';
 
 export interface LoadCommandOptions {
@@ -78,6 +79,17 @@ export async function execute(
 
         console.log(chalk.blue('Waiting for daemon to be ready...'));
         await waitForDaemonReady();
+
+        // Show socket path info
+        const socketPath = IPCFactory.getDefaultIPCPath();
+        console.log(
+          chalk.gray(`  Socket: ${socketPath}`)
+        );
+        console.log(
+          chalk.gray(
+            `  Tip: Add "${socketPath.startsWith(process.cwd()) ? '.procman.sock' : socketPath}" to .gitignore`
+          )
+        );
       }
 
       // Now execute the load command

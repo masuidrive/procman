@@ -140,6 +140,40 @@ const HELP_CONTENT = {
       examples: ['procman exit', 'procman exit --force'],
     },
     {
+      name: 'run',
+      alias: null,
+      description: 'Run a command as a background task (for AI agents)',
+      usage: 'procman run "<command>" [options]',
+      options: [
+        { flag: '--json', desc: 'Output in JSON format' },
+        { flag: '--name <name>', desc: 'Task name (auto-generated if omitted)' },
+      ],
+      examples: [
+        'procman run "npm test" --json',
+        'procman run "node server.js" --name my-server --json',
+      ],
+    },
+    {
+      name: 'task',
+      alias: null,
+      description: 'Manage background tasks (status, list, kill, log)',
+      usage: 'procman task <subcommand>',
+      options: [
+        { flag: 'status <id> --json', desc: 'Get task status and exit code' },
+        { flag: 'list --json', desc: 'List all tasks' },
+        { flag: 'kill <id> -s <signal>', desc: 'Kill a running task' },
+        { flag: 'log <id> [wait-options]', desc: 'Get task output' },
+      ],
+      examples: [
+        'procman task status task-a1b2c3 --json',
+        'procman task list --json',
+        'procman task kill task-a1b2c3',
+        'procman task log task-a1b2c3 --wait-exit --timeout 60s --json',
+        'procman task log task-a1b2c3 --wait-match "READY" --timeout 30s --json',
+        'procman task log task-a1b2c3 --wait-lines 10 --timeout 10s --json',
+      ],
+    },
+    {
       name: 'help',
       alias: 'prompt',
       description: 'Display help information',
@@ -186,6 +220,20 @@ const HELP_CONTENT = {
   ]
 };`,
   },
+  socket: {
+    title: 'Socket Configuration',
+    description:
+      'procman uses a Unix domain socket for CLI-to-daemon communication.',
+    details: [
+      'Default path: ./.procman.sock (relative to working directory)',
+      'Override with --socket <path> option or PROCMAN_SOCKET_PATH environment variable',
+      'Tip: Add ".procman.sock" to your .gitignore',
+    ],
+    examples: [
+      'procman load config.js --socket /tmp/my-app.sock',
+      'PROCMAN_SOCKET_PATH=/tmp/my-app.sock procman list',
+    ],
+  },
   troubleshooting: {
     title: 'Common Issues and Solutions',
     issues: [
@@ -196,7 +244,7 @@ const HELP_CONTENT = {
       {
         problem: 'Permission denied errors',
         solution:
-          'Check that you have write permissions to /tmp/.procman.sock (Unix) or the named pipe (Windows)',
+          'Check that you have write permissions to ./.procman.sock or specify a different path with --socket',
       },
       {
         problem: 'Process not starting',
@@ -211,7 +259,7 @@ const HELP_CONTENT = {
       {
         problem: 'Cannot connect to daemon',
         solution:
-          'Ensure the daemon is running and check for socket file conflicts in /tmp/',
+          'Ensure the daemon is running and check for socket file conflicts. Use --socket to specify a custom path.',
       },
     ],
   },
@@ -224,8 +272,10 @@ const HELP_CONTENT = {
       '4. Start processes: procman start all',
       '5. Monitor logs: procman log <name> --stream --human',
       '6. Restart if needed: procman restart <name>',
-      '7. Stop processes: procman stop all',
-      '8. Shutdown daemon: procman exit',
+      '7. Run a background task: procman run "npm test" --json',
+      '8. Check task result: procman task log <id> --wait-exit --timeout 60s --json',
+      '9. Stop processes: procman stop all',
+      '10. Shutdown daemon: procman exit',
     ],
   },
 };
@@ -328,6 +378,20 @@ function displayGeneralHelp(format: string): void {
     console.log(HELP_CONTENT.configuration.example);
     console.log('```');
 
+    console.log(`\n## ${HELP_CONTENT.socket.title}\n`);
+    console.log(HELP_CONTENT.socket.description);
+    console.log('');
+    for (const detail of HELP_CONTENT.socket.details) {
+      console.log(`- ${detail}`);
+    }
+    if (HELP_CONTENT.socket.examples.length > 0) {
+      console.log('\n```bash');
+      for (const example of HELP_CONTENT.socket.examples) {
+        console.log(example);
+      }
+      console.log('```');
+    }
+
     console.log(`\n## ${HELP_CONTENT.workflow.title}\n`);
     for (const step of HELP_CONTENT.workflow.steps) {
       console.log(step);
@@ -363,6 +427,17 @@ function displayGeneralHelp(format: string): void {
     const lines = HELP_CONTENT.configuration.example.split('\n');
     for (const line of lines) {
       console.log(chalk.gray(line));
+    }
+
+    console.log(
+      chalk.bold.yellow(`\n🔌 ${HELP_CONTENT.socket.title}:\n`)
+    );
+    console.log(chalk.white(`  ${HELP_CONTENT.socket.description}`));
+    for (const detail of HELP_CONTENT.socket.details) {
+      console.log(chalk.white(`  - ${detail}`));
+    }
+    for (const example of HELP_CONTENT.socket.examples) {
+      console.log(`  ${chalk.gray('$')} ${example}`);
     }
 
     console.log(chalk.bold.yellow(`\n🚀 ${HELP_CONTENT.workflow.title}:\n`));

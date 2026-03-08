@@ -4,6 +4,7 @@
 
 import { ConfigLoader } from '../config/config-loader.js';
 import { ProcessManager } from '../process-manager/process-manager.js';
+import { TaskManager } from '../process-manager/task-manager.js';
 import { LogManager } from '../services/log-manager.js';
 
 /**
@@ -12,6 +13,7 @@ import { LogManager } from '../services/log-manager.js';
 export interface DaemonInterfaceDeps {
   getConfigLoader: () => ConfigLoader;
   getProcessManager: () => ProcessManager;
+  getTaskManager?: () => TaskManager | undefined;
   getLogManager: () => LogManager;
   cleanupAll: () => Promise<void>;
 }
@@ -25,6 +27,7 @@ export function createDaemonInterface(deps: DaemonInterfaceDeps) {
   return {
     getConfigLoader: () => deps.getConfigLoader(),
     getProcessManager: () => deps.getProcessManager(),
+    getTaskManager: () => deps.getTaskManager?.(),
     getLogManager: () => deps.getLogManager(),
     getAllProcessStatuses: async () => {
       const processManager = deps.getProcessManager();

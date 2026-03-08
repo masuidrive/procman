@@ -3,8 +3,8 @@ priority: 1
 tags: [feature, cli]
 description: "AI agent向けタスク実行管理機能 (procman run)"
 created_at: "2026-03-08T01:27:16Z"
-started_at: null  # Do not modify manually
-closed_at: null   # Do not modify manually
+started_at: 2026-03-08T01:28:12Z # Do not modify manually
+closed_at: 2026-03-08T13:52:24Z # Do not modify manually
 ---
 
 <ticket-info>
@@ -90,11 +90,11 @@ AI agentがバックグラウンドでコマンド実行する際、以下の問
 - [ ] git commit
 
 ### Phase 4: テスト
-- [ ] TaskManager ユニットテスト
-- [ ] CLI コマンドユニットテスト
-- [ ] ログ待機機能のテスト (wait-lines, wait-match, timeout)
-- [ ] E2Eテスト: run → status → log → kill フロー
-- [ ] Run tests → All executed, 0 failed
+- [x] TaskManager ユニットテスト
+- [x] CLI コマンドユニットテスト (task-command-handlers)
+- [x] ログ待機機能のテスト (wait-lines, wait-match, timeout)
+- [x] E2Eテスト: run → status → log → kill フロー
+- [x] Run tests → All executed, 0 failed (838 tests passed)
 - [ ] git commit
 
 ### QA Phase: Quality Assurance

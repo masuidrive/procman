@@ -12,6 +12,7 @@ import { EventEmitter } from 'events';
 import { EventCleanupHelper } from '../utils/event-cleanup.js';
 import { ConfigLoader } from '../config/config-loader.js';
 import { ProcessManager } from '../process-manager/process-manager.js';
+import { TaskManager } from '../process-manager/task-manager.js';
 import { LogManager } from '../services/log-manager.js';
 import { AppConfig } from '../shared/config.js';
 import {
@@ -27,6 +28,13 @@ import {
   ClearLogCommandPayload,
   ExitCommandPayload,
 } from '../shared/ipc.js';
+import type {
+  RunTaskCommandPayload,
+  TaskStatusCommandPayload,
+  TaskListCommandPayload,
+  TaskKillCommandPayload,
+  TaskLogCommandPayload,
+} from '../shared/task.js';
 import type { LogOptions } from '../shared/logs.js';
 import { LOG_STREAM_EVENTS } from '../shared/constants-streaming.js';
 
@@ -42,6 +50,13 @@ import {
   handleLogCommand,
   handleClearLogCommand,
 } from './log-command-handlers.js';
+import {
+  handleRunTaskCommand,
+  handleTaskStatusCommand,
+  handleTaskListCommand,
+  handleTaskKillCommand,
+  handleTaskLogCommand,
+} from './task-command-handlers.js';
 
 /**
  * Command type constants
@@ -55,6 +70,11 @@ const COMMAND_TYPES = {
   LOG: 'log' as CommandType,
   CLEAR_LOG: 'clear-log' as CommandType,
   EXIT: 'exit' as CommandType,
+  RUN_TASK: 'run-task' as CommandType,
+  TASK_STATUS: 'task-status' as CommandType,
+  TASK_LIST: 'task-list' as CommandType,
+  TASK_KILL: 'task-kill' as CommandType,
+  TASK_LOG: 'task-log' as CommandType,
 };
 
 /**
@@ -63,6 +83,7 @@ const COMMAND_TYPES = {
 export interface DaemonInterface {
   getConfigLoader(): ConfigLoader | undefined;
   getProcessManager(): ProcessManager | undefined;
+  getTaskManager(): TaskManager | undefined;
   getLogManager(): LogManager | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getAllProcessStatuses(): Promise<any>;
@@ -181,6 +202,56 @@ export class IPCCommandHandler extends EventEmitter {
             message as IPCMessage<ExitCommandPayload>
           );
           break;
+
+        case COMMAND_TYPES.RUN_TASK: {
+          const taskManager = this.daemon.getTaskManager();
+          if (!taskManager) throw new Error('TaskManager not initialized');
+          response = await handleRunTaskCommand(
+            taskManager,
+            message as IPCMessage<RunTaskCommandPayload>
+          );
+          break;
+        }
+
+        case COMMAND_TYPES.TASK_STATUS: {
+          const taskManager = this.daemon.getTaskManager();
+          if (!taskManager) throw new Error('TaskManager not initialized');
+          response = await handleTaskStatusCommand(
+            taskManager,
+            message as IPCMessage<TaskStatusCommandPayload>
+          );
+          break;
+        }
+
+        case COMMAND_TYPES.TASK_LIST: {
+          const taskManager = this.daemon.getTaskManager();
+          if (!taskManager) throw new Error('TaskManager not initialized');
+          response = await handleTaskListCommand(
+            taskManager,
+            message as IPCMessage<TaskListCommandPayload>
+          );
+          break;
+        }
+
+        case COMMAND_TYPES.TASK_KILL: {
+          const taskManager = this.daemon.getTaskManager();
+          if (!taskManager) throw new Error('TaskManager not initialized');
+          response = await handleTaskKillCommand(
+            taskManager,
+            message as IPCMessage<TaskKillCommandPayload>
+          );
+          break;
+        }
+
+        case COMMAND_TYPES.TASK_LOG: {
+          const taskManager = this.daemon.getTaskManager();
+          if (!taskManager) throw new Error('TaskManager not initialized');
+          response = await handleTaskLogCommand(
+            taskManager,
+            message as IPCMessage<TaskLogCommandPayload>
+          );
+          break;
+        }
 
         default:
           throw new Error(`Unknown command type: ${message.type}`);

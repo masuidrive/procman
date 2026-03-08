@@ -23,6 +23,7 @@ import { ComponentManager } from './component-manager.js';
 import { SignalHandler } from './signal-handler.js';
 import { ConfigLoader } from '../config/config-loader.js';
 import { ProcessManager } from '../process-manager/process-manager.js';
+import { TaskManager } from '../process-manager/task-manager.js';
 import { LogManager } from '../services/log-manager.js';
 import { IPCServerBase } from './ipc-server-base.js';
 import { AppConfig } from '../shared/config.js';
@@ -102,6 +103,7 @@ export class ProcmanDaemon extends EventEmitter {
   private componentManager: ComponentManager;
   private signalHandler: SignalHandler;
   private memoryMonitor: MemoryMonitor;
+  private taskManager: TaskManager;
   private currentConfig?: AppConfig[];
   private configFilePath?: string;
   private recoveryAttempts = 0;
@@ -115,6 +117,7 @@ export class ProcmanDaemon extends EventEmitter {
     this.stateManager = new DaemonStateManager();
     this.componentManager = new ComponentManager(this.dataDirectory);
     this.signalHandler = new SignalHandler();
+    this.taskManager = new TaskManager();
     this.memoryMonitor = new MemoryMonitor({
       intervalMs: 30000,
       warningThreshold: 100 * 1024 * 1024,
@@ -266,6 +269,7 @@ export class ProcmanDaemon extends EventEmitter {
       await this.executeWithTimeout(
         async () => {
           console.log('[ProcmanDaemon] Phase 4: Stopping managed processes...');
+          await this.taskManager.dispose();
           await this.stopManagedProcesses();
         },
         15000,
@@ -366,6 +370,10 @@ export class ProcmanDaemon extends EventEmitter {
 
   getProcessManager(): ProcessManager | undefined {
     return _getProcessManager(this.getContext());
+  }
+
+  getTaskManager(): TaskManager | undefined {
+    return this.taskManager;
   }
 
   getLogManager(): LogManager | undefined {
